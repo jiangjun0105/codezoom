@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import re
 import argparse
-from codebase_analyzer.parser import parse_codebase
-from codebase_analyzer.interaction import ask_codebase
 
+from codebase_analyzer.interaction import ask_codebase
+from codebase_analyzer.parser import parse_codebase
 
 
 def main(args: argparse.Namespace) -> None:
@@ -18,7 +17,8 @@ def main(args: argparse.Namespace) -> None:
             break
 
         ask_codebase(question=query, codebase_info=codebase_info, raw_codebase=raw_codebase)
-    
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="GPT Developer - Codebase Analyzer")

@@ -34,9 +34,7 @@ class CodeExtractor(ast.NodeVisitor):
         self.code_units[class_node.name] = ast.unparse(class_node)
 
     def visit_Expr(self, node):
-        if isinstance(
-            node.value, ast.Str
-        ):  # Skip string literals (e.g., module docstrings)
+        if isinstance(node.value, ast.Str):  # Skip string literals (e.g., module docstrings)
             return
         source_code = ast.unparse(node)
         self.code_units.append(source_code)

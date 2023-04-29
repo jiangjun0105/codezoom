@@ -7,7 +7,7 @@
 This repo aims to develop a GPT based developer or coding assistant, so that human developers (including the repo owner) can slack off while working :smile:. It's still at very inital stage and currently focuses on `codebase analyzer`.
 
 ## Codebase Analyzer
-This module is to help a human developer quickly understand a large codebase by asking questions to a chatbot. 
+This module is to help a human developer quickly understand a large codebase by asking questions to a chatbot.
 
 The main chatbot will ask its chatbot buddies to collect necessary info using various tools in order to give a accurate and in-depth answer. They might interact for several time before the main chatbot gives the final answer.
 

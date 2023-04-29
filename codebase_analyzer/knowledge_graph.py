@@ -4,10 +4,7 @@ class KnowledgeGraph:
         self.edges = []
 
     def add_node(self, node_id, node_type, node_data):
-        self.nodes[node_id] = {
-            "type": node_type,
-            "data": node_data
-        }
+        self.nodes[node_id] = {"type": node_type, "data": node_data}
 
     def add_edge(self, source, target):
         self.edges.append((source, target))

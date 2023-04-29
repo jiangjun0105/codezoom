@@ -1,12 +1,10 @@
-from functools import partial
-
 import re
+from functools import partial
 
 import pandas as pd
 
-from revChatGPT.V1 import Chatbot
-from codebase_analyzer.gpt_chatbot import chatgpt3, chatgpt4_sub
-from codebase_analyzer.chatbot_interaction import ask_chatbot
+from codebase_analyzer.chatbot import chatgpt3, chatgpt4_sub
+from codebase_analyzer.interaction import ask_chatbot
 
 
 def _ask_function(name: str, question: str, code_info: pd.DataFrame) -> str:
@@ -37,7 +35,7 @@ def _search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[st
 
 
 def parse_function_call(function_call: str) -> tuple(str, list[str]):
-    """Parse a function call string into a function name and a list of arguments."""                                                     
+    """Parse a function call string into a function name and a list of arguments."""
     function_pattern = re.compile(r"(\w+)\((.*)\)")
     match = function_pattern.match(function_call)
 
@@ -70,4 +68,3 @@ def execute_function(function_call: str, code_info, raw_code) -> str:
         raise ValueError(f"Unknown function: {function_name}")
 
     return function(*args)
-
