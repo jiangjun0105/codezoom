@@ -3,14 +3,16 @@ from functools import partial
 
 import pandas as pd
 
-from codebase_analyzer.chatbot import chatgpt3, chatgpt4_sub
-from codebase_analyzer.interaction import ask_chatbot
+from codebase_analyzer.chatbot import ask_chatbot, chatgpt3, chatgpt4_sub
 
 
 def _ask_function(name: str, question: str, code_info: pd.DataFrame) -> str:
     """Ask a question about a specific function."""
     # print(f"Getting function code for {name}...\n")
-    code = code_info.loc[code_info["name"] == name, "code"].values[0]
+    try:
+        code = code_info.loc[code_info["name"] == name, "code"].values[0]
+    except IndexError:
+        return "Cannot find the function in the codebase. Maybe wrong function name.\n"
     p = (
         f"Below is the code for function {name}:\n{code}\n\n"
         f"User has question: {question}\n"
@@ -34,7 +36,7 @@ def _search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[st
     return ask_chatbot(prompt=p, chatbot=chatgpt3)
 
 
-def parse_function_call(function_call: str) -> tuple(str, list[str]):
+def parse_function_call(function_call: str) -> tuple[str, list[str]]:
     """Parse a function call string into a function name and a list of arguments."""
     function_pattern = re.compile(r"(\w+)\((.*)\)")
     match = function_pattern.match(function_call)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass
 from pathlib import Path
 from time import sleep
 
@@ -11,6 +12,12 @@ from tqdm import tqdm
 from codebase_analyzer.ast_visitor import CodeExtractor
 from codebase_analyzer.chatbot import chatgpt3
 from codebase_analyzer.interaction import ask_chatbot
+
+
+@dataclass
+class RawCode:
+    file: Path
+    code: str
 
 
 def extract_code_units(code: str, threshold: int = 50) -> tuple[dict[str, str], list[str], list[str]]:
@@ -32,13 +39,17 @@ def summarize_code(code: str, chatbot: Chatbot, ratio: float = 15, min_len=20, m
     return ask_chatbot(prompt, chatbot)
 
 
-def extract_code_info(file: Path) -> tuple[str, list[dict]]:
-    """Extract code units, imports, and assignments from the given file."""
-    with open(file.expanduser(), "r", encoding="utf-8") as source_file:
-        raw_code = source_file.read()
+def load_raw_code(file: Path) -> str:
+    with open(Path(file).expanduser(), "r", encoding="utf-8") as source_file:
+        return source_file.read()
 
+
+def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
+    """Extract code units, imports, and assignments from the given file."""
+
+    file = raw_code.file
     code_info = []
-    code_units, imports, assignments = extract_code_units(raw_code)
+    code_units, imports, assignments = extract_code_units(raw_code.code)
 
     print(f"Length of code units: {len(code_units)}\n")
     for name, code in tqdm(code_units.items()):
