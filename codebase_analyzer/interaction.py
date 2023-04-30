@@ -5,31 +5,13 @@ from time import sleep
 
 import pandas as pd
 import yaml
-from revChatGPT.V1 import Chatbot
 
+from codebase_analyzer import prompts
 from codebase_analyzer.analyze_tools import execute_function
-from codebase_analyzer.chatbot import ask_chatbot, chatgpt4_main
-
-MAIN_PROMPT = """
-Please answer question: "{question}"
-
-If you need more info, available commands are:
-1. ask_function("<function_name_before_colon>", "<question>")
-    to ask a question about a specific function.
-2. search_keyword("<keyword>", "<semantic_filter>")
-    to search for a keyword and filter the results by the semantic_filter.
-
-Your response should look like:
-Reasoning: <one_line_reasoning>
-Command: <command_shown_above>
-
-Please only run one command each time, and you can try several time.
-When answering, plaase start your response with 'Answer: '.
-"""
+from codebase_analyzer.chatbot import ask_gptapi, gpt3_bot, gpt4_bot
 
 
 def parse_response(response: str, code_info: pd.DataFrame, raw_code: str):
-    # r = yaml.safe_load(response)
     r = re.search(r"^Command: .*", response, re.MULTILINE)
     cmd = r.group(0).split("Command: ")[1]
     return execute_function(function_call=cmd, code_info=code_info, raw_code=raw_code)
@@ -39,7 +21,7 @@ def ask_codebase(
     question: str,
     codebase_info: pd.DataFrame,
     raw_codebase: str,
-    chatbot=chatgpt4_main,
+    chatbot=gpt4_bot,
     max_iteration: int = 4,
 ) -> str:
     code_summary = "\n".join(f"{n}: {c}" for n, c in codebase_info[["name", "summary"]].values)
@@ -47,18 +29,18 @@ def ask_codebase(
         f"Below is a summary of a long python file in format 'function_name: summary'."
         f"\n\n{code_summary}\n\n"
     )
-    p = instruction + MAIN_PROMPT.format(question=question)
+    p = instruction + prompts.question_prompt(question=question)
 
     while max_iteration > 0:
         max_iteration -= 1
-        response = ask_chatbot(prompt=p, chatbot=chatbot)
-        if answer := re.search(r"^Answer: .*", response, re.MULTILINE):
+        response = ask_gptapi(prompt=p, chatbot=chatbot)
+        if answer := re.search(r"^Answer:.*", response, re.MULTILINE):
             return answer
         try:
             p = "Command return:\n" + parse_response(response, codebase_info, raw_codebase)
-            # print(p)
-        except yaml.scanner.ScannerError:
+            print(p)
+        except KeyError:
             print(
                 "No command or answer found in response, try to remind it by sending the response format again."
             )
-            p = "Reminder: " + MAIN_PROMPT.format(question=question)
+            p = "Reminder: " + prompts.response_format()

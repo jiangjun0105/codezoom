@@ -10,8 +10,7 @@ from revChatGPT.V1 import Chatbot
 from tqdm import tqdm
 
 from codebase_analyzer.ast_visitor import CodeExtractor
-from codebase_analyzer.chatbot import chatgpt3
-from codebase_analyzer.interaction import ask_chatbot
+from codebase_analyzer.interaction import ask_gptapi, gpt3_bot
 
 
 @dataclass
@@ -36,7 +35,7 @@ def summarize_code(code: str, chatbot: Chatbot, ratio: float = 15, min_len=20, m
         f"Be concise! No need to explain python syntax or common practice."
         f"\n\nCode:\n{code}"
     )
-    return ask_chatbot(prompt, chatbot)
+    return ask_gptapi(prompt, chatbot)
 
 
 def load_raw_code(file: Path) -> str:
@@ -54,7 +53,7 @@ def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
     print(f"Length of code units: {len(code_units)}\n")
     for name, code in tqdm(code_units.items()):
         print(f"Code Unit {name}:\n")
-        code_info.append(dict(file=file, name=name, code=code, summary=summarize_code(code, chatgpt3)))
+        code_info.append(dict(file=file, name=name, code=code, summary=summarize_code(code, gpt3_bot)))
         sleep(1)  # avoid rate limit
 
     print("Imports:\n")
@@ -63,7 +62,7 @@ def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
             file=file,
             name="imports",
             code=imports,
-            summary=summarize_code(imports, chatgpt3),
+            summary=summarize_code(imports, gpt3_bot),
         )
     )
     print("Assignments:\n")
@@ -72,7 +71,7 @@ def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
             file=file,
             name="assignments",
             code=assignments,
-            summary=summarize_code(assignments, chatgpt3),
+            summary=summarize_code(assignments, gpt3_bot),
         )
     )
     summary = "\n".join(i["summary"] for i in code_info)
