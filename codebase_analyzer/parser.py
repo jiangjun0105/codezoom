@@ -6,12 +6,11 @@ from pathlib import Path
 from time import sleep
 
 import pandas as pd
-from revChatGPT.V1 import Chatbot
 from tqdm import tqdm
 
 from codebase_analyzer.ast_visitor import CodeExtractor
 from codebase_analyzer.chatbot import summary_bot
-from codebase_analyzer.interaction import ask_chatbot
+from codebase_analyzer.interaction import Chatbot, ask_chatbot
 
 
 @dataclass
@@ -39,7 +38,9 @@ def summarize_code(
 ) -> str:
     """Summarize the code using GPT chatbot."""
     length = min(max_len, max(min_len, int(len(code) / ratio)))
-    prompt = f"Summarize the following code using less than {length} chars:\n\n{code}"
+    prompt = (
+        f"Summarize the following code using less than {length} chars:\n\n{code}"
+    )
     return ask_chatbot(prompt, chatbot)
 
 
