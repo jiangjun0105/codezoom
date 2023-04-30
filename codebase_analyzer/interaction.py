@@ -7,8 +7,8 @@ import pandas as pd
 import yaml
 
 from codebase_analyzer import prompts
-from codebase_analyzer.analyze_tools import execute_function
-from codebase_analyzer.chatbot import ask_gptapi, gpt3_bot, gpt4_bot
+from codebase_analyzer.chatbot import ask_chatbot, main_bot
+from codebase_analyzer.commands import execute_function
 
 
 def parse_response(response: str, code_info: pd.DataFrame, raw_code: str):
@@ -21,7 +21,7 @@ def ask_codebase(
     question: str,
     codebase_info: pd.DataFrame,
     raw_codebase: str,
-    chatbot=gpt4_bot,
+    chatbot=main_bot,
     max_iteration: int = 4,
 ) -> str:
     code_summary = "\n".join(f"{n}: {c}" for n, c in codebase_info[["name", "summary"]].values)
@@ -33,7 +33,7 @@ def ask_codebase(
 
     while max_iteration > 0:
         max_iteration -= 1
-        response = ask_gptapi(prompt=p, chatbot=chatbot)
+        response = ask_chatbot(prompt=p, chatbot=chatbot)
         if answer := re.search(r"^Answer:.*", response, re.MULTILINE):
             return answer
         try:

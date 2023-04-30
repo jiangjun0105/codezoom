@@ -10,7 +10,8 @@ from revChatGPT.V1 import Chatbot
 from tqdm import tqdm
 
 from codebase_analyzer.ast_visitor import CodeExtractor
-from codebase_analyzer.interaction import ask_gptapi, gpt3_bot
+from codebase_analyzer.chatbot import summary_bot
+from codebase_analyzer.interaction import ask_chatbot
 
 
 @dataclass
@@ -19,7 +20,9 @@ class RawCode:
     code: str
 
 
-def extract_code_units(code: str, threshold: int = 50) -> tuple[dict[str, str], list[str], list[str]]:
+def extract_code_units(
+    code: str, threshold: int = 50
+) -> tuple[dict[str, str], list[str], list[str]]:
     """Extract code in unit of function or class from the given code."""
     tree = ast.parse(code)
     extractor = CodeExtractor(threshold)
@@ -27,15 +30,17 @@ def extract_code_units(code: str, threshold: int = 50) -> tuple[dict[str, str], 
     return extractor.code_units, extractor.imports, extractor.assignments
 
 
-def summarize_code(code: str, chatbot: Chatbot, ratio: float = 15, min_len=20, max_len=100) -> str:
+def summarize_code(
+    code: str,
+    chatbot: Chatbot,
+    ratio: float = 15,
+    min_len=20,
+    max_len=100,
+) -> str:
     """Summarize the code using GPT chatbot."""
     length = min(max_len, max(min_len, int(len(code) / ratio)))
-    prompt = (
-        f"Please summarize the main purpose and functionality of the given Python code using up to {length} characters. "
-        f"Be concise! No need to explain python syntax or common practice."
-        f"\n\nCode:\n{code}"
-    )
-    return ask_gptapi(prompt, chatbot)
+    prompt = f"Summarize the following code using less than {length} chars:\n\n{code}"
+    return ask_chatbot(prompt, chatbot)
 
 
 def load_raw_code(file: Path) -> str:
@@ -53,7 +58,14 @@ def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
     print(f"Length of code units: {len(code_units)}\n")
     for name, code in tqdm(code_units.items()):
         print(f"Code Unit {name}:\n")
-        code_info.append(dict(file=file, name=name, code=code, summary=summarize_code(code, gpt3_bot)))
+        code_info.append(
+            dict(
+                file=file,
+                name=name,
+                code=code,
+                summary=summarize_code(code, summary_bot),
+            ),
+        )
         sleep(1)  # avoid rate limit
 
     print("Imports:\n")
@@ -62,7 +74,7 @@ def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
             file=file,
             name="imports",
             code=imports,
-            summary=summarize_code(imports, gpt3_bot),
+            summary=summarize_code(imports, summary_bot),
         )
     )
     print("Assignments:\n")
@@ -71,7 +83,7 @@ def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
             file=file,
             name="assignments",
             code=assignments,
-            summary=summarize_code(assignments, gpt3_bot),
+            summary=summarize_code(assignments, summary_bot),
         )
     )
     summary = "\n".join(i["summary"] for i in code_info)

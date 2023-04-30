@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from time import sleep
 from typing import Union
 
 import openai
+import tiktoken
 from revChatGPT.V1 import Chatbot as ChatGPT
-from revChatGPT.V3 import Chatbot as GPTAPI
 from yaml import safe_load
 
-from codebase_analyzer.prompts import init_system_prompt
-
-Chatbot = Union[ChatGPT, GPTAPI]
+from codebase_analyzer import prompts
 
 
 def get_access_token():
@@ -51,23 +50,7 @@ chatgpt3 = ChatGPT(
 )
 
 
-gpt3_bot = GPTAPI(
-    api_key=get_api_key(),
-    engine="gpt-3.5-turbo",
-    temperature=0,
-    system_prompt=init_system_prompt(),
-)
-
-gpt4_bot = GPTAPI(
-    api_key=get_api_key(),
-    engine="gpt-4",
-    temperature=0,
-    # max_tokens=4000,
-    system_prompt=init_system_prompt(),
-)
-
-
-def ask_chagpt(prompt: str, chatbot: Chatbot) -> str:
+def ask_chatgpt(prompt: str, chatbot: Chatbot) -> str:
     """Ask a question to the ChatGPT and return the response."""
     print("ChatGPT:\n")
     last_len = 0
@@ -81,7 +64,216 @@ def ask_chagpt(prompt: str, chatbot: Chatbot) -> str:
     return message
 
 
-def ask_gptapi(prompt: str, chatbot: GPTAPI) -> str:
+class Chatbot:
+    """
+    Chatbot using official ChatGPT API.
+    Adjusted based on revChatGPT.V3.Chatbot by acheong08.
+    """
+
+    def __init__(
+        self,
+        engine: str = "gpt-3.5-turbo",
+        timeout: float = None,
+        max_tokens: int = None,
+        temperature: float = 0,
+        top_p: float = 1.0,
+        presence_penalty: float = 0.0,
+        frequency_penalty: float = 0.0,
+        reply_count: int = 1,
+        truncate_limit: int = None,
+        system_prompt: str = None,
+    ) -> None:
+        """Initialize the Chatbot."""
+        self.engine: str = engine
+        self.system_prompt: str = system_prompt
+        self.max_tokens: int = max_tokens or (
+            31000 if engine == "gpt-4-32k" else 7000 if engine == "gpt-4" else 4000
+        )
+        self.truncate_limit: int = truncate_limit or (
+            30500 if engine == "gpt-4-32k" else 6500 if engine == "gpt-4" else 3500
+        )
+        self.temperature: float = temperature
+        self.top_p: float = top_p
+        self.presence_penalty: float = presence_penalty
+        self.frequency_penalty: float = frequency_penalty
+        self.reply_count: int = reply_count
+        self.timeout: float = timeout
+        self.conversation: dict[str, list[dict]] = {
+            "default": [
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+            ],
+        }
+
+        if self.get_token_count("default") > self.max_tokens:
+            raise ValueError("System prompt is too long")
+
+    def add_to_conversation(
+        self,
+        message: str,
+        role: str,
+        convo_id: str = "default",
+    ) -> None:
+        """
+        Add a message to the conversation
+        """
+        self.conversation[convo_id].append({"role": role, "content": message})
+
+    def truncate_conversation(self, convo_id: str = "default") -> None:
+        """
+        Truncate the conversation
+        """
+        while True:
+            if self.get_token_count(convo_id) > self.truncate_limit and len(self.conversation[convo_id]) > 1:
+                # Don't remove the first message
+                self.conversation[convo_id].pop(1)
+            else:
+                break
+
+    # https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
+    def get_token_count(self, convo_id: str = "default") -> int:
+        """
+        Get token count
+        """
+        if self.engine not in [
+            "gpt-3.5-turbo",
+            "gpt-3.5-turbo-0301",
+            "gpt-4",
+            "gpt-4-0314",
+            "gpt-4-32k",
+            "gpt-4-32k-0314",
+        ]:
+            raise NotImplementedError(f"Unsupported engine {self.engine}")
+
+        tiktoken.model.MODEL_TO_ENCODING["gpt-4"] = "cl100k_base"
+
+        encoding = tiktoken.encoding_for_model(self.engine)
+
+        num_tokens = 0
+        for message in self.conversation[convo_id]:
+            # every message follows <im_start>{role/name}\n{content}<im_end>\n
+            num_tokens += 5
+            for key, value in message.items():
+                num_tokens += len(encoding.encode(value))
+                if key == "name":  # if there's a name, the role is omitted
+                    num_tokens += 5  # role is always required and always 1 token
+        num_tokens += 5  # every reply is primed with <im_start>assistant
+        return num_tokens
+
+    def get_max_tokens(self, convo_id: str) -> int:
+        """
+        Get max tokens
+        """
+        return self.max_tokens - self.get_token_count(convo_id)
+
+    def ask_stream(
+        self,
+        prompt: str,
+        role: str = "user",
+        convo_id: str = "default",
+        **kwargs,
+    ):
+        """
+        Ask a question
+        """
+        # Make conversation if it doesn't exist
+        if convo_id not in self.conversation:
+            self.reset(convo_id=convo_id, system_prompt=self.system_prompt)
+        self.add_to_conversation(prompt, "user", convo_id=convo_id)
+        self.truncate_conversation(convo_id=convo_id)
+
+        # Get response
+        response = openai.ChatCompletion.create(
+            model=self.engine,
+            messages=self.conversation[convo_id],
+            stream=True,
+            temperature=kwargs.get("temperature", self.temperature),
+            top_p=kwargs.get("top_p", self.top_p),
+            presence_penalty=kwargs.get("presence_penalty", self.presence_penalty),
+            frequency_penalty=kwargs.get("frequency_penalty", self.frequency_penalty),
+            n=kwargs.get("n", self.reply_count),
+            user=role,
+            max_tokens=self.get_max_tokens(convo_id),
+        )
+
+        # Parse response
+        full_response = []
+        response_role: str | None = None
+        for chunk in response:
+            choices = chunk["choices"]
+            if not choices:
+                continue
+            delta = choices[0].get("delta")
+            if not delta:  # End of stream
+                continue
+            if "role" in delta:  # Role token
+                response_role = delta["role"]
+            if "content" in delta:  # Content token
+                content = delta["content"]
+                full_response.append(content)
+                yield content
+
+        self.add_to_conversation("".join(full_response), response_role, convo_id=convo_id)
+
+    def ask(
+        self,
+        prompt: str,
+        role: str = "user",
+        convo_id: str = "default",
+        **kwargs,
+    ) -> str:
+        """
+        Non-streaming ask
+        """
+        response = self.ask_stream(
+            prompt=prompt,
+            role=role,
+            convo_id=convo_id,
+            **kwargs,
+        )
+        full_response: str = "".join(response)
+        return full_response
+
+    def rollback(self, n: int = 1, convo_id: str = "default") -> None:
+        """
+        Rollback the conversation
+        """
+        for _ in range(n):
+            self.conversation[convo_id].pop()
+
+    def reset(self, convo_id: str = "default", system_prompt: str = None) -> None:
+        """
+        Reset the conversation
+        """
+        self.conversation[convo_id] = [
+            {"role": "system", "content": system_prompt or self.system_prompt},
+        ]
+
+
+search_bot = Chatbot(
+    engine="gpt-3.5-turbo",
+    system_prompt=prompts.search_bot_system(),
+)
+
+function_bot = Chatbot(
+    engine="gpt-4",
+    system_prompt=prompts.function_bot_system(),
+)
+
+summary_bot = Chatbot(
+    engine="gpt-3.5-turbo",
+    system_prompt=prompts.summary_bot_system(),
+)
+
+main_bot = Chatbot(
+    engine="gpt-4",
+    system_prompt=prompts.main_bot_system(),
+)
+
+
+def ask_chatbot(prompt: str, chatbot: Chatbot) -> str:
     """Ask GPT API bot a question and stream the response."""
     full_response = []
     for r in chatbot.ask_stream(prompt):

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-def init_system_prompt(language="python"):
+def main_bot_system(language="python"):
     return (
         f"""You are an codebase analyzer bot. Human will ask you questions about a {language} codebase."""
         + command_instruction()
@@ -37,3 +37,25 @@ Answer: <your_final_answer>
 
 def question_prompt(question: str) -> str:
     return f"Please answer question: {question}"
+
+
+def search_bot_system() -> str:
+    return (
+        "You are a helper bot for a codebase analyzer bot. "
+        "You will be given code search results of a keyword, and you help filter the results with a given smentic filter."
+    )
+
+
+def function_bot_system() -> str:
+    return (
+        "You are a helper bot for a codebase analyzer bot. "
+        "You wil answer questions about a specific function."
+    )
+
+
+def summary_bot_system(language: str = "Python") -> str:
+    return (
+        "You are a helper bot for a codebase analyzer bot. "
+        f"You help summarize the main purpose and functionality of given {language} code using less than given length limitation."
+        f"Be concise! No need to explain python syntax or common practice."
+    )
