@@ -27,7 +27,9 @@ def main(args: argparse.Namespace) -> None:
         if query.lower() == "exit":
             break
 
-        ask_codebase(question=query, codebase_info=codebase_info, raw_codebase=raw_codebase)
+        ask_codebase(
+            question=query, codebase_info=codebase_info, raw_codebase=raw_codebase
+        )
 
 
 if __name__ == "__main__":

@@ -126,7 +126,10 @@ class Chatbot:
         Truncate the conversation
         """
         while True:
-            if self.get_token_count(convo_id) > self.truncate_limit and len(self.conversation[convo_id]) > 1:
+            if (
+                self.get_token_count(convo_id) > self.truncate_limit
+                and len(self.conversation[convo_id]) > 1
+            ):
                 # Don't remove the first message
                 self.conversation[convo_id].pop(1)
             else:
@@ -192,7 +195,9 @@ class Chatbot:
             temperature=kwargs.get("temperature", self.temperature),
             top_p=kwargs.get("top_p", self.top_p),
             presence_penalty=kwargs.get("presence_penalty", self.presence_penalty),
-            frequency_penalty=kwargs.get("frequency_penalty", self.frequency_penalty),
+            frequency_penalty=kwargs.get(
+                "frequency_penalty", self.frequency_penalty
+            ),
             n=kwargs.get("n", self.reply_count),
             user=role,
             max_tokens=self.get_max_tokens(convo_id),
@@ -215,7 +220,9 @@ class Chatbot:
                 full_response.append(content)
                 yield content
 
-        self.add_to_conversation("".join(full_response), response_role, convo_id=convo_id)
+        self.add_to_conversation(
+            "".join(full_response), response_role, convo_id=convo_id
+        )
 
     def ask(
         self,
