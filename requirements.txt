@@ -1,0 +1,12 @@
+# git+https://github.com/Significant-Gravitas/Auto-GPT@stable#egg=auto-gpt
+colorama
+click
+pandas
+openai
+tiktoken
+pyyaml
+python-dotenv
+playsound
+gtts
+PyObjC
+pytest

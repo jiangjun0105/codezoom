@@ -3,7 +3,7 @@ from functools import partial
 
 import pandas as pd
 
-from codebase_analyzer.chatbot import ask_chatbot, function_bot, search_bot
+from codebase_analyzer.chatbot import function_bot, search_bot
 
 
 def _ask_function(name: str, question: str, code_info: pd.DataFrame) -> str:
@@ -20,7 +20,7 @@ def _ask_function(name: str, question: str, code_info: pd.DataFrame) -> str:
         f"Question: {question}\n"
         f"Please answer the question or return relavent code concisely.\n"
     )
-    return ask_chatbot(prompt=p, chatbot=function_bot)
+    return function_bot.ask(prompt=p)
 
 
 def _search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[str]:
@@ -39,7 +39,7 @@ def _search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[st
         f" only wants: {semantic_filer}\n"
         f"Please filter the search result and only return relavent code.\n"
     )
-    return ask_chatbot(prompt=p, chatbot=search_bot)
+    return search_bot.ask(prompt=p)
 
 
 def parse_function_call(function_call: str) -> tuple[str, list[str]]:

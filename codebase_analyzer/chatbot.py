@@ -9,10 +9,13 @@ from typing import Union
 
 import openai
 import tiktoken
-from revChatGPT.V1 import Chatbot as ChatGPT
+from colorama import Fore, Style
 from yaml import safe_load
 
 from codebase_analyzer import prompts
+from codebase_analyzer.logs import BotLogger
+
+# logger = Logger(__name__)
 
 
 def get_access_token():
@@ -26,28 +29,6 @@ def get_api_key():
 
 
 openai.api_key = get_api_key()
-
-chatgpt4_main = ChatGPT(
-    config={
-        "access_token": get_access_token(),
-        "conservation_id": "9033621f-f523-4580-a115-5cdc1b8cd410",
-        "model": "gpt-4",
-    }
-)
-chatgpt4_sub = ChatGPT(
-    config={
-        "access_token": get_access_token(),
-        "conservation_id": "03728c4d-bfa1-463e-b3d2-7345cdea0aab",
-        "model": "gpt-4",
-    }
-)
-chatgpt3 = ChatGPT(
-    config={
-        "access_token": get_access_token(),
-        "parent_id": "64bc082d-7db8-419c-94c6-ed1766b6177e",
-        "conversation_id": "df1f9013-06d0-40b9-970a-6b14e1d410bb",
-    }
-)
 
 
 def ask_chatgpt(prompt: str, chatbot: Chatbot) -> str:
@@ -72,6 +53,7 @@ class Chatbot:
 
     def __init__(
         self,
+        name: str,
         engine: str = "gpt-3.5-turbo",
         timeout: float = None,
         max_tokens: int = None,
@@ -81,7 +63,7 @@ class Chatbot:
         frequency_penalty: float = 0.0,
         reply_count: int = 1,
         truncate_limit: int = None,
-        system_prompt: str = None,
+        system_prompt: str = "",
     ) -> None:
         """Initialize the Chatbot."""
         self.engine: str = engine
@@ -106,6 +88,8 @@ class Chatbot:
                 },
             ],
         }
+        self.logger = BotLogger(name=name)
+        self.logger.info(f"Initialized {name} with {engine}")
 
         if self.get_token_count("default") > self.max_tokens:
             raise ValueError("System prompt is too long")
@@ -234,14 +218,14 @@ class Chatbot:
         """
         Non-streaming ask
         """
-        response = self.ask_stream(
-            prompt=prompt,
-            role=role,
-            convo_id=convo_id,
-            **kwargs,
-        )
-        full_response: str = "".join(response)
-        return full_response
+        full_response = []
+        for r in self.ask_stream(
+            prompt=prompt, role=role, convo_id=convo_id, **kwargs
+        ):
+            self.logger.bot_speak(message=r, color=Fore.BLUE)
+            full_response.append(r)
+        self.logger.bot_speak("\n")
+        return "".join(full_response)
 
     def rollback(self, n: int = 1, convo_id: str = "default") -> None:
         """
@@ -260,31 +244,25 @@ class Chatbot:
 
 
 search_bot = Chatbot(
+    name="search_bot",
     engine="gpt-3.5-turbo",
     system_prompt=prompts.search_bot_system(),
 )
 
 function_bot = Chatbot(
-    engine="gpt-4",
+    name="function_bot",
+    engine="gpt-3.5-turbo",
     system_prompt=prompts.function_bot_system(),
 )
 
 summary_bot = Chatbot(
+    name="summary_bot",
     engine="gpt-3.5-turbo",
     system_prompt=prompts.summary_bot_system(),
 )
 
 main_bot = Chatbot(
+    name="main_bot",
     engine="gpt-4",
     system_prompt=prompts.main_bot_system(),
 )
-
-
-def ask_chatbot(prompt: str, chatbot: Chatbot) -> str:
-    """Ask GPT API bot a question and stream the response."""
-    full_response = []
-    for r in chatbot.ask_stream(prompt):
-        print(r, end="", flush=True)
-        full_response.append(r)
-    print()
-    return "".join(full_response)

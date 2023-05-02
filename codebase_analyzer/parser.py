@@ -9,8 +9,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from codebase_analyzer.ast_visitor import CodeExtractor
-from codebase_analyzer.chatbot import summary_bot
-from codebase_analyzer.interaction import Chatbot, ask_chatbot
+from codebase_analyzer.chatbot import Chatbot, summary_bot
 
 
 @dataclass
@@ -41,7 +40,7 @@ def summarize_code(
     prompt = (
         f"Summarize the following code using less than {length} chars:\n\n{code}"
     )
-    return ask_chatbot(prompt, chatbot)
+    return chatbot.ask(prompt, chatbot)
 
 
 def load_raw_code(file: Path) -> str:

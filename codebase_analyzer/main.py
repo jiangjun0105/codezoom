@@ -1,23 +1,27 @@
 from __future__ import annotations
 
-import argparse
-import logging
+from pathlib import Path
 
+import click
 import pandas as pd
 
-from codebase_analyzer.interaction import ask_codebase
+from codebase_analyzer.interaction import ask_codebase, remind_mission
+from codebase_analyzer.logs import Logger
 from codebase_analyzer.parser import extract_code_info, load_raw_code
 
-logger = logging.getLogger(__name__)
+logger = Logger(__name__)
 
 
-def main(args: argparse.Namespace) -> None:
+@click.command()
+@click.option("--repo", help="Path to the repository to analyze")
+@click.option("--cache", help="Path to the cache repo info csv file")
+def main(repo: str | Path, cache: str | Path) -> None:
+    """GPT Developer - Codebase Analyzer"""
     """Main loop for interacting wiht the codebase analyzer."""
-    raw_codebase = load_raw_code(args.repo)
-    if args.cache:
-        codebase_info = pd.read_csv(args.cache).set_index("Unnamed: 0")
-        print(f"Loaded codebase info from {args.cache}")
-        print(codebase_info.columns)
+    raw_codebase = load_raw_code(repo)
+    if cache:
+        codebase_info = pd.read_csv(cache).set_index("Unnamed: 0")
+        logger.info(f"Loaded codebase info from {cache}")
     else:
         # TODO: Change to use parse_codebase + vector store.
         codebase_info = extract_code_info(raw_code=raw_codebase)
@@ -26,17 +30,12 @@ def main(args: argparse.Namespace) -> None:
         query = input("\nEnter a query or type 'exit' to quit: ")
         if query.lower() == "exit":
             break
-
+        if query.lower() == "remind":
+            remind_mission()
         ask_codebase(
             question=query, codebase_info=codebase_info, raw_codebase=raw_codebase
         )
 
 
 if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(description="GPT Developer - Codebase Analyzer")
-    parser.add_argument("--repo", help="Path to the repository to analyze")
-    parser.add_argument("--cache", help="Path to the cache repo info csv file")
-    args = parser.parse_args()
-
-    main(args)
+    main()

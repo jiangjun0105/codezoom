@@ -5,8 +5,11 @@ import re
 import pandas as pd
 
 from codebase_analyzer import prompts
-from codebase_analyzer.chatbot import ask_chatbot, main_bot
+from codebase_analyzer.chatbot import Chatbot, main_bot
 from codebase_analyzer.commands import execute_function
+from codebase_analyzer.logs import Logger
+
+logger = Logger(__name__)
 
 
 def parse_response(response: str, code_info: pd.DataFrame, raw_code: str):
@@ -24,9 +27,11 @@ def ask_codebase(
     chatbot=main_bot,
     max_iteration: int = 4,
 ) -> str:
+    """Main loop for interaction between AI bots on codebase questions."""
     code_summary = "\n".join(
         f"{n}: {c}" for n, c in codebase_info[["name", "summary"]].values
     )
+    # TODO: Not send summary everytime.
     instruction = (
         f"Below is a summary of python code in format 'function_name: summary':"
         f"\n\n{code_summary}\n\n"
@@ -35,15 +40,22 @@ def ask_codebase(
 
     while max_iteration > 0:
         max_iteration -= 1
-        response = ask_chatbot(prompt=p, chatbot=chatbot)
+        response = chatbot.ask(prompt=p)
+        # response = ask_chatbot(prompt=p, chatbot=chatbot)
         if answer := re.search(r"^Answer:.*", response, re.MULTILINE):
             return answer
         try:
             p = "Command return:\n" + parse_response(
                 response, codebase_info, raw_codebase
             )
-        except KeyError:
-            print(
+        except AttributeError:
+            logger.error(
                 "No command or answer found in response, try to remind it by sending the response format again."
             )
-            p = "Reminder: " + prompts.response_format()
+            return response
+
+
+def remind_mission(chatbot: Chatbot = main_bot) -> None:
+    """Remind the chatbot of its response format."""
+    p = "Reminder: \n" + prompts.response_format()
+    chatbot.ask(prompt=p, chatbot=chatbot)
