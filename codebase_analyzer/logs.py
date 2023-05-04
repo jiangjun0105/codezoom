@@ -26,12 +26,16 @@ class LogOutput(str, Enum):
 
 
 class ColorFormatter(logging.Formatter):
+    """A formatter that adds color to log messages."""
+
     def format(self, record: LogRecord) -> str:
         log_msg = super().format(record)
         return f"{record.color}{log_msg}{Style.RESET_ALL}"
 
 
 class ConsoleHandler(logging.StreamHandler):
+    """Custom console handler that allows to use a custom terminator."""
+
     def emit(self, record: LogRecord) -> None:
         """Copied from logging.StreamHandler.emit() and modified the terminator."""
         if hasattr(record, "terminator"):
@@ -45,14 +49,14 @@ class ConsoleHandler(logging.StreamHandler):
             stream.write(msg)
             stream.write(terminator)
             self.flush()
-        except RecursionError:  # See issue 36272
+        except RecursionError:
             raise
         except Exception:
             self.handleError(record)
 
 
 class RoutingHandler(logging.Handler):
-    """A handler that routes messages to either a console or a file handler."""
+    """A handler that routes messages to other handlers."""
 
     def __init__(self, log_file: str = LOG_FILE_PATH) -> None:
         super().__init__()
@@ -64,8 +68,6 @@ class RoutingHandler(logging.Handler):
 
         # Set up file handler
         file_handler = logging.FileHandler(log_file)
-        file_formatter = ColorFormatter()
-        file_handler.setFormatter(file_formatter)
 
         self.console_handler = console_handler
         self.file_handler = file_handler
@@ -128,6 +130,8 @@ class Logger:
 
 
 class BotLogger(Logger):
+    """Logger allowing straming messages from bots."""
+
     def bot_speak(
         self,
         message: str,
