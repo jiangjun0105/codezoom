@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
 from time import sleep
 from typing import Union
@@ -10,12 +11,11 @@ from typing import Union
 import openai
 import tiktoken
 from colorama import Fore, Style
+from loguru import logger
 from yaml import safe_load
 
 from codebase_analyzer import prompts
-from codebase_analyzer.logs import BotLogger
-
-# logger = Logger(__name__)
+from codebase_analyzer.logs import LogOutput, SpeakerType
 
 
 def get_access_token():
@@ -64,8 +64,12 @@ class Chatbot:
         reply_count: int = 1,
         truncate_limit: int = None,
         system_prompt: str = "",
+        outputs=None,
+        name_color: Fore = Fore.BLUE,
+        msg_color: Fore = Fore.WHITE,
     ) -> None:
         """Initialize the Chatbot."""
+        self.name = name
         self.engine: str = engine
         self.system_prompt: str = system_prompt
         self.max_tokens: int = max_tokens or (
@@ -88,11 +92,24 @@ class Chatbot:
                 },
             ],
         }
-        self.logger = BotLogger(name=name)
+        self.name_color = name_color
+        self.msg_color = msg_color
+        self.outputs = outputs or [LogOutput.MAIN, LogOutput.FILE]
+        self.logger = self._get_bot_logger(name)
         self.logger.info(f"Initialized {name} with {engine}")
 
         if self.get_token_count("default") > self.max_tokens:
             raise ValueError("System prompt is too long")
+
+    def _get_bot_logger(self, name: str) -> logger:
+        return logger.bind(speaker=name)
+
+    def speak(self, stream: Iterator[str]) -> None:
+        bot_logger = self.logger.bind(speaker_type=SpeakerType.BOT)
+        bot_logger.info(f"{self.name}: ", color=self.name_color, end="")
+        for s in stream:
+            bot_logger.info(s, color=self.msg_color, end="")
+        bot_logger.info("")
 
     def add_to_conversation(
         self,
@@ -143,6 +160,8 @@ class Chatbot:
             # every message follows <im_start>{role/name}\n{content}<im_end>\n
             num_tokens += 5
             for key, value in message.items():
+                if not value:
+                    continue
                 num_tokens += len(encoding.encode(value))
                 if key == "name":  # if there's a name, the role is omitted
                     num_tokens += 5  # role is always required and always 1 token
@@ -161,7 +180,7 @@ class Chatbot:
         role: str = "user",
         convo_id: str = "default",
         **kwargs,
-    ):
+    ) -> Iterator[str]:
         """
         Ask a question
         """
@@ -218,14 +237,10 @@ class Chatbot:
         """
         Non-streaming ask
         """
-        full_response = []
-        for r in self.ask_stream(
-            prompt=prompt, role=role, convo_id=convo_id, **kwargs
-        ):
-            self.logger.bot_speak(message=r, color=Fore.BLUE)
-            full_response.append(r)
-        self.logger.bot_speak("\n")
-        return "".join(full_response)
+        self.speak(
+            self.ask_stream(prompt=prompt, role=role, convo_id=convo_id, **kwargs)
+        )
+        return self.conversation[convo_id][-1]["content"]
 
     def rollback(self, n: int = 1, convo_id: str = "default") -> None:
         """

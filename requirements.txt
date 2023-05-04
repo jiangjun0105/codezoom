@@ -1,6 +1,7 @@
 # git+https://github.com/Significant-Gravitas/Auto-GPT@stable#egg=auto-gpt
 colorama
 click
+loguru
 pandas
 openai
 tiktoken

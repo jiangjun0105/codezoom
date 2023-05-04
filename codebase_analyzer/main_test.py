@@ -5,18 +5,20 @@ from unittest import mock
 from click.testing import CliRunner
 
 from codebase_analyzer.main import codebase_analyzer, main
-from codebase_analyzer.test_utils import openai_returns, test_inputs
+from codebase_analyzer.test_utils import generate_gpt_responses, test_inputs
 
 
 @mock.patch(
     "codebase_analyzer.chatbot.openai.ChatCompletion.create",
-    return_value=openai_returns,
 )
 @mock.patch("builtins.input", side_effect=test_inputs)
 def test_codebase_analyzer(
-    mock_input: mock.MagicMock, openai_mock: mock.MagicMock
+    mock_input: mock.MagicMock, mock_api: mock.MagicMock
 ) -> None:
     """End-to-end test of the codebase analyzer."""
+    mock_api.return_value = generate_gpt_responses(
+        "Hello, how can I help you today?"
+    )
     codebase_analyzer(
         repo="~/ChatGPT/src/revChatGPT/V1.py",
         cache=".cache/code_info.csv",

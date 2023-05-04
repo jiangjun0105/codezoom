@@ -4,12 +4,10 @@ from pathlib import Path
 
 import click
 import pandas as pd
+from loguru import logger
 
 from codebase_analyzer.interaction import ask_codebase, remind_mission
-from codebase_analyzer.logs import Logger
 from codebase_analyzer.parser import extract_code_info, load_raw_code
-
-logger = Logger(__name__)
 
 
 def codebase_analyzer(repo: str, cache: str = None) -> None:

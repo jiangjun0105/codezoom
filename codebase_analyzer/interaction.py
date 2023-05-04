@@ -3,13 +3,11 @@ from __future__ import annotations
 import re
 
 import pandas as pd
+from loguru import logger
 
 from codebase_analyzer import prompts
 from codebase_analyzer.chatbot import Chatbot, main_bot
 from codebase_analyzer.commands import execute_function
-from codebase_analyzer.logs import Logger
-
-logger = Logger(__name__)
 
 
 def parse_response(response: str, code_info: pd.DataFrame, raw_code: str):
