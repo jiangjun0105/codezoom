@@ -145,4 +145,4 @@ class BotLogger(Logger):
         if self.logger.isEnabledFor(BOT_SPEAK):
             # TODO: Add text to speach here.
             kwargs.update({"color": color, "output": output, "terminator": ""})
-            self.log(level=logging.INFO, message=message, **kwargs)
+            self.log(level=BOT_SPEAK, message=message, **kwargs)
