@@ -16,9 +16,11 @@ def test_codebase_analyzer(
     mock_input: mock.MagicMock, mock_api: mock.MagicMock
 ) -> None:
     """End-to-end test of the codebase analyzer."""
-    mock_api.return_value = generate_gpt_responses(
-        "Hello, how can I help you today?"
-    )
+    responses = [
+        "Hello, how can I help you today?",
+        "Answer: The answer is 42.",
+    ]
+    mock_api.side_effect = [generate_gpt_responses(r) for r in responses]
     codebase_analyzer(
         repo="~/ChatGPT/src/revChatGPT/V1.py",
         cache=".cache/code_info.csv",
