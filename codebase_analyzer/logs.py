@@ -1,19 +1,12 @@
 """Logging module for Auto-GPT."""
 from __future__ import annotations
 
-import json
 import logging
-import os
-import random
-import re
-import time
-import traceback
 from enum import Enum
 from logging import LogRecord
 from pathlib import Path
 
-from autogpt.config import Config, Singleton
-from autogpt.speech import say_text
+from autogpt.config import Config
 from colorama import Fore, Style
 
 CFG = Config()

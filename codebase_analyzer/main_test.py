@@ -4,8 +4,8 @@ from unittest import mock
 
 from click.testing import CliRunner
 
-from codebase_analyzer.main import main
-from codebase_analyzer.test_data import openai_returns, test_inputs
+from codebase_analyzer.main import codebase_analyzer, main
+from codebase_analyzer.test_utils import openai_returns, test_inputs
 
 
 @mock.patch(
@@ -13,22 +13,32 @@ from codebase_analyzer.test_data import openai_returns, test_inputs
     return_value=openai_returns,
 )
 @mock.patch("builtins.input", side_effect=test_inputs)
-def test_main(mock_input: mock.MagicMock, openai_mock: mock.MagicMock) -> None:
+def test_codebase_analyzer(
+    mock_input: mock.MagicMock, openai_mock: mock.MagicMock
+) -> None:
     """End-to-end test of the codebase analyzer."""
-    runner = CliRunner()
-    result = runner.invoke(
-        main,
-        [
-            "--repo",
-            "~/ChatGPT/src/revChatGPT/V1.py",
-            "--cache",
-            ".cache/code_info.csv",
-        ],
-        catch_exceptions=False,
+    codebase_analyzer(
+        repo="~/ChatGPT/src/revChatGPT/V1.py",
+        cache=".cache/code_info.csv",
     )
-    assert result.exit_code == 0, f"Command failed with exit code {result.exit_code}"
+
+
+@mock.patch("codebase_analyzer.main.codebase_analyzer")
+def test_main_cli(mock_analyzer: mock.MagicMock) -> None:
+    """Test main function."""
+    # Given
+    mock_analyzer.return_value = None
+    want_repo = "~/ChatGPT/src/revChatGPT/V1.py"
+    want_cache = ".cache/code_info.csv"
+
+    # When
+    runner = CliRunner()
+    runner.invoke(main, ["--repo", want_repo, "--cache", want_cache])
+
+    # Then
+    mock_analyzer.assert_called_once_with(repo=want_repo, cache=want_cache)
 
 
 if __name__ == "__main__":
     """Workaround for pytest cannot give original log format."""
-    test_main()
+    test_codebase_analyzer()

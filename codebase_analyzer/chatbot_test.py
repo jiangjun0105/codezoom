@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 from codebase_analyzer.chatbot import Chatbot
-from codebase_analyzer.test_data import openai_returns
+from codebase_analyzer.test_utils import openai_returns
 
 
 @mock.patch("codebase_analyzer.chatbot.openai.ChatCompletion.create")

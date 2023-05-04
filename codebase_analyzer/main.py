@@ -12,11 +12,7 @@ from codebase_analyzer.parser import extract_code_info, load_raw_code
 logger = Logger(__name__)
 
 
-@click.command()
-@click.option("--repo", help="Path to the repository to analyze")
-@click.option("--cache", help="Path to the cache repo info csv file")
-def main(repo: str | Path, cache: str | Path) -> None:
-    """GPT Developer - Codebase Analyzer"""
+def codebase_analyzer(repo: str, cache: str = None) -> None:
     """Main loop for interacting wiht the codebase analyzer."""
     raw_codebase = load_raw_code(repo)
     if cache:
@@ -35,6 +31,14 @@ def main(repo: str | Path, cache: str | Path) -> None:
         ask_codebase(
             question=query, codebase_info=codebase_info, raw_codebase=raw_codebase
         )
+
+
+@click.command()
+@click.option("--repo", help="Path to the repository to analyze")
+@click.option("--cache", help="Path to the cache repo info csv file")
+def main(repo: str | Path, cache: str | Path) -> None:
+    """GPT Developer - Codebase Analyzer"""
+    codebase_analyzer(repo=repo, cache=cache)
 
 
 if __name__ == "__main__":
