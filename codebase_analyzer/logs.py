@@ -63,5 +63,6 @@ def bot_fomatter(record: loguru.Record) -> str:
 
 
 loguru.logger.remove()
+# TODO: Make level configurable.
 loguru.logger.add(sys.stderr, level="DEBUG", filter=log_filter(SpeakerType.SYSTEM))
 loguru.logger.add(bot_typer, filter=log_filter(SpeakerType.BOT), format=bot_fomatter)

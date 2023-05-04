@@ -85,3 +85,15 @@ def generate_gpt_responses(content: str) -> list[dict]:
         # Split using whitespace
         yield _middle_response(c + " ")
     yield _end_response()
+
+
+class TestChat:
+    def __init__(self, actors: list[str]):
+        for a in actors:
+            setattr(self, a, [])
+
+    def send(self, actor: str, message: str):
+        getattr(self, actor).append(message)
+
+    def get(self, actor: str) -> list[str]:
+        return getattr(self, actor)

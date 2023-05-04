@@ -5,22 +5,56 @@ from unittest import mock
 from click.testing import CliRunner
 
 from codebase_analyzer.main import codebase_analyzer, main
-from codebase_analyzer.test_utils import generate_gpt_responses, test_inputs
+from codebase_analyzer.test_utils import TestChat, generate_gpt_responses
+
+human = "test_human"
+bot = "test_bot"
 
 
 @mock.patch(
     "codebase_analyzer.chatbot.openai.ChatCompletion.create",
 )
-@mock.patch("builtins.input", side_effect=test_inputs)
+@mock.patch("builtins.input")
 def test_codebase_analyzer(
     mock_input: mock.MagicMock, mock_api: mock.MagicMock
 ) -> None:
     """End-to-end test of the codebase analyzer."""
-    responses = [
-        "Hello, how can I help you today?",
-        "Answer: The answer is 42.",
-    ]
-    mock_api.side_effect = [generate_gpt_responses(r) for r in responses]
+    chat = TestChat(actors=[human, bot])
+    chat.send(human, "What is this codebase about?")
+    chat.send(bot, "Answer: This codebase is about a chatbot.")
+    chat.send(human, "Can you summarize the main function of the code?")
+    chat.send(bot, 'Command: ask_function("main", "summary")')
+    chat.send(bot, "main function is the entry point of the program.")
+    chat.send(bot, "Answer: main function is the entry point of the program.")
+    chat.send(human, "exit")
+
+    mock_input.side_effect = chat.get(human)
+    mock_api.side_effect = [generate_gpt_responses(r) for r in chat.get(bot)]
+    codebase_analyzer(
+        repo="~/ChatGPT/src/revChatGPT/V1.py",
+        cache=".cache/code_info.csv",
+    )
+
+
+@mock.patch(
+    "codebase_analyzer.chatbot.openai.ChatCompletion.create",
+)
+@mock.patch("builtins.input")
+def test_codebase_analyzer_only_main(
+    mock_input: mock.MagicMock, mock_api: mock.MagicMock
+) -> None:
+    """End-to-end test of the codebase analyzer."""
+    human = "human"
+    bot = "bot"
+    chat = TestChat(actors=[human, bot])
+    chat.send(human, "Hello")
+    chat.send(bot, "Hello, how can I help you today?")
+    chat.send(human, "What is 7x6?")
+    chat.send(bot, "Answer: The answer is 42.")
+    chat.send(human, "exit")
+
+    mock_input.side_effect = chat.get(human)
+    mock_api.side_effect = [generate_gpt_responses(r) for r in chat.get(bot)]
     codebase_analyzer(
         repo="~/ChatGPT/src/revChatGPT/V1.py",
         cache=".cache/code_info.csv",

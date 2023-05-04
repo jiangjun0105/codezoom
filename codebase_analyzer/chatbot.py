@@ -31,20 +31,6 @@ def get_api_key():
 openai.api_key = get_api_key()
 
 
-def ask_chatgpt(prompt: str, chatbot: Chatbot) -> str:
-    """Ask a question to the ChatGPT and return the response."""
-    print("ChatGPT:\n")
-    last_len = 0
-    response = chatbot.ask(prompt)
-
-    for data in response:
-        message = data["message"]
-        print(message[last_len:], end="", flush=True)
-        last_len = len(message)
-    print()
-    return message
-
-
 class Chatbot:
     """
     Chatbot using official ChatGPT API.
@@ -107,8 +93,14 @@ class Chatbot:
     def speak(self, stream: Iterator[str]) -> None:
         bot_logger = self.logger.bind(speaker_type=SpeakerType.BOT)
         bot_logger.info(f"{self.name}: ", color=self.name_color, end="")
-        for s in stream:
-            bot_logger.info(s, color=self.msg_color, end="")
+        try:
+            for s in stream:
+                bot_logger.info(s, color=self.msg_color, end="")
+        except RuntimeError:
+            bot_logger.info("")
+            self.logger.error(
+                f"RuntimeError: Bot {self.name} did not respond anything."
+            )
         bot_logger.info("")
 
     def add_to_conversation(
