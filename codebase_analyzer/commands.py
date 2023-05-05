@@ -32,11 +32,10 @@ def _search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[st
         if keyword in line
     ]
     if len(result) == 0:
-        return "No result found for keyword '{keyword}'\n"
+        return f"No result found for keyword '{keyword}'\n"
     p = (
-        f"Code search result of keyword '{keyword}':\n"
-        f"{''.join(result)}\n\n"
-        f" only wants: {semantic_filer}\n"
+        f"Code search result of keyword '{keyword}':\n" + "\n".join(result) + "\n"
+        f"Only want related to: {semantic_filer}\n"
         f"Please filter the search result and only return relavent code.\n"
     )
     return search_bot.ask(prompt=p)

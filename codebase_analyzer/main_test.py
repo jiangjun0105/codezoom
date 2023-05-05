@@ -5,6 +5,7 @@ from unittest import mock
 from click.testing import CliRunner
 
 from codebase_analyzer.main import codebase_analyzer, main
+from codebase_analyzer.test_data import sample_embedding
 from codebase_analyzer.test_utils import TestChat, generate_gpt_responses
 
 human = "test_human"
@@ -15,8 +16,13 @@ bot = "test_bot"
     "codebase_analyzer.chatbot.openai.ChatCompletion.create",
 )
 @mock.patch("builtins.input")
+@mock.patch(
+    "codebase_analyzer.embedding.get_embedding", return_value=sample_embedding
+)
 def test_codebase_analyzer(
-    mock_input: mock.MagicMock, mock_api: mock.MagicMock
+    mock_input: mock.MagicMock,
+    mock_api: mock.MagicMock,
+    mock_embedding: mock.MagicMock,
 ) -> None:
     """End-to-end test of the codebase analyzer."""
     chat = TestChat(actors=[human, bot])
@@ -50,8 +56,13 @@ def main():
     "codebase_analyzer.chatbot.openai.ChatCompletion.create",
 )
 @mock.patch("builtins.input")
-def test_codebase_analyzer_only_main(
-    mock_input: mock.MagicMock, mock_api: mock.MagicMock
+@mock.patch(
+    "codebase_analyzer.embedding.get_embedding", return_value=sample_embedding
+)
+def test_codebase_analyzer_simple(
+    mock_input: mock.MagicMock,
+    mock_api: mock.MagicMock,
+    mock_embedding: mock.MagicMock,
 ) -> None:
     """End-to-end test of the codebase analyzer."""
     human = "human"

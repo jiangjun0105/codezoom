@@ -2,6 +2,7 @@
 colorama
 click
 loguru
+numpy
 pandas
 openai
 tiktoken

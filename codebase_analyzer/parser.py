@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from time import sleep
 
+import openai
 import pandas as pd
 from tqdm import tqdm
 

@@ -23,23 +23,22 @@ def ask_codebase(
     codebase_info: pd.DataFrame,
     raw_codebase: str,
     chatbot=main_bot,
-    max_iteration: int = 4,
+    max_iteration: int = 6,
 ) -> str:
     """Main loop for interaction between AI bots on codebase questions."""
-    code_summary = "\n".join(
-        f"{n}: {c}" for n, c in codebase_info[["name", "summary"]].values
-    )
-    # TODO: Not send summary everytime.
-    instruction = (
-        f"Below is a summary of python code in format 'function_name: summary':"
-        f"\n\n{code_summary}\n\n"
-    )
-    p = instruction + prompts.question_prompt(question=question)
+    # code_summary = "\n".join(
+    #     f"{n}: {c}" for n, c in codebase_info[["name", "summary"]].values
+    # )
+    # instruction = (
+    #     f"Below is a summary of python code in format 'function_name: summary':"
+    #     f"\n\n{code_summary}\n\n"
+    # )
+
+    p = prompts.question_prompt(question=question, codebase_info=codebase_info)
 
     while max_iteration > 0:
         max_iteration -= 1
         response = chatbot.ask(prompt=p)
-        # response = ask_chatbot(prompt=p, chatbot=chatbot)
         if answer := re.search(r"^Answer:.*", response, re.MULTILINE):
             return answer
         try:

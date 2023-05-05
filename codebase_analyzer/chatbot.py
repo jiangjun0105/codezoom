@@ -183,6 +183,7 @@ class Chatbot:
         """
         Ask a question
         """
+        self.logger.info(f"\nSending to {self.name}: {prompt}")
         # Make conversation if it doesn't exist
         if convo_id not in self.conversation:
             self.reset(convo_id=convo_id, system_prompt=self.system_prompt)
@@ -190,7 +191,6 @@ class Chatbot:
         self.truncate_conversation(convo_id=convo_id)
 
         # Get response
-        self.logger.info(f"\nSending to {self.name}: {prompt}")
         response = openai.ChatCompletion.create(
             model=self.engine,
             messages=self.conversation[convo_id],
