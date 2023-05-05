@@ -23,10 +23,9 @@ def command_instruction():
 - ask_function("<function_name_before_colon>", "<question>")
     to ask a question about a specific function.
     E.g. ask_function("main", "What does this function do?")
-- search_keyword("<keyword>", "<one_sentence_semantic_filter>")
-    to search for a keyword and filter the results by the semantic_filter.
-    E.g. search_keyword("URL", "only return the ones in module level")
-    E.g. search_keyword("class", "") # no filter, all results returned
+- search_keyword("<keyword>")
+    to get all lines containing the keyword.
+    E.g. search_keyword("Enum")
 
 Please only run one command each time, and you can try several time.
 """

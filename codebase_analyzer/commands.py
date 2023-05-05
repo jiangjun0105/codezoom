@@ -35,7 +35,7 @@ def _search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[st
     if len(result) == 0:
         return f"No result found for keyword '{keyword}'\n"
     if not semantic_filer:
-        return result
+        return "\n".join(result)
     p = (
         f"Code search result of keyword '{keyword}':\n" + "\n".join(result) + "\n"
         f"The given semantic filter is: {semantic_filer}\n"
@@ -81,7 +81,7 @@ def parse_function_call(function_call: str) -> tuple[str, list[str]]:
 def execute_function(function_call: str, code_info, raw_code) -> str:
     """Execute the function in Chatbot response string."""
     ask_function = partial(_ask_function, code_info=code_info)
-    search_keyword = partial(_search_keyword, raw_code=raw_code)
+    search_keyword = partial(_search_keyword, raw_code=raw_code, semantic_filer="")
     get_relevant_functions = partial(
         _get_relevant_functions, n=1, codebase_info=code_info, column="code"
     )
