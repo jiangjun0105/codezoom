@@ -4,6 +4,7 @@ from functools import partial
 import pandas as pd
 
 from codebase_analyzer.chatbot import function_bot, search_bot
+from codebase_analyzer.embedding import search_functions
 
 
 def _ask_function(name: str, question: str, code_info: pd.DataFrame) -> str:
@@ -33,12 +34,28 @@ def _search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[st
     ]
     if len(result) == 0:
         return f"No result found for keyword '{keyword}'\n"
+    if not semantic_filer:
+        return result
     p = (
         f"Code search result of keyword '{keyword}':\n" + "\n".join(result) + "\n"
-        f"Only want related to: {semantic_filer}\n"
-        f"Please filter the search result and only return relavent code.\n"
+        f"The given semantic filter is: {semantic_filer}\n"
+        f"Please help find the relavent code or provide other helpful info.\n"
     )
     return search_bot.ask(prompt=p)
+
+
+def _get_relevant_functions(
+    query: str, column: str, n: int, codebase_info: pd.DataFrame
+) -> pd.DataFrame:
+    if column not in ["code", "summary"]:
+        return f"Unknown column: {column}, use 'code' or 'summary' instead."
+    print("Searching for relevant functions...")
+    res = search_functions(codebase_info, query, n=n)
+    got = "\n".join(f"{n}: {s}" for n, s in res[["name", column]].values)
+    return (
+        f"Below is the {n} relevant functions and their summaries in the form of `function_name: summary`\n\n"
+        + got
+    )
 
 
 def parse_function_call(function_call: str) -> tuple[str, list[str]]:
@@ -65,10 +82,14 @@ def execute_function(function_call: str, code_info, raw_code) -> str:
     """Execute the function in Chatbot response string."""
     ask_function = partial(_ask_function, code_info=code_info)
     search_keyword = partial(_search_keyword, raw_code=raw_code)
+    get_relevant_functions = partial(
+        _get_relevant_functions, n=1, codebase_info=code_info
+    )
 
     function_map = {
         "ask_function": ask_function,
         "search_keyword": search_keyword,
+        "get_relevant_functions": get_relevant_functions,
     }
 
     function_name, args = parse_function_call(function_call)

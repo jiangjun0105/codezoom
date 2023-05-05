@@ -93,7 +93,7 @@ class Chatbot:
 
     def speak(self, stream: Iterator[str]) -> None:
         bot_logger = self.logger.bind(speaker_type=SpeakerType.BOT)
-        bot_logger.info(f"{self.name}: ", color=self.name_color, end="")
+        bot_logger.info(f"{self.name.upper()}: ", color=self.name_color, end="")
         try:
             for s in stream:
                 bot_logger.info(s, color=self.msg_color, end="")
