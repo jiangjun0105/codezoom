@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Iterator
 from pathlib import Path
@@ -51,8 +52,8 @@ class Chatbot:
         truncate_limit: int = None,
         system_prompt: str = "",
         outputs=None,
-        name_color: Fore = Fore.BLUE,
-        msg_color: Fore = Fore.WHITE,
+        name_color: Fore = "blue",
+        msg_color: Fore = "white",
     ) -> None:
         """Initialize the Chatbot."""
         self.name = name
@@ -166,6 +167,12 @@ class Chatbot:
         """
         return self.max_tokens - self.get_token_count(convo_id)
 
+    def log_sent_messages(self) -> None:
+        """Log the full list of sent messages"""
+        self.logger.info(f"\nSent to {self.name}: ")
+        for m in self.conversation["default"]:
+            self.logger.info(f"{m['role']}: {m['content']}")
+
     def ask_stream(
         self,
         prompt: str,
@@ -183,6 +190,7 @@ class Chatbot:
         self.truncate_conversation(convo_id=convo_id)
 
         # Get response
+        self.logger.info(f"\nSending to {self.name}: {prompt}")
         response = openai.ChatCompletion.create(
             model=self.engine,
             messages=self.conversation[convo_id],
@@ -211,13 +219,14 @@ class Chatbot:
             if "role" in delta:  # Role token
                 response_role = delta["role"]
             if "content" in delta:  # Content token
-                content = delta["content"]
+                # To prevent single { or } error
+                content = delta["content"].replace("{", "{{").replace("}", "}}")
                 full_response.append(content)
                 yield content
 
-        self.add_to_conversation(
-            "".join(full_response), response_role, convo_id=convo_id
-        )
+        full_response = "".join(full_response)
+        self.logger.info(f"\nReceived from {self.name}: {full_response}")
+        self.add_to_conversation(full_response, response_role, convo_id=convo_id)
 
     def ask(
         self,
@@ -252,18 +261,21 @@ class Chatbot:
 
 search_bot = Chatbot(
     name="search_bot",
+    name_color="yellow",
     engine="gpt-3.5-turbo",
     system_prompt=prompts.search_bot_system(),
 )
 
 function_bot = Chatbot(
     name="function_bot",
+    name_color="yellow",
     engine="gpt-3.5-turbo",
     system_prompt=prompts.function_bot_system(),
 )
 
 summary_bot = Chatbot(
     name="summary_bot",
+    name_color="yellow",
     engine="gpt-3.5-turbo",
     system_prompt=prompts.summary_bot_system(),
 )

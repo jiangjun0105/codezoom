@@ -26,6 +26,16 @@ def test_codebase_analyzer(
     chat.send(bot, 'Command: ask_function("main", "summary")')
     chat.send(bot, "main function is the entry point of the program.")
     chat.send(bot, "Answer: main function is the entry point of the program.")
+    chat.send(human, "Can you show me the code of main()?")
+    chat.send(
+        bot,
+        """Answer:
+def main():
+    print("Hello World!")
+    d = {"a": 1, "b": 2}
+    return d
+""",
+    )
     chat.send(human, "exit")
 
     mock_input.side_effect = chat.get(human)

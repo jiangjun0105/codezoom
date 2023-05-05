@@ -32,17 +32,6 @@ class SpeakerType(str, Enum):
     SYSTEM = "system"
 
 
-def print_with_color(color: str, text: str, **kwargs) -> None:
-    """Prints text with color."""
-    print(f"{color}{text}{Style.RESET_ALL}", **kwargs)
-
-
-def bot_typer(message: loguru.Message) -> None:
-    """Loguru sink that allows to print stream messages from bots."""
-    color = message.record["extra"].get("color", Fore.WHITE)
-    print_with_color(color=color, text=message, end="", flush=True)
-
-
 def log_filter(desired: SpeakerType) -> bool:
     """Loguru filter that allows to print stream messages from bots."""
 
@@ -54,15 +43,19 @@ def log_filter(desired: SpeakerType) -> bool:
 
 
 def bot_fomatter(record: loguru.Record) -> str:
-    """Formatter allowing custom line terminator for bot messages.
-    NOTE: It cannot handle variables which shouldn't exist in bot response.
-    """
+    """Formatter allowing custom line terminator and color."""
+    color = record["extra"].get("color", "white")
     end = record["extra"].get("end", "\n")
-    message = record["message"]
-    return f"{message}{end}"
+    return f"<{color}>{{message}}</>{end}{{exception}}"
 
 
 loguru.logger.remove()
 # TODO: Make level configurable.
-loguru.logger.add(sys.stderr, level="DEBUG", filter=log_filter(SpeakerType.SYSTEM))
-loguru.logger.add(bot_typer, filter=log_filter(SpeakerType.BOT), format=bot_fomatter)
+# loguru.logger.add(sys.stderr, level="DEBUG", filter=log_filter(SpeakerType.SYSTEM))
+loguru.logger.add(
+    LOG_FILE_PATH, level="DEBUG", filter=log_filter(SpeakerType.SYSTEM)
+)
+loguru.logger.add(
+    sys.stdout, filter=log_filter(SpeakerType.BOT), format=bot_fomatter
+)
+# loguru.logger.add(LOG_FILE_PATH, filter=log_filter(SpeakerType.BOT), format=bot_fomatter)
