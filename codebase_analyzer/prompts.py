@@ -17,10 +17,9 @@ def main_bot_system(language="python"):
 def command_instruction():
     return """Available commands are:
 
-- get_relevant_functions("<query_clause>", "<code/summary>")
-    to get the most relevant functions' code or their summaries using embedding similarity search.
-    E.g. get_relevant_functions("Completions API test", "code") # Recommend to get code instead of summary
-    E.g. get_relevant_functions("Completions API test", "summary")
+- get_relevant_functions("<query_clause>")
+    to get the most relevant functions' code using embedding similarity search.
+    E.g. get_relevant_functions("Completions API test")
 - ask_function("<function_name_before_colon>", "<question>")
     to ask a question about a specific function.
     E.g. ask_function("main", "What does this function do?")

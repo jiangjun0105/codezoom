@@ -83,7 +83,7 @@ def execute_function(function_call: str, code_info, raw_code) -> str:
     ask_function = partial(_ask_function, code_info=code_info)
     search_keyword = partial(_search_keyword, raw_code=raw_code)
     get_relevant_functions = partial(
-        _get_relevant_functions, n=1, codebase_info=code_info
+        _get_relevant_functions, n=1, codebase_info=code_info, column="code"
     )
 
     function_map = {
