@@ -1,61 +1,64 @@
 from __future__ import annotations
 
-from ast import literal_eval
+from functools import partial
 from pathlib import Path
 
 import click
-import numpy as np
 import pandas as pd
-from loguru import logger
 
-from codebase_analyzer.embedding import embed_codebase
-from codebase_analyzer.interaction import ask_codebase, remind_mission
-from codebase_analyzer.parser import extract_code_info, load_raw_code
-
-
-def load_cached_codebase_info(cache: str) -> pd.DataFrame:
-    """Load cached codebase info from the given csv file."""
-    codebase_info = pd.read_csv(cache).set_index("Unnamed: 0")
-    logger.info(f"Loaded codebase info from {cache}")
-    if "embedding" not in codebase_info.columns:
-        logger.info("Embeddings not found in cache, embedding codebase...")
-        embed_codebase(codebase_info)
-    else:
-        # TODO: Use format supporting storing the embedding
-        codebase_info["embedding"] = codebase_info["embedding"].apply(literal_eval)
-    return codebase_info
+from codebase_analyzer import prompts
+from codebase_analyzer.bots import CodebaseBot, CodingBot, MasterBot
+from codebase_analyzer.chatbot import BotModel, Chatbot
+from codebase_analyzer.logs import SpeakerType, human_logger
 
 
-def codebase_analyzer(repo: str, cache: str = None) -> None:
+def register_bots(repo: str, cache: str | Path = None) -> tuple[str, pd.DataFrame]:
+    """Anything needs to be done before the interaction loop."""
+    codebase_bot = CodebaseBot(repo=repo, cache=cache)
+    coding_bot = CodingBot()
+    bots = {
+        "codebase_bot": codebase_bot,
+        "coding_bot": coding_bot,
+    }
+    bot_map = {
+        "codebase_bot.ask": partial(codebase_bot.ask, asked_by="master_bot"),
+        "coding_bot.ask": partial(coding_bot.ask, asked_by="master_bot"),
+    }
+    return bots, MasterBot(bot_map=bot_map)
+
+
+def before_exiting(bots: dict[str, Chatbot]) -> None:
+    """Anything needs to be done before the interaction loop."""
+    bots["codebase_bot"].save_cache()
+
+
+def interaction_loop(master_bot: MasterBot) -> None:
     """Main loop for interacting wiht the codebase analyzer."""
-    raw_codebase = load_raw_code(repo)
-    if cache:
-        codebase_info = load_cached_codebase_info(cache)
-    else:
-        codebase_info = extract_code_info(raw_code=raw_codebase)
-        codebase_info = embed_codebase(codebase_info)
 
     while True:
         query = input("\nEnter a query or type 'exit' to quit: ")
         if query.lower() == "exit":
             break
-        if query.lower() == "remind":
-            remind_mission()
-        ask_codebase(
-            question=query, codebase_info=codebase_info, raw_codebase=raw_codebase
+        human_logger.info(
+            f"HUMAN -> MASTER_BOT: {query}\n", speaker=SpeakerType.HUMAN
         )
+        master_bot.ask(prompt=query, asked_by="human")
 
-    codebase_info.to_csv(cache)
-    logger.info(f"Saved codebase info to {cache}")
+
+def main(repo: str | Path, cache: str | Path) -> None:
+    """GPT Developer - Codebase Analyzer"""
+    bots, master_bot = register_bots(repo=repo, cache=cache)
+    interaction_loop(master_bot)
+    before_exiting(bots=bots)
 
 
 @click.command()
 @click.option("--repo", help="Path to the repository to analyze")
 @click.option("--cache", help="Path to the cache repo info csv file")
-def main(repo: str | Path, cache: str | Path) -> None:
-    """GPT Developer - Codebase Analyzer"""
-    codebase_analyzer(repo=repo, cache=cache)
+def cli(repo: str | Path, cache: str | Path) -> None:
+    """CLI: wrapper for the main function for easy testing."""
+    main(repo=repo, cache=cache)
 
 
 if __name__ == "__main__":
-    main()
+    cli()

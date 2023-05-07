@@ -18,11 +18,10 @@ def test_ask_chatbot(
     want_msg = ["How ", "are ", "you?"]
 
     # When
-    with caplog.at_level("BOT_SPEAK", logger="test_bot"):
+    with caplog.at_level(level="DEBUG"):
         chatbot = Chatbot(name="test_bot")
-        chatbot.ask(prompt="Hi!")
+        chatbot.ask(prompt="Hi!", asked_by="TESTER")
 
     # Then
     for r, t in zip(caplog.records, want_msg):
         assert r.message == t
-        assert r.levelname == "BOT_SPEAK"

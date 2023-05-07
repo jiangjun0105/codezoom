@@ -1,15 +1,31 @@
+import ast
 import re
-from functools import partial
+from typing import Callable
 
 import pandas as pd
 
-from codebase_analyzer.chatbot import function_bot, search_bot
+from codebase_analyzer import prompts
+from codebase_analyzer.chatbot import Chatbot
 from codebase_analyzer.embedding import search_functions
 
+search_bot = Chatbot(
+    name="search_bot",
+    name_color="yellow",
+    model="gpt-3.5-turbo",
+    system_prompt=prompts.search_bot_system(),
+)
 
-def _ask_function(name: str, question: str, code_info: pd.DataFrame) -> str:
+function_bot = Chatbot(
+    name="function_bot",
+    name_color="yellow",
+    model="gpt-3.5-turbo",
+    system_prompt=prompts.function_bot_system(),
+)
+
+
+def ask_function(name: str, question: str, code_info: pd.DataFrame) -> str:
     """Ask a question about a specific function."""
-    print(f"Getting function code for {name}...\n")
+    print(f"Getting function code for {name}...")
     try:
         code = code_info.loc[code_info["name"] == name, "code"].values[0]
     except IndexError:
@@ -21,12 +37,12 @@ def _ask_function(name: str, question: str, code_info: pd.DataFrame) -> str:
         f"Question: {question}\n"
         f"Please answer the question or return relavent code concisely.\n"
     )
-    return function_bot.ask(prompt=p)
+    return function_bot.ask(prompt=p, asked_by="codebase_bot")
 
 
-def _search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[str]:
+def search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[str]:
     """Search for a keyword in the codebase and filter using semantic_filer."""
-    print(f"Searching for keyword '{keyword}'...\n")
+    print(f"Searching for keyword '{keyword}'...")
     result = [
         f"{i}: {line}"
         for i, line in enumerate(raw_code.split("\n"), 1)
@@ -41,61 +57,60 @@ def _search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[st
         f"The given semantic filter is: {semantic_filer}\n"
         f"Please help find the relavent code or provide other helpful info.\n"
     )
-    return search_bot.ask(prompt=p)
+    return search_bot.ask(prompt=p, asked_by="codebase_bot")
 
 
-def _get_relevant_functions(
+def get_relevant_functions(
     query: str, column: str, n: int, codebase_info: pd.DataFrame
 ) -> pd.DataFrame:
     if column not in ["code", "summary"]:
         return f"Unknown column: {column}, use 'code' or 'summary' instead."
     print("Searching for relevant functions...")
     res = search_functions(codebase_info, query, n=n)
-    got = "\n".join(f"{n}: {s}" for n, s in res[["name", column]].values)
-    return (
-        f"Below is the {n} relevant functions and their summaries in the form of `function_name: summary`\n\n"
-        + got
-    )
+    got = "\n".join(res[column])
+    return "Below is the the most relevant function or code block:\n" + got
 
 
-def parse_function_call(function_call: str) -> tuple[str, list[str]]:
-    """Parse a function call string into a function name and a list of arguments."""
-    function_pattern = re.compile(r"(\w+)\((.*)\)")
-    match = function_pattern.match(function_call)
+def parse_function_call(function_call: str) -> tuple[str, list[str], dict[str, str]]:
+    """Parse a function call string into a function name, a list of arguments, and a dictionary of keyword arguments."""
+    # Parse the function call into an AST
+    tree = ast.parse(function_call)
 
-    if not match:
+    # Check if the parsed code is a single function call
+    if not isinstance(tree.body[0], ast.Expr) or not isinstance(
+        tree.body[0].value, ast.Call
+    ):
         raise ValueError(f"Invalid function string: {function_call}")
 
-    function_name = match.group(1)
-    args_string = match.group(2)
-
-    arg_pattern = re.compile(r"\"([^\"]*)\"|\'([^\']*)\'")
-    arg_list = [
-        match.group(1) or match.group(2)
-        for match in arg_pattern.finditer(args_string)
-    ]
-
-    return function_name, arg_list
-
-
-def execute_function(function_call: str, code_info, raw_code) -> str:
-    """Execute the function in Chatbot response string."""
-    ask_function = partial(_ask_function, code_info=code_info)
-    search_keyword = partial(_search_keyword, raw_code=raw_code, semantic_filer="")
-    get_relevant_functions = partial(
-        _get_relevant_functions, n=1, codebase_info=code_info, column="code"
-    )
-
-    function_map = {
-        "ask_function": ask_function,
-        "search_keyword": search_keyword,
-        "get_relevant_functions": get_relevant_functions,
+    # Extract the function name, positional arguments, and keyword arguments
+    call_node = tree.body[0].value
+    function_name = ast.unparse(call_node.func)
+    # NOTE: Can only handle literals (e.g., numbers, strings, lists, dictionaries, etc.)
+    args = [ast.literal_eval(ast.unparse(arg)) for arg in call_node.args]
+    kwargs = {
+        kwarg.arg: ast.literal_eval(ast.unparse(kwarg.value))
+        for kwarg in call_node.keywords
     }
 
-    function_name, args = parse_function_call(function_call)
+    return function_name, args, kwargs
+
+
+def execute_function(function_map: dict[str, Callable], function_call: str) -> str:
+    """Execute the function in Chatbot response string."""
+
+    function_name, args, kwargs = parse_function_call(function_call)
     function = function_map.get(function_name)
 
     if function is None:
         raise ValueError(f"Unknown function: {function_name}")
 
-    return function(*args)
+    return function(*args, **kwargs)
+
+
+def parse_response(response: str, function_map: dict[str, callable]) -> str:
+    r = re.search(r"^Command: .*", response, re.MULTILINE)
+    cmd = r.group(0).split("Command: ")[1]
+    return execute_function(
+        function_map=function_map,
+        function_call=cmd,
+    )

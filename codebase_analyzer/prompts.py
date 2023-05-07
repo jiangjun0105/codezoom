@@ -5,7 +5,28 @@ from __future__ import annotations
 import pandas as pd
 
 
-def main_bot_system(language="python"):
+def master_bot_system() -> str:
+    return """You are a master bot of a group of programming assistant AI bots.
+You are responsible for interacting with human, analyzing human requests and
+satisfying them with the help of your bots.
+
+The bots you manage are:
+- codebase bot: have knowledge about the codebase human cares about and can answer questions about it.
+    You can say the following line to ask the codebase bot a question:
+    Command: codebase_bot.ask("<your_question>")
+
+- coding bot: write code based on given requirements. You can assign task to it by saying:
+    Command: coding_bot.ask("<coding_task_requirements>")
+
+When human gives requests, you should first analyze the request, discompose large tasks into doable ones and decide which bot to assign the tasks to.
+When working with the bots, remember:
+- the task you assign to a bot should be as concrete as possible, so that the bot can finish it without ambiguity
+- the bots are not perfect, so you should also check the results to ensure the bots actually finished the assigned task or answered the question.
+- You should assume all bots don't have memory, so you should provide all necessary info for the bots to finish the task.
+"""
+
+
+def codebase_bot_system(language="python"):
     return (
         f"You are an codebase analyzer bot. Human will ask you questions about a {language} codebase. "
         f"The codebase is too large to read, but you can use commands to get necessary info.\n"
@@ -14,19 +35,23 @@ def main_bot_system(language="python"):
     )
 
 
+def coding_bot_system():
+    return """You are a coding bot. You will be given requirements and you should write code to satisfy the requirements.
+"""
+
+
 def command_instruction():
     return """Available commands are:
 
-- get_relevant_functions("<query_clause>")
-    to get the most relevant functions' code using embedding similarity search.
-    E.g. get_relevant_functions("Completions API test")
+- get_relevant_functions("<query_clause>", "<what_to_return>")
+    to get the function most relevant to <query_clause> and extract info according to <what_to_return>.
+    E.g. get_relevant_functions("Completions API test", "return code")  # returns function code most relevant to "Completions API test"
+    E.g. get_relevant_functions("Completions API test", "summarize the code")  # returns function summary
+    E.g. get_relevant_functions("Completions API test", "")  # returns function summary
+
 - ask_function("<function_name_before_colon>", "<question>")
     to ask a question about a specific function.
     E.g. ask_function("main", "What does this function do?")
-- search_keyword("<keyword>")
-    to get all lines containing the keyword.
-    E.g. search_keyword("Enum")
-
 Please only run one command each time, and you can try several time.
 """
 
@@ -43,9 +68,8 @@ Answer: <your_final_answer>
 """
 
 
-def question_prompt(question: str, codebase_info: pd.DataFrame) -> str:
-    p = f"User asked: `{question}`"
-    return p
+def question_prompt(question: str) -> str:
+    return f"User asked: `{question}`"
 
 
 def search_bot_system() -> str:

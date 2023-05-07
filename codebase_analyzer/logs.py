@@ -8,14 +8,10 @@ from pathlib import Path
 
 import loguru
 from autogpt.config import Config
-from colorama import Fore, Style
 
 CFG = Config()
 # TODO: Make this configurable.
 LOG_FILE_PATH = Path("~/gpt-developer/.cache/chatbot.log").expanduser()
-
-BOT_SPEAK = 25
-logging.addLevelName(BOT_SPEAK, "BOT_SPEAK")
 
 
 class LogOutput(str, Enum):
@@ -32,12 +28,14 @@ class SpeakerType(str, Enum):
     SYSTEM = "system"
 
 
-def log_filter(desired: SpeakerType) -> bool:
+def log_filter(desired: SpeakerType | set[SpeakerType]) -> bool:
     """Loguru filter that allows to print stream messages from bots."""
+    if isinstance(desired, SpeakerType):
+        desired = {desired}
 
     def filter(record: loguru.Record) -> bool:
         """Loguru filter that allows to print stream messages from bots."""
-        return record["extra"].get("speaker_type", SpeakerType.SYSTEM) == desired
+        return record["extra"].get("speaker_type", SpeakerType.SYSTEM) in desired
 
     return filter
 
@@ -56,6 +54,10 @@ loguru.logger.add(
     LOG_FILE_PATH, level="DEBUG", filter=log_filter(SpeakerType.SYSTEM)
 )
 loguru.logger.add(
-    sys.stdout, filter=log_filter(SpeakerType.BOT), format=bot_fomatter
+    sys.stdout,
+    filter=log_filter({SpeakerType.BOT, SpeakerType.HUMAN}),
+    format=bot_fomatter,
 )
 # loguru.logger.add(LOG_FILE_PATH, filter=log_filter(SpeakerType.BOT), format=bot_fomatter)
+
+human_logger = loguru.logger.bind(speaker_type=SpeakerType.HUMAN, color="green")

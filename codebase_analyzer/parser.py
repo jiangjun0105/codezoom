@@ -1,22 +1,33 @@
 from __future__ import annotations
 
 import ast
+from ast import literal_eval
 from dataclasses import dataclass
 from pathlib import Path
 from time import sleep
 
-import openai
 import pandas as pd
+from loguru import logger
 from tqdm import tqdm
 
+from codebase_analyzer import prompts
 from codebase_analyzer.ast_visitor import CodeExtractor
-from codebase_analyzer.chatbot import Chatbot, summary_bot
+from codebase_analyzer.chatbot import Chatbot
+from codebase_analyzer.embedding import embed_codebase
 
 
 @dataclass
 class RawCode:
     file: Path
     code: str
+
+
+summary_bot = Chatbot(
+    name="summary_bot",
+    name_color="yellow",
+    model="gpt-3.5-turbo",
+    system_prompt=prompts.summary_bot_system(),
+)
 
 
 def extract_code_units(
@@ -47,6 +58,19 @@ def summarize_code(
 def load_raw_code(file: Path) -> str:
     with open(Path(file).expanduser(), "r", encoding="utf-8") as source_file:
         return source_file.read()
+
+
+def load_cached_codebase_info(cache: str) -> pd.DataFrame:
+    """Load cached codebase info from the given csv file."""
+    codebase_info = pd.read_csv(cache).set_index("Unnamed: 0")
+    logger.info(f"Loaded codebase info from {cache}")
+    if "embedding" not in codebase_info.columns:
+        logger.info("Embeddings not found in cache, embedding codebase...")
+        embed_codebase(codebase_info)
+    else:
+        # TODO: Use format supporting storing the embedding
+        codebase_info["embedding"] = codebase_info["embedding"].apply(literal_eval)
+    return codebase_info
 
 
 def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
