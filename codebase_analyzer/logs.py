@@ -58,6 +58,11 @@ loguru.logger.add(
     filter=log_filter({SpeakerType.BOT, SpeakerType.HUMAN}),
     format=bot_fomatter,
 )
+# loguru.logger.add(
+#     sys.stderr,
+#     filter=log_filter(SpeakerType.SYSTEM),
+#     level="ERROR",
+# )
 # loguru.logger.add(LOG_FILE_PATH, filter=log_filter(SpeakerType.BOT), format=bot_fomatter)
 
 human_logger = loguru.logger.bind(speaker_type=SpeakerType.HUMAN, color="green")

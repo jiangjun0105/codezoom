@@ -1,8 +1,10 @@
 import ast
 import re
-from typing import Callable
+from functools import partial
+from typing import Any, Callable
 
 import pandas as pd
+from loguru import logger
 
 from codebase_analyzer import prompts
 from codebase_analyzer.chatbot import Chatbot
@@ -60,15 +62,31 @@ def search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[str
     return search_bot.ask(prompt=p, asked_by="codebase_bot")
 
 
+# - ask_function("<function_name>", "<question>")
+#     to ask a question about a specific function.
+#     E.g. ask_function("main", "What does this function do?")
+# Please only run one command each time, and you can try several time.
+# """
+
+
 def get_relevant_functions(
-    query: str, column: str, n: int, codebase_info: pd.DataFrame
+    query: str,
+    want: str = "summary",
+    n: int = 1,
+    codebase_info: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    if column not in ["code", "summary"]:
-        return f"Unknown column: {column}, use 'code' or 'summary' instead."
     print("Searching for relevant functions...")
+    if codebase_info is None:
+        logger.error("Codebase info is not provided.")
+        return "Codebase info is not provided."
     res = search_functions(codebase_info, query, n=n)
-    got = "\n".join(res[column])
-    return "Below is the the most relevant function or code block:\n" + got
+    if want in res.columns:
+        got = "\n".join(res[want])
+        return f"Below is the {want} related to query:\n" + got
+    else:
+        logger.error(f"Cannot find {want} in the codebase info.")
+        return f"Cannot find {want} in the codebase info."
+    # for name, code in res.loc[["name", "code"]]:
 
 
 def parse_function_call(function_call: str) -> tuple[str, list[str], dict[str, str]]:
@@ -109,6 +127,9 @@ def execute_function(function_map: dict[str, Callable], function_call: str) -> s
 
 def parse_response(response: str, function_map: dict[str, callable]) -> str:
     r = re.search(r"^Command: .*", response, re.MULTILINE)
+    if r is None:
+        logger.info("No command found in response.")
+        return
     cmd = r.group(0).split("Command: ")[1]
     return execute_function(
         function_map=function_map,

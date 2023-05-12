@@ -178,7 +178,6 @@ class Chatbot:
             for key, value in message.items():
                 if not value:
                     continue
-                # print("debug", key, value)
                 num_tokens += len(encoding.encode(value))
                 if key == "name":  # if there's a name, the role is omitted
                     num_tokens += 5  # role is always required and always 1 token

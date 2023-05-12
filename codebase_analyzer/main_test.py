@@ -29,12 +29,20 @@ def test_e2e(
 ) -> None:
     """End-to-end test of the codebase analyzer."""
     chat = TestChat(actors={human, master_bot, codebase_bot})
+    # Test no command
+    chat.send(human, "Self-introduction?")
+    chat.send(
+        master_bot,
+        "Hello! I am a master bot responsible for managing a group of programming assistant AI bots.",
+    )
+    # Test master_bot -> codebase_bot
     chat.send(human, "What is this codebase about?")
     chat.send(
         master_bot,
         "I need to ask the codebase bot.\nCommand: codebase_bot.ask('What is this codebase about?')",
     )
     chat.send(codebase_bot, "Answer: This codebase is about a chatbot.")
+    # Test master_bot -> codebase_bot -> function_bot
     chat.send(human, "Can you summarize the main function of the code?")
     chat.send(
         master_bot,

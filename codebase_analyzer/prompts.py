@@ -26,37 +26,19 @@ When working with the bots, remember:
 """
 
 
-def codebase_bot_system(language="python"):
-    return (
-        f"You are an codebase analyzer bot. Human will ask you questions about a {language} codebase. "
-        f"The codebase is too large to read, but you can use commands to get necessary info.\n"
-        + command_instruction()
-        + response_format()
-    )
-
-
 def coding_bot_system():
     return """You are a coding bot. You will be given requirements and you should write code to satisfy the requirements.
 """
 
 
-def command_instruction():
-    return """Available commands are:
+def command_instruction(tool_prompts: str) -> str:
+    return f"Available commands are:\n{tool_prompts}\n"
 
-- get_relevant_functions("<query_clause>", "<what_to_return>")
-    to get the function most relevant to <query_clause> and extract info according to <what_to_return>.
-    E.g. get_relevant_functions("Completions API test", "return code")  # returns function code most relevant to "Completions API test"
-    E.g. get_relevant_functions("Completions API test", "summarize the code")  # returns function summary
-    E.g. get_relevant_functions("Completions API test", "")  # returns function summary
-
-- ask_function("<function_name_before_colon>", "<question>")
-    to ask a question about a specific function.
-    E.g. ask_function("main", "What does this function do?")
-Please only run one command each time, and you can try several time.
-"""
+    # E.g. get_relevant_functions("Completions API test", "does it test get api?")  # returns if it tests get api
 
 
 def response_format():
+    # TODO: Make this more general and only require Command and Answer.
     return """If need more info, your reply should look like:
 
 Reasoning: <one_line_reasoning>

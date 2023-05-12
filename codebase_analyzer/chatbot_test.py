@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 from codebase_analyzer.chatbot import Chatbot
-from codebase_analyzer.test_utils import openai_returns
+from codebase_analyzer.test_data import sample_gpt_returns
 
 
 @mock.patch("codebase_analyzer.chatbot.openai.ChatCompletion.create")
@@ -14,7 +14,7 @@ def test_ask_chatbot(
 ) -> None:
     """Test ask_chatbot function."""
     # Given
-    mock_openai.return_value = openai_returns
+    mock_openai.return_value = sample_gpt_returns
     want_msg = ["How ", "are ", "you?"]
 
     # When
