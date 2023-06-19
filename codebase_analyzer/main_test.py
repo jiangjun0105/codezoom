@@ -12,6 +12,7 @@ from codebase_analyzer.test_utils import TestChat, generate_gpt_responses
 human = "human_input"
 master_bot = "api_return"
 codebase_bot = "api_return"
+file_bot = "api_return"
 function_bot = "api_return"
 
 
@@ -28,7 +29,7 @@ def test_e2e(
     mock_api: mock.MagicMock,
 ) -> None:
     """End-to-end test of the codebase analyzer."""
-    chat = TestChat(actors={human, master_bot, codebase_bot})
+    chat = TestChat(actors={human, master_bot, codebase_bot, file_bot, function_bot})
     # Test no command
     chat.send(human, "Self-introduction?")
     chat.send(
@@ -48,8 +49,22 @@ def test_e2e(
         master_bot,
         "I need to ask the codebase bot.\nCommand: codebase_bot.ask('Can you summarize the main function?')",
     )
-    chat.send(codebase_bot, 'Command: ask_function("main", "summary")')
-    chat.send(function_bot, "main function is the entry point of the program.")
+    chat.send(
+        codebase_bot,
+        'Command: file_bot.ask(file_path="./src/revChatGPT/V1.py", prompt="does it have the main function?")',
+    )
+    chat.send(file_bot, "Answer: This file contains the main function.")
+    chat.send(
+        codebase_bot,
+        'Command: file_bot.ask(file_path="./src/revChatGPT/V1.py", prompt="summary of main function")',
+    )
+    chat.send(
+        file_bot,
+        "Command: function_bot.ask(function_name='main', prompt='summary of the function')",
+    )
+    chat.send(
+        function_bot, "Answer: main function is the entry point of the program."
+    )
     chat.send(
         codebase_bot, "Answer: main function is the entry point of the program."
     )
@@ -60,7 +75,7 @@ def test_e2e(
         generate_gpt_responses(r) for r in chat.get("api_return")
     ]
     main(
-        repo="~/ChatGPT/src/revChatGPT/V1.py",
+        repo="~/ChatGPT/",
         cache=".cache/code_info.csv",
     )
 

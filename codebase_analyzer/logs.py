@@ -54,7 +54,7 @@ loguru.logger.add(
     LOG_FILE_PATH, level="DEBUG", filter=log_filter(SpeakerType.SYSTEM)
 )
 loguru.logger.add(
-    sys.stdout,
+    sys.stderr,
     filter=log_filter({SpeakerType.BOT, SpeakerType.HUMAN}),
     format=bot_fomatter,
 )

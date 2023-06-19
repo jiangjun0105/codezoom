@@ -1,6 +1,8 @@
 import ast
 import re
+import subprocess
 from functools import partial
+from pathlib import Path
 from typing import Any, Callable
 
 import pandas as pd
@@ -89,6 +91,50 @@ def get_relevant_functions(
     # for name, code in res.loc[["name", "code"]]:
 
 
+def get_directory_tree(
+    path: str, level: int = 1, root_path: Path | None = None
+) -> str:
+    if not root_path:
+        # TOOD: for now this shouldn't happen but later may change to let bot
+        # ask user to provide codebase root directory
+        raise ValueError("root_path is not provided.")
+
+    path = Path(path).expanduser()
+    print(f"Getting directory tree of {path}...")
+    if not path.exists():
+        return f"Path {path} doesn't exist."
+    if not path.is_dir():
+        return f"Path {path} is not a directory."
+    if level < 1:
+        return "Level should be greater than 0."
+    try:
+        # Catch output of tree command and return it
+        return subprocess.check_output(
+            ["tree", "-L", str(level), str(path)], cwd=root_path
+        ).decode()
+    except subprocess.CalledProcessError as e:
+        return f"Error when running tree command: {e}"
+
+
+def get_file_content(path: str, root_path: Path | str = None) -> str:
+    if not root_path:
+        # TOOD: for now this shouldn't happen but later may change to let bot
+        # ask user to provide codebase root directory
+        raise ValueError("root_path is not provided.")
+
+    path = (Path(root_path) / Path(path)).expanduser()
+    print(f"Getting content of {path}...")
+    if not path.exists():
+        return f"Path {path} doesn't exist."
+    if not path.is_file():
+        return f"Path {path} is not a file."
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        return f"Error when reading file: {e}"
+
+
 def parse_function_call(function_call: str) -> tuple[str, list[str], dict[str, str]]:
     """Parse a function call string into a function name, a list of arguments, and a dictionary of keyword arguments."""
     # Parse the function call into an AST
@@ -113,8 +159,13 @@ def parse_function_call(function_call: str) -> tuple[str, list[str], dict[str, s
     return function_name, args, kwargs
 
 
-def execute_function(function_map: dict[str, Callable], function_call: str) -> str:
+def execute_function(
+    function_map: dict[str, Callable], function_call: str | None
+) -> str:
     """Execute the function in Chatbot response string."""
+    if function_call is None:
+        logger.info("No function call found in response.")
+        return ""
 
     function_name, args, kwargs = parse_function_call(function_call)
     function = function_map.get(function_name)
@@ -122,16 +173,26 @@ def execute_function(function_map: dict[str, Callable], function_call: str) -> s
     if function is None:
         raise ValueError(f"Unknown function: {function_name}")
 
+    logger.debug(f"Executing function: {function_name} {args} {kwargs}")
     return function(*args, **kwargs)
 
 
-def parse_response(response: str, function_map: dict[str, callable]) -> str:
-    r = re.search(r"^Command: .*", response, re.MULTILINE)
-    if r is None:
-        logger.info("No command found in response.")
-        return
-    cmd = r.group(0).split("Command: ")[1]
-    return execute_function(
-        function_map=function_map,
-        function_call=cmd,
-    )
+def parse_response(response: str) -> str:
+    """Parse the response from bot."""
+
+    cmds = dict(Reason=None, Tool=None, Bot=None)
+    for key in cmds.keys():
+        r = re.search(rf"^{key}: (.*?)\n", response, re.MULTILINE)
+        if r is None:
+            logger.debug(f"No {key} found in response.")
+        else:
+            logger.debug(f"Found {key} in response.")
+            cmds[key] = r.group(1)
+    logger.debug(f"Extracted commands: {cmds}")
+    return cmds
+
+
+# res = "Command return:\n" + execute_function(
+#         function_map=function_map,
+#         function_call=cmd,
+#     )

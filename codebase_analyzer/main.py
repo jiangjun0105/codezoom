@@ -14,7 +14,7 @@ from codebase_analyzer.logs import SpeakerType, human_logger
 
 def register_bots(repo: str, cache: str | Path = None) -> tuple[str, pd.DataFrame]:
     """Anything needs to be done before the interaction loop."""
-    codebase_bot = CodebaseBot(repo=repo, cache=cache)
+    codebase_bot = CodebaseBot(repo_path=repo, cache_path=cache)
     coding_bot = CodingBot()
     bots = {
         "codebase_bot": codebase_bot,

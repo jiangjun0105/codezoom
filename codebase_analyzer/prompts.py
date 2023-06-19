@@ -31,18 +31,28 @@ def coding_bot_system():
 """
 
 
-def command_instruction(tool_prompts: str) -> str:
-    return f"Available commands are:\n{tool_prompts}\n"
+def tool_instruction(tool_prompts: str) -> str:
+    if not tool_prompts:
+        tool_prompts = "No tool available."
+    return f"Available tools are:\n{tool_prompts}\n"
 
-    # E.g. get_relevant_functions("Completions API test", "does it test get api?")  # returns if it tests get api
+
+def sub_bot_instruction(bot_prompts: str) -> str:
+    if not bot_prompts:
+        bot_prompts = "No bot available."
+    return (
+        f"The bots you can ask for more info are:\n{bot_prompts}\n"
+        f"Please provide enough context info for the bots to answer your question."
+    )
 
 
 def response_format():
     # TODO: Make this more general and only require Command and Answer.
     return """If need more info, your reply should look like:
 
-Reasoning: <one_line_reasoning>
-Command: <command_shown_above>
+Reason: <one_line_reasoning>
+Tool: <command_in_tool_instructions> (optional)
+Bot: <command_in_bot_instructions> (optional)
 
 When answering, your reply should look like:
 
