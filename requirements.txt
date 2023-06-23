@@ -12,3 +12,4 @@ playsound
 gtts
 PyObjC
 pytest
+singleton_decorator

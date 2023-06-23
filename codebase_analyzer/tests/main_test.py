@@ -4,7 +4,6 @@ from unittest import mock
 
 from click.testing import CliRunner
 
-from codebase_analyzer.bots import CodebaseBot, MasterBot
 from codebase_analyzer.main import cli, main
 from codebase_analyzer.test_data import sample_embedding
 from codebase_analyzer.test_utils import TestChat, generate_gpt_responses

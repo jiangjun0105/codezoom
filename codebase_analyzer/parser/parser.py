@@ -7,13 +7,13 @@ from pathlib import Path
 from time import sleep
 
 import pandas as pd
+from langchain.chat_models import ChatOpenAI
 from loguru import logger
 from tqdm import tqdm
 
-from codebase_analyzer import prompts
-from codebase_analyzer.ast_visitor import CodeExtractor
-from codebase_analyzer.chatbot import Chatbot
-from codebase_analyzer.embedding import embed_codebase
+from codebase_analyzer.common.credentials import get_api_key
+from codebase_analyzer.parser.ast_visitor import CodeExtractor
+from codebase_analyzer.tools.embedding import embed_codebase
 
 
 @dataclass
@@ -22,17 +22,19 @@ class RawCode:
     code: str
 
 
-summary_bot = Chatbot(
-    name="summary_bot",
-    name_color="yellow",
-    model="gpt-3.5-turbo",
-    system_prompt=prompts.summary_bot_system(),
+summary_bot = ChatOpenAI(
+    temperature=0,
+    model="gpt-3.5-turbo-0613",
+    openai_api_key=get_api_key(),
+    # streaming=True,
+    # callbacks=[FinalStreamingStdOutCallbackHandler()],
+    client=None,  # TODO: How to fix pydantic error?
 )
 
 
 def extract_code_units(
     code: str, threshold: int = 50
-) -> tuple[dict[str, str], list[str], list[str]]:
+) -> tuple[dict[str, str], str, str]:
     """Extract code in unit of function or class from the given code."""
     tree = ast.parse(code)
     extractor = CodeExtractor(threshold)
@@ -42,7 +44,7 @@ def extract_code_units(
 
 def summarize_code(
     code: str,
-    chatbot: Chatbot,
+    # chatbot: Chatbot,
     ratio: float = 15,
     min_len=20,
     max_len=100,
@@ -52,7 +54,7 @@ def summarize_code(
     prompt = (
         f"Summarize the following code using less than {length} chars:\n\n{code}"
     )
-    return chatbot.ask(prompt, chatbot)
+    return prompt
 
 
 def load_raw_code(file: Path) -> str:
@@ -60,11 +62,13 @@ def load_raw_code(file: Path) -> str:
         return source_file.read()
 
 
-def load_cached_codebase_info(cache: str) -> pd.DataFrame:
+def load_cached_codebase_info(
+    cache_path: str | Path, auto_embedding: bool = False
+) -> pd.DataFrame:
     """Load cached codebase info from the given csv file."""
-    codebase_info = pd.read_csv(cache).set_index("Unnamed: 0")
-    logger.info(f"Loaded codebase info from {cache}")
-    if "embedding" not in codebase_info.columns:
+    codebase_info = pd.read_csv(cache_path).set_index("Unnamed: 0")
+    logger.info(f"Loaded codebase info from {cache_path}")
+    if "embedding" not in codebase_info.columns and auto_embedding:
         logger.info("Embeddings not found in cache, embedding codebase...")
         embed_codebase(codebase_info)
     else:
@@ -73,10 +77,11 @@ def load_cached_codebase_info(cache: str) -> pd.DataFrame:
     return codebase_info
 
 
-def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
+def extract_code_info(file_path: Path) -> tuple[RawCode, list[dict]]:
     """Extract code units, imports, and assignments from the given file."""
-
-    file = raw_code.file
+    # TODO: Improve this function and rethink about RawCode class
+    file_path = Path(file_path).expanduser()
+    raw_code = RawCode(file=file_path, code=load_raw_code(file_path))
     code_info = []
     code_units, imports, assignments = extract_code_units(raw_code.code)
 
@@ -85,7 +90,7 @@ def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
         print(f"Code Unit {name}:\n")
         code_info.append(
             dict(
-                file=file,
+                # file=file_path,
                 name=name,
                 code=code,
                 summary=summarize_code(code, summary_bot),
@@ -96,7 +101,7 @@ def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
     print("Imports:\n")
     code_info.append(
         dict(
-            file=file,
+            # file=file,
             name="imports",
             code=imports,
             summary=summarize_code(imports, summary_bot),
@@ -105,7 +110,7 @@ def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
     print("Assignments:\n")
     code_info.append(
         dict(
-            file=file,
+            # file=file,
             name="assignments",
             code=assignments,
             summary=summarize_code(assignments, summary_bot),
@@ -113,7 +118,7 @@ def extract_code_info(raw_code: RawCode) -> tuple[str, list[dict]]:
     )
     summary = "\n".join(i["summary"] for i in code_info)
     print(
-        f"Original Code length: {len(raw_code)}\n"
+        f"Original Code length: {len(raw_code.code)}\n"
         f"Extracted block num: {len(code_info)}\n"
         f"Extracted Code length: {len(summary)}\n"
     )
@@ -140,7 +145,7 @@ def parse_codebase(codebase_path: str | Path) -> tuple[dict[str, str], pd.DataFr
 
     for file in python_files:
         try:
-            raw_code, code_info = extract_code_info(file)
+            raw_code, code_info = extract_code_info(Path(file))
             raw_codebase[file] = raw_code
             codebase_info.extend(code_info)
         except Exception as e:

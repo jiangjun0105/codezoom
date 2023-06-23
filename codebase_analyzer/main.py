@@ -1,55 +1,48 @@
 from __future__ import annotations
 
-from functools import partial
 from pathlib import Path
+from typing import Any
 
 import click
-import pandas as pd
 
-from codebase_analyzer import prompts
-from codebase_analyzer.bots import CodebaseBot, CodingBot, MasterBot
-from codebase_analyzer.chatbot import BotModel, Chatbot
-from codebase_analyzer.logs import SpeakerType, human_logger
+from codebase_analyzer.bots.file.base import FileBot
+from codebase_analyzer.managers.function import FunctionBotManager
+from codebase_analyzer.parser.parser import load_cached_codebase_info
 
 
-def register_bots(repo: str, cache: str | Path = None) -> tuple[str, pd.DataFrame]:
-    """Anything needs to be done before the interaction loop."""
-    codebase_bot = CodebaseBot(repo_path=repo, cache_path=cache)
-    coding_bot = CodingBot()
-    bots = {
-        "codebase_bot": codebase_bot,
-        "coding_bot": coding_bot,
-    }
-    bot_map = {
-        "codebase_bot.ask": partial(codebase_bot.ask, asked_by="master_bot"),
-        "coding_bot.ask": partial(coding_bot.ask, asked_by="master_bot"),
-    }
-    return bots, MasterBot(bot_map=bot_map)
-
-
-def before_exiting(bots: dict[str, Chatbot]) -> None:
-    """Anything needs to be done before the interaction loop."""
-    bots["codebase_bot"].save_cache()
-
-
-def interaction_loop(master_bot: MasterBot) -> None:
+def interaction_loop(master_bot: Any) -> None:
     """Main loop for interacting wiht the codebase analyzer."""
 
     while True:
         query = input("\nEnter a query or type 'exit' to quit: ")
         if query.lower() == "exit":
             break
-        human_logger.info(
-            f"HUMAN -> MASTER_BOT: {query}\n", speaker=SpeakerType.HUMAN
-        )
-        master_bot.ask(prompt=query, asked_by="human")
+        master_bot.ask(inputs=query)
 
 
-def main(repo: str | Path, cache: str | Path) -> None:
+def main(repo_path: str | Path, cache_path: str | Path) -> None:
     """GPT Developer - Codebase Analyzer"""
-    bots, master_bot = register_bots(repo=repo, cache=cache)
-    interaction_loop(master_bot)
-    before_exiting(bots=bots)
+
+    # FIXME: For testing
+    repo_path = Path("~/ChatGPT/src/revChatGPT/")
+    file_path = repo_path / "V1.py"
+    cache_path = Path("~/ichigen-coder/.cache/code_info.csv")
+    code_info = load_cached_codebase_info(cache_path=cache_path)
+    codebase_info = {
+        str(file_path.expanduser()): code_info,
+    }
+
+    # Singleton managers
+    manager = FunctionBotManager(codebase_info=codebase_info)
+
+    # FIXME: For now we use the file bot as master bot
+    file_bot = FileBot(
+        file_path=file_path,
+        cache_path=cache_path,
+        code_info=code_info,
+        get_bot_func=manager.get_bot,
+    )
+    interaction_loop(file_bot)
 
 
 @click.command()
@@ -57,7 +50,7 @@ def main(repo: str | Path, cache: str | Path) -> None:
 @click.option("--cache", help="Path to the cache repo info csv file")
 def cli(repo: str | Path, cache: str | Path) -> None:
     """CLI: wrapper for the main function for easy testing."""
-    main(repo=repo, cache=cache)
+    main(repo_path=repo, cache_path=cache)
 
 
 if __name__ == "__main__":
