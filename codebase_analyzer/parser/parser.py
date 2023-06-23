@@ -102,7 +102,7 @@ def extract_code_info(file_path: Path) -> tuple[RawCode, list[dict]]:
     code_info.append(
         dict(
             # file=file,
-            name="imports",
+            name="import statements",
             code=imports,
             summary=summarize_code(imports, summary_bot),
         )
@@ -111,7 +111,7 @@ def extract_code_info(file_path: Path) -> tuple[RawCode, list[dict]]:
     code_info.append(
         dict(
             # file=file,
-            name="assignments",
+            name="file level assignments",
             code=assignments,
             summary=summarize_code(assignments, summary_bot),
         )

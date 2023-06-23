@@ -24,3 +24,7 @@ FILE SUMMARY:
 
 {file_summary}
 """
+
+# ===
+# CHAT HISTORY:
+# {chat_history}

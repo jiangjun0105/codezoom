@@ -19,7 +19,7 @@ def get_file_summary(
 ) -> str:
     """For getting the summary of the file managed by this bot."""
     # FIXME: this is just a fake function.
-    return """This file implements a command-line interface (CLI) for an AI chatbot, specifically OpenAI's ChatGPT. It contains Chatbot and AsyncChatbot classes responsible for managing chat sessions, logging in, sending messages, fetching conversation history, and handling other conversation details. It also includes methods for caching tokens, checking credentials, managing conversations, and handling responses. The main function manages user interaction with the CLI, controlling the conversation flow. Additionally, decorators for logging and several utilities for cache management, chat reset, and conversation rollback are present. It serves as a comprehensive tool for customizable interaction with an AI chatbot."""
+    return f"""The file ({file_path}) implements a command-line interface (CLI) for an AI chatbot, specifically OpenAI's ChatGPT. It contains Chatbot and AsyncChatbot classes responsible for managing chat sessions, logging in, sending messages, fetching conversation history, and handling other conversation details. It also includes methods for caching tokens, checking credentials, managing conversations, and handling responses. The main function manages user interaction with the CLI, controlling the conversation flow. Additionally, decorators for logging and several utilities for cache management, chat reset, and conversation rollback are present. It serves as a comprehensive tool for customizable interaction with an AI chatbot."""
 
 
 def ask_function_bot(
@@ -37,7 +37,8 @@ def ask_function_bot(
     ],
 ) -> str:
     """For asking a question to a function bot knowing the code of a specific function.
-    Consider using this method first before using `get_function_code` when the function code length > 10 lines."""
+    Consider using this method first before using `get_function_code` when the function code length > 10 lines.
+    Also remember include enough information in the question so that the bot can give you a good answer."""
 
     function_bot = get_bot_func(file_path=file_path, function_name=function_name)
     return function_bot.ask(question)
@@ -53,7 +54,7 @@ def get_function_summaries(
     # FIXME: this is just a fake function.
     return """This file contains the following functions or methods (Note this is just a brief introduction, please refer to the source code for more details):
 
-main: This code checks if the file is being run as a script and then starts the ChatGPT command-line interface, printing some introductory messages and calling the main function with the configuration dictionary.
+__main__: This code checks if the file is being run as a script and then starts the ChatGPT command-line interface, printing some introductory messages and calling the main function with the configuration dictionary.
 
 Chatbot: The Chatbot class is responsible for handling chatbot functionalities such as logging in, sending messages, managing conversations, and getting conversation history. The class also has methods for caching and checking credentials, setting up session tokens and access tokens, writing and reading from cache, sending requests to OpenAI's API, checking message content and responses, retrieving conversation details and their histories, generating and changing conversation titles, deleting and clearing conversations, mapping conversations, resetting chats and rolling back conversations.
 

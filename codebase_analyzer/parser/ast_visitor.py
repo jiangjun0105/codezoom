@@ -65,7 +65,8 @@ class CodeExtractor(ast.NodeVisitor):
                 and right.value == "__main__"
             ):
                 source_code = ast.unparse(node)
-                self.code_units["__main__"] = source_code
+                # TODO: Find a better name
+                self.code_units["if __name__ == __main__"] = source_code
                 # for child_node in node.body:
                 #     self.visit(child_node)
 

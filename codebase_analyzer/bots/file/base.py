@@ -5,6 +5,8 @@ import pandas as pd
 from langchain.agents import AgentExecutor
 from langchain.agents.openai_functions_agent.base import OpenAIFunctionsAgent
 from langchain.chat_models import ChatOpenAI
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts.chat import MessagesPlaceholder
 from langchain.schema import SystemMessage
 from langchain.tools import StructuredTool
 from pydantic import BaseModel, root_validator, validator
@@ -12,8 +14,6 @@ from pydantic import BaseModel, root_validator, validator
 from codebase_analyzer.bots.base import Bot
 from codebase_analyzer.bots.file import config
 from codebase_analyzer.bots.file.prompts import SYSTEM_MESSAGE
-from codebase_analyzer.common.credentials import get_api_key
-from codebase_analyzer.managers.function import FunctionBotManager
 from codebase_analyzer.parser.parser import (
     extract_code_info,
     load_cached_codebase_info,
@@ -46,6 +46,7 @@ class FileBot(Bot):
     @root_validator(pre=True)
     def init_code_info(cls, values: dict) -> dict:
         # TODO: Maybe it's too redundent to have code_info and file_path?
+        # Maybe I can have different class methods for init using different parameters
         code_info = values.get("code_info")
         cache_path = values.get("cache_path")
         file_path = values.get("file_path")
@@ -90,20 +91,28 @@ class FileBot(Bot):
     def init_agent_executor(cls, values: dict) -> dict:
         tools = values.get("tools")
         file_path = values.get("file_path")
-        system_prompt = OpenAIFunctionsAgent.create_prompt(
+        agent = OpenAIFunctionsAgent.from_llm_and_tools(
+            llm=config.LLM,
+            tools=tools,
             system_message=SystemMessage(
                 # TODO: Should I use langchain.prompt?
                 content=SYSTEM_MESSAGE.format(
                     file_summary=get_file_summary(file_path)
                 )
             ),
-        )
-        agent = OpenAIFunctionsAgent(
-            llm=config.LLM, tools=tools, prompt=system_prompt
+            extra_prompt_messages=[MessagesPlaceholder(variable_name="history")],
         )
 
         values["executor"] = AgentExecutor.from_agent_and_tools(
-            agent=agent, tools=tools, verbose=True, return_intermediate_steps=True
+            agent=agent,
+            tools=tools,
+            verbose=True,
+            return_intermediate_steps=True,
+            memory=ConversationBufferMemory(
+                memory_key="history",
+                return_messages=True,
+                output_key="output",
+            ),
         )
         return values
 
