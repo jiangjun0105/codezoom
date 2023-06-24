@@ -21,7 +21,9 @@ def interaction_loop(master_bot: Any) -> None:
 
 
 def main(repo_path: str | Path, cache_path: str | Path) -> None:
-    """GPT Developer - Codebase Analyzer"""
+    """Ichigen Coder - A cluster of coding bots
+    Codebase Analyzer module
+    """
 
     # FIXME: For testing
     repo_path = Path("~/ChatGPT/src/revChatGPT/")

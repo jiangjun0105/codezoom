@@ -1,10 +1,10 @@
-# GPT Developer
+# Ichigen Coder: A Cluster of Coding Bots
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
 
 ## Introduction
-This repo aims to develop a GPT based developer or coding assistant, so that human developers (including the repo owner) can slack off while working :smile:. It's still at very inital stage and currently focuses on `codebase analyzer`.
+Ichigen Coder is an assembly of AI bots, driven by Large Language Model technology, designed to augment the capabilities of human developers, simplifying the coding process and boosting efficiency in software development, so that human developers (including the repo owner) can slack off while working :smile:. It's still at very inital stage and currently focuses on `codebase analyzer`.
 
 ## Codebase Analyzer
 This module is to help a human developer quickly understand a large codebase by asking questions to a chatbot.
