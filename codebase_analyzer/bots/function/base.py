@@ -11,11 +11,17 @@ from loguru import logger
 from pydantic import BaseModel, root_validator, validator
 
 from codebase_analyzer.bots.base import Bot
+from codebase_analyzer.bots.callbacks import BotStreamingStdOutCallbackHandler
 from codebase_analyzer.bots.function.prompts import DOC_PROMPT, PROMPT
 from codebase_analyzer.common.credentials import get_api_key
 from codebase_analyzer.tools.base import load_single_function
 
-function_llm = OpenAI(temperature=0, openai_api_key=get_api_key(), streaming=False)
+function_llm = OpenAI(
+    temperature=0,
+    openai_api_key=get_api_key(),
+    streaming=True,
+    callbacks=[BotStreamingStdOutCallbackHandler(color="blue")],
+)
 
 FUNCTION_CHAIN = load_qa_with_sources_chain(
     llm=function_llm,
@@ -97,7 +103,7 @@ class FunctionBot(Bot):
             return_only_outputs=True,
         )["output_text"]
         # TODO: Fix a better way to generate trailing newlines.
-        return f"Function bot: {response}\n\n"
+        return f"Function bot: {response}"
 
 
 # function_bot = FunctionBot(function_code=func_str)

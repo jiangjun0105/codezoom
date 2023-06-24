@@ -12,6 +12,7 @@ from langchain.tools import StructuredTool
 from pydantic import BaseModel, root_validator, validator
 
 from codebase_analyzer.bots.base import Bot
+from codebase_analyzer.bots.callbacks import BotStreamingStdOutCallbackHandler
 from codebase_analyzer.bots.file import config
 from codebase_analyzer.bots.file.prompts import SYSTEM_MESSAGE
 from codebase_analyzer.parser.parser import (
@@ -47,6 +48,7 @@ class FileBot(Bot):
     def init_code_info(cls, values: dict) -> dict:
         # TODO: Maybe it's too redundent to have code_info and file_path?
         # Maybe I can have different class methods for init using different parameters
+        # For that, I need to reorganize the code_info cache to include file_path
         code_info = values.get("code_info")
         cache_path = values.get("cache_path")
         file_path = values.get("file_path")
@@ -130,4 +132,9 @@ class FileBot(Bot):
         return code_info
 
     def ask(self, inputs: str):
-        self.executor(inputs=inputs)
+        # REMINDER: This function outputs final response and intermediate steps,
+        # maybe I can make use of it.
+        self.executor(
+            inputs=inputs,
+            callbacks=[BotStreamingStdOutCallbackHandler()],
+        )
