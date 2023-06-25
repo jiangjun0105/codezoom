@@ -20,18 +20,16 @@ def interaction_loop(master_bot: Any) -> None:
         master_bot.ask(inputs=query)
 
 
-def main(repo_path: str | Path, cache_path: str | Path) -> None:
+def main(repo_path: Path, cache_path: Path) -> None:
     """Ichigen Coder - A cluster of coding bots
     Codebase Analyzer module
     """
 
-    # FIXME: For testing
-    repo_path = Path("~/ChatGPT/src/revChatGPT/")
-    file_path = repo_path / "V1.py"
-    cache_path = Path("~/ichigen-coder/.cache/code_info.csv")
+    # FIXME after supporting multiple files
+    file_path = (repo_path / "V1.py").expanduser()
     code_info = load_cached_codebase_info(cache_path=cache_path)
     codebase_info = {
-        str(file_path.expanduser()): code_info,
+        str(file_path): code_info,
     }
 
     # Singleton managers
@@ -52,7 +50,7 @@ def main(repo_path: str | Path, cache_path: str | Path) -> None:
 @click.option("--cache", help="Path to the cache repo info csv file")
 def cli(repo: str | Path, cache: str | Path) -> None:
     """CLI: wrapper for the main function for easy testing."""
-    main(repo_path=repo, cache_path=cache)
+    main(repo_path=Path(repo), cache_path=Path(cache))
 
 
 if __name__ == "__main__":

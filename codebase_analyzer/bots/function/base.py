@@ -1,4 +1,6 @@
 """Base classes for function bot."""
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
 
@@ -46,41 +48,41 @@ class FunctionBot(Bot):
 
     NOTE: It's based on the StuffDocumentsChain for now because we haven't give it any tools and just expect
     one round of interaction, ie. one question and one answer. This will be changed in the future.
-
-    TODO: think if we need inherit from BaseSingleActionAgent or just pydantic BaseModel.
     """
 
-    # TODO: Should I use Field default_factory or just assign the value directly?
     # For now maybe just assign the value directly but if later the bot has memory, we need rethink.
     chain: Chain = FUNCTION_CHAIN
-    file_path: Path | None = None
-    function_name: str | None = None
+    file_path: Path
+    function_name: str
     function_code: list[Document] | None = None
 
-    @root_validator(pre=True)
-    def load_function_code(cls, values: dict) -> dict:
-        """Set function code based on file_path and function_name."""
-        file_path = values.get("file_path")
-        function_name = values.get("function_name")
-        function_code = values.get("function_code")
+    @classmethod
+    def from_str_code(
+        cls, file_path: Path, function_name: str, function_code: str
+    ) -> FunctionBot:
+        if not function_code:
+            raise ValueError("Function code is empty.")
 
-        if function_code is not None:
-            if None not in [file_path, function_name]:
-                logger.warning(
-                    f"Function code is provided. The contents from {file_path}/{function_name} will be ignored."
-                )
-            return values
+        logger.info("Initialize function bot using provided code.")
+        return cls(
+            file_path=file_path,
+            function_name=function_name,
+            function_code=function_code,
+        )
 
-        if file_path is None or function_name is None:
-            raise ValueError(
-                "Either function_code or both file_path and function_name must be provided."
-            )
-
-        # TODO: Rethink if we should support two init ways: 1) function_code, 2) file_path & function_name.
-        values["function_code"] = load_single_function(
+    @classmethod
+    def from_file(cls, file_path: Path, function_name: str) -> FunctionBot:
+        logger.info(
+            f"Initialize function bot by reading {function_name} file {file_path}."
+        )
+        function_code = load_single_function(
             file_path=file_path, function_name=function_name
         )
-        return values
+        return cls(
+            file_path=file_path,
+            function_name=function_name,
+            function_code=function_code,
+        )
 
     @validator("function_code", pre=True)
     def set_function_code(cls, function_code: str) -> list[Document]:
@@ -102,7 +104,6 @@ class FunctionBot(Bot):
             {"input_documents": self.function_code, "question": question},
             return_only_outputs=True,
         )["output_text"]
-        # TODO: Fix a better way to generate trailing newlines.
         return f"Function bot: {response}"
 
 

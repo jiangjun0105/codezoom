@@ -25,5 +25,9 @@ class FunctionBotManager:
             function_code = code_info.loc[
                 code_info["name"] == function_name, "code"
             ].values[0]
-            self.function_bots[bot_id] = FunctionBot(function_code=function_code)
+            self.function_bots[bot_id] = FunctionBot.from_str_code(
+                file_path=file_path,
+                function_name=function_name,
+                function_code=function_code,
+            )
         return self.function_bots[bot_id]

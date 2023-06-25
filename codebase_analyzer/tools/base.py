@@ -1,7 +1,17 @@
-"""This file contains the tools that can be used by the bot."""
+"""This file contains the tools that can be used by the bot.
+
+IMPORTANT NOTE:
+Function docstrings and argument type annotations & descriptions are utilized
+as instructions for the LLM models. Therefore, it is crucial to approach them
+with seriousness, ensuring docstrings and descriptions are composed in an
+instructive tone for the model, and that argument types are specified using
+Pydantic's type annotations.
+"""
+
 import importlib.util
 import inspect
 import subprocess
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any, Callable
 
@@ -10,8 +20,7 @@ from loguru import logger
 from pydantic import Field
 
 from codebase_analyzer.tools.embedding import search_functions
-
-# NOTE: Function docstring and argument type annotations will be used as instructions to GPT model.
+from codebase_analyzer.tools.token import tokenize
 
 
 def get_file_summary(
@@ -92,15 +101,20 @@ def get_function_code(
     return f"{result.values[0]}\n\n"
 
 
-def get_code_length(code: str, unit: str) -> int:
+class CodeLengthUnit(str, Enum):
+    CHAR = "char"
+    LINE = "line"
+    TOKEN = "token"
+
+
+def get_code_length(code: str, unit: CodeLengthUnit) -> int:
     """For getting the length of the code."""
-    # TODO: use token
-    if unit == "char":
+    if unit == CodeLengthUnit.CHAR:
         return len(code)
-    elif unit == "line":
-        return len(code)
-    elif unit == "token":
-        raise NotImplementedError
+    elif unit == CodeLengthUnit.LINE:
+        return len(code.split("\n"))
+    elif unit == CodeLengthUnit.TOKEN:
+        return len(tokenize(code))
     else:
         raise ValueError(f"Unknown unit {unit}.")
 
@@ -117,6 +131,7 @@ def get_related_functions(
         int, Field(description="Number of function names to be returned.", default=5)
     ] = 5,
     code_info: pd.DataFrame | None = None,
+    length_unit: CodeLengthUnit = CodeLengthUnit.TOKEN,
 ) -> str:
     """For getting the name of related functions based on the semantic similarity of the function code and your input query.
     Semantic similarity is the vector distance of embeddings, so please include enough semantic information in your query.
@@ -134,11 +149,11 @@ def get_related_functions(
         logger.error(f"Cannot find {want} in the codebase info.")
         return f"Cannot find {want} in the codebase info."
 
-    # TODO: create enum for unit
-    unit = "char"
-    got_list = [f"name, code length ({unit})", "============="]
+    got_list = [f"name, code length ({length_unit})", "============="]
     for w, c in zip(res[want], res["code"]):
-        got_list.append(f"{w}, {get_code_length(c, unit)}")
+        # TODO: The best way of getting code length is to calculate length once when parsing codebase info,
+        # store it in the cache and then retrieve it here. For that we need refactor the cache structure.
+        got_list.append(f"{w}, {get_code_length(c, length_unit)}")
     return "\n".join(got_list) + "\n\n"
 
 
