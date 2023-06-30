@@ -38,6 +38,7 @@ def main(repo: Path, cache: Path) -> None:
         get_bot_func=manager.get_bot,
     )
     interaction_loop(file_bot)
+    manager.save_cache()
 
 
 @click.command()

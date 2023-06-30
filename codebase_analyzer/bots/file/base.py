@@ -59,12 +59,14 @@ class Cache(BaseModel):
 
 
 def get_cache_path(cache_root: Path, file_path: Path) -> Path:
+    """Gets the cache path for the given repo and file paths."""
     if file_path.is_absolute():
         raise ValueError(
             f"file_path must be relative to repo_root, but got {file_path}"
         )
 
-    # Cache use the same folder structure as the repo but create a new folder for each file
+    # Cache uses the same folder structure as the repo but create a new folder
+    # for each file, e.g. main.py -> main_py
     return cache_root / file_path.parent / file_path.name.replace(".", "_")
 
 
@@ -211,3 +213,6 @@ class FileBot(Bot):
             inputs=inputs,
             callbacks=[BotStreamingStdOutCallbackHandler()],
         )
+
+    def save_cache(self) -> None:
+        self.cache.save_to_disk()
