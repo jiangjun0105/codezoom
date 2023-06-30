@@ -24,11 +24,11 @@ from codebase_analyzer.tools.token import tokenize
 
 
 def get_file_summary(
-    file_path: Annotated[Path | str, Field(description="Path to the file.")]
+    file_path: Annotated[Path | str, Field(description="Path to the file.")],
 ) -> str:
     """For getting the summary of the file managed by this bot."""
     # FIXME: this is just a fake function.
-    return f"""The file ({file_path}) implements a command-line interface (CLI) for an AI chatbot, specifically OpenAI's ChatGPT. It contains Chatbot and AsyncChatbot classes responsible for managing chat sessions, logging in, sending messages, fetching conversation history, and handling other conversation details. It also includes methods for caching tokens, checking credentials, managing conversations, and handling responses. The main function manages user interaction with the CLI, controlling the conversation flow. Additionally, decorators for logging and several utilities for cache management, chat reset, and conversation rollback are present. It serves as a comprehensive tool for customizable interaction with an AI chatbot."""
+    return ""
 
 
 def ask_function_bot(
@@ -38,18 +38,24 @@ def ask_function_bot(
     function_name: Annotated[
         str, Field(description="Which function your question is about.")
     ],
-    file_path: Annotated[
-        Path, Field(description="Path to the file containing the function.")
+    file_abs_path: Annotated[
+        Path, Field(description="Absolute path to the file containing the function.")
     ],
     get_bot_func: Annotated[
         Callable, Field(description="Function to get the function bot.")
+    ],
+    code_info: Annotated[
+        pd.DataFrame,
+        Field(description="Extracted code info containing source code."),
     ],
 ) -> str:
     """For asking a question to a function bot knowing the code of a specific function.
     Consider using this method first before using `get_function_code` when the function code length > 10 lines.
     Also remember include enough information in the question so that the bot can give you a good answer."""
 
-    function_bot = get_bot_func(file_path=file_path, function_name=function_name)
+    function_bot = get_bot_func(
+        file_path=file_abs_path, function_name=function_name, code_info=code_info
+    )
     return function_bot.ask(question)
 
 
@@ -61,24 +67,7 @@ def get_function_summaries(
 ) -> str:
     """For getting the summaries of all functions in this file."""
     # FIXME: this is just a fake function.
-    return """This file contains the following functions or methods (Note this is just a brief introduction, please refer to the source code for more details):
-
-__main__: This code checks if the file is being run as a script and then starts the ChatGPT command-line interface, printing some introductory messages and calling the main function with the configuration dictionary.
-
-Chatbot: The Chatbot class is responsible for handling chatbot functionalities such as logging in, sending messages, managing conversations, and getting conversation history. The class also has methods for caching and checking credentials, setting up session tokens and access tokens, writing and reading from cache, sending requests to OpenAI's API, checking message content and responses, retrieving conversation details and their histories, generating and changing conversation titles, deleting and clearing conversations, mapping conversations, resetting chats and rolling back conversations.
-
-AsyncChatbot: The AsyncChatbot class, inheriting the Chatbot class, includes async functionalities for posting messages, asking questions, continuing writing, getting conversations, managing message histories, handling conversation titles, deleting conversations, and clearing all conversations.
-
-configure: This code reads configuration from various places and returns it as a dictionary.
-
-main: This Python code defines the main function for a chatbot program, which handles user input, commands and chatbot responses. It also includes commands such as resetting the chat session, displaying the current configuration, rolling back conversation and changing conversation. A logger is used to log the chat session.
-
-imports: This Python code imports various modules, including httpx, json, typing, and requests. It also defines some utilities and logging functionality.
-
-assignments: The code initializes a logger, sets the base URL, and decorates the 'get_input' function.
-
-logger: The given code defines a decorator function named 'logger'. It takes a boolean parameter 'is_timed' and returns a decorated function. The decorator logs the function name, arguments, and return value when the decorated function is called. If 'is_timed' is True, the decorator also logs the time taken by the decorated function to complete.
-
+    return """
 """
 
 

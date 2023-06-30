@@ -7,7 +7,6 @@ import click
 
 from codebase_analyzer.bots.file.base import FileBot
 from codebase_analyzer.managers.function import FunctionBotManager
-from codebase_analyzer.parser.parser import load_cached_codebase_info
 
 
 def interaction_loop(master_bot: Any) -> None:
@@ -20,26 +19,22 @@ def interaction_loop(master_bot: Any) -> None:
         master_bot.ask(inputs=query)
 
 
-def main(repo_path: Path, cache_path: Path) -> None:
+def main(repo: Path, cache: Path) -> None:
     """Ichigen Coder - A cluster of coding bots
     Codebase Analyzer module
     """
 
     # FIXME after supporting multiple files
-    file_path = (repo_path / "V1.py").expanduser()
-    code_info = load_cached_codebase_info(cache_path=cache_path)
-    codebase_info = {
-        str(file_path): code_info,
-    }
+    file_path = Path("src/revChatGPT/V1.py")
 
     # Singleton managers
-    manager = FunctionBotManager(codebase_info=codebase_info)
+    manager = FunctionBotManager()
 
     # FIXME: For now we use the file bot as master bot
-    file_bot = FileBot(
+    file_bot = FileBot.from_cache(
+        repo_root=repo,
+        cache_root=cache,
         file_path=file_path,
-        cache_path=cache_path,
-        code_info=code_info,
         get_bot_func=manager.get_bot,
     )
     interaction_loop(file_bot)
@@ -50,7 +45,7 @@ def main(repo_path: Path, cache_path: Path) -> None:
 @click.option("--cache", help="Path to the cache repo info csv file")
 def cli(repo: str | Path, cache: str | Path) -> None:
     """CLI: wrapper for the main function for easy testing."""
-    main(repo_path=Path(repo), cache_path=Path(cache))
+    main(repo=Path(repo), cache=Path(cache))
 
 
 if __name__ == "__main__":
