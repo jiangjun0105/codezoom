@@ -19,7 +19,7 @@ def interaction_loop(master_bot: Any) -> None:
         master_bot.ask(inputs=query)
 
 
-def main(repo: Path, cache: Path) -> None:
+def main(repo: Path, cache: Path | None = None) -> None:
     """Ichigen Coder - A cluster of coding bots
     Codebase Analyzer module
     """
@@ -42,11 +42,11 @@ def main(repo: Path, cache: Path) -> None:
 
 
 @click.command()
-@click.option("--repo", help="Path to the repository to analyze")
-@click.option("--cache", help="Path to the cache repo info csv file")
-def cli(repo: str | Path, cache: str | Path) -> None:
+@click.option("--repo", type=Path, help="Path to the repository to analyze")
+@click.option("--cache", type=Path, help="Path to the cache repo info csv file")
+def cli(repo: Path, cache: Path) -> None:
     """CLI: wrapper for the main function for easy testing."""
-    main(repo=Path(repo), cache=Path(cache))
+    main(repo=repo, cache=cache)
 
 
 if __name__ == "__main__":

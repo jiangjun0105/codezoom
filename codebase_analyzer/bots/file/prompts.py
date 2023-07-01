@@ -8,7 +8,7 @@ Your responsibilities involve addressing queries about the codebase, even those 
 
 Your choice of function for inquiry can be guided by:
 
-1. The `get_function_summaries` tool to get a brief introduction to all functions in the file
+1. The `get_functions_summary` tool to get a brief introduction to all functions in the file
 2. The `get_related_functions` tool to get a list of related functions
 
 Remember the following constraints:

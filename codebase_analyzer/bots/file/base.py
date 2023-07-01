@@ -28,7 +28,7 @@ from codebase_analyzer.tools import (
     ask_function_bot,
     get_file_summary,
     get_function_code,
-    get_function_summaries,
+    get_functions_summary,
     get_related_functions,
     patch_tool,
 )
@@ -164,7 +164,9 @@ class FileBot(Bot):
                 func=patch_tool(get_function_code, code_info=cache.code_info)
             ),
             StructuredTool.from_function(
-                func=patch_tool(get_function_summaries, code_info=cache.code_info)
+                func=patch_tool(
+                    get_functions_summary, functions_summary=cache.function_summary
+                )
             ),
             StructuredTool.from_function(
                 func=patch_tool(
@@ -180,14 +182,13 @@ class FileBot(Bot):
     @root_validator(pre=True)
     def init_agent_executor(cls, values: dict) -> dict:
         tools = values.get("tools")
-        file_path = values.get("file_path")
+        cache = values.get("cache")
         agent = OpenAIFunctionsAgent.from_llm_and_tools(
             llm=config.LLM,
             tools=tools,
             system_message=SystemMessage(
-                # TODO: Should I use langchain.prompt?
                 content=SYSTEM_MESSAGE.format(
-                    file_summary=get_file_summary(file_path)
+                    file_summary=get_file_summary(file_summary=cache.file_summary),
                 )
             ),
             extra_prompt_messages=[MessagesPlaceholder(variable_name="history")],

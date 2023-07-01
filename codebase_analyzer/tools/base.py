@@ -23,14 +23,6 @@ from codebase_analyzer.tools.embedding import search_functions
 from codebase_analyzer.tools.token import tokenize
 
 
-def get_file_summary(
-    file_path: Annotated[Path | str, Field(description="Path to the file.")],
-) -> str:
-    """For getting the summary of the file managed by this bot."""
-    # FIXME: this is just a fake function.
-    return ""
-
-
 def ask_function_bot(
     question: Annotated[
         str, Field(description="Question to ask to the function bot")
@@ -59,16 +51,19 @@ def ask_function_bot(
     return function_bot.ask(question)
 
 
-def get_function_summaries(
-    code_info: Annotated[
-        pd.DataFrame, Field(description="Extracted codebase info in pd.dataframe.")
-    ]
-    # file_path: Annotated[Path | str, Field(description="Path to the file.")]
+# TODO: Rethink if we can have an abstract function which just returns inputs.
+def get_functions_summary(
+    functions_summary: Annotated[str, Field(description="Cached functions summary.")]
 ) -> str:
     """For getting the summaries of all functions in this file."""
-    # FIXME: this is just a fake function.
-    return """
-"""
+    return functions_summary
+
+
+def get_file_summary(
+    file_summary: Annotated[str, Field(description="Cached file summary.")],
+) -> str:
+    """For getting the summary of the file managed by this bot."""
+    return file_summary
 
 
 def get_function_code(
