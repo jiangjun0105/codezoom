@@ -11,14 +11,10 @@ class BotStreamingStdOutCallbackHandler(StdOutCallbackHandler):
         self, serialized: Dict[str, Any], prompts: List[str], **kwargs: Any
     ) -> None:
         """Print out the prompts."""
-        # sys.stdout.write("[llm start]\n")
-        # sys.stdout.flush()
         pass
 
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
         """Do nothing."""
-        # sys.stdout.write("[llm end]\n")
-        # sys.stdout.flush()
         pass
 
     def on_llm_new_token(
@@ -51,6 +47,7 @@ class BotStreamingStdOutCallbackHandler(StdOutCallbackHandler):
     ) -> None:
         """If not the final action, print out observation."""
         # FIXME: make it more general
+        # Let the asked bot print out the observation
         if kwargs.get("name") == "ask_function_bot":
             sys.stdout.write("\n\n")
             sys.stdout.flush()

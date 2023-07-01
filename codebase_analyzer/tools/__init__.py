@@ -4,7 +4,7 @@ from codebase_analyzer.tools.base import (
     ask_function_bot,
     get_file_summary,
     get_function_code,
-    get_function_summaries,
+    get_functions_summary,
     get_related_functions,
 )
 from codebase_analyzer.tools.patch import patch_tool

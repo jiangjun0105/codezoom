@@ -7,7 +7,6 @@ import click
 
 from codebase_analyzer.bots.file.base import FileBot
 from codebase_analyzer.managers.function import FunctionBotManager
-from codebase_analyzer.parser.parser import load_cached_codebase_info
 
 
 def interaction_loop(master_bot: Any) -> None:
@@ -20,39 +19,34 @@ def interaction_loop(master_bot: Any) -> None:
         master_bot.ask(inputs=query)
 
 
-def main(repo_path: str | Path, cache_path: str | Path) -> None:
+def main(repo: Path, cache: Path | None = None) -> None:
     """Ichigen Coder - A cluster of coding bots
     Codebase Analyzer module
     """
 
-    # FIXME: For testing
-    repo_path = Path("~/ChatGPT/src/revChatGPT/")
-    file_path = repo_path / "V1.py"
-    cache_path = Path("~/ichigen-coder/.cache/code_info.csv")
-    code_info = load_cached_codebase_info(cache_path=cache_path)
-    codebase_info = {
-        str(file_path.expanduser()): code_info,
-    }
+    # FIXME after supporting multiple files
+    file_path = Path("src/revChatGPT/V1.py")
 
     # Singleton managers
-    manager = FunctionBotManager(codebase_info=codebase_info)
+    manager = FunctionBotManager()
 
     # FIXME: For now we use the file bot as master bot
-    file_bot = FileBot(
+    file_bot = FileBot.from_cache(
+        repo_root=repo,
+        cache_root=cache,
         file_path=file_path,
-        cache_path=cache_path,
-        code_info=code_info,
         get_bot_func=manager.get_bot,
     )
     interaction_loop(file_bot)
+    manager.save_cache()
 
 
 @click.command()
-@click.option("--repo", help="Path to the repository to analyze")
-@click.option("--cache", help="Path to the cache repo info csv file")
-def cli(repo: str | Path, cache: str | Path) -> None:
+@click.option("--repo", type=Path, help="Path to the repository to analyze")
+@click.option("--cache", type=Path, help="Path to the cache repo info csv file")
+def cli(repo: Path, cache: Path) -> None:
     """CLI: wrapper for the main function for easy testing."""
-    main(repo_path=repo, cache_path=cache)
+    main(repo=repo, cache=cache)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,17 @@
-"""This file contains the tools that can be used by the bot."""
+"""This file contains the tools that can be used by the bot.
+
+IMPORTANT NOTE:
+Function docstrings and argument type annotations & descriptions are utilized
+as instructions for the LLM models. Therefore, it is crucial to approach them
+with seriousness, ensuring docstrings and descriptions are composed in an
+instructive tone for the model, and that argument types are specified using
+Pydantic's type annotations.
+"""
+
 import importlib.util
 import inspect
 import subprocess
+from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any, Callable
 
@@ -10,16 +20,7 @@ from loguru import logger
 from pydantic import Field
 
 from codebase_analyzer.tools.embedding import search_functions
-
-# NOTE: Function docstring and argument type annotations will be used as instructions to GPT model.
-
-
-def get_file_summary(
-    file_path: Annotated[Path | str, Field(description="Path to the file.")]
-) -> str:
-    """For getting the summary of the file managed by this bot."""
-    # FIXME: this is just a fake function.
-    return f"""The file ({file_path}) implements a command-line interface (CLI) for an AI chatbot, specifically OpenAI's ChatGPT. It contains Chatbot and AsyncChatbot classes responsible for managing chat sessions, logging in, sending messages, fetching conversation history, and handling other conversation details. It also includes methods for caching tokens, checking credentials, managing conversations, and handling responses. The main function manages user interaction with the CLI, controlling the conversation flow. Additionally, decorators for logging and several utilities for cache management, chat reset, and conversation rollback are present. It serves as a comprehensive tool for customizable interaction with an AI chatbot."""
+from codebase_analyzer.tools.token import tokenize
 
 
 def ask_function_bot(
@@ -29,48 +30,40 @@ def ask_function_bot(
     function_name: Annotated[
         str, Field(description="Which function your question is about.")
     ],
-    file_path: Annotated[
-        Path, Field(description="Path to the file containing the function.")
+    file_abs_path: Annotated[
+        Path, Field(description="Absolute path to the file containing the function.")
     ],
     get_bot_func: Annotated[
         Callable, Field(description="Function to get the function bot.")
+    ],
+    code_info: Annotated[
+        pd.DataFrame,
+        Field(description="Extracted code info containing source code."),
     ],
 ) -> str:
     """For asking a question to a function bot knowing the code of a specific function.
     Consider using this method first before using `get_function_code` when the function code length > 10 lines.
     Also remember include enough information in the question so that the bot can give you a good answer."""
 
-    function_bot = get_bot_func(file_path=file_path, function_name=function_name)
+    function_bot = get_bot_func(
+        file_path=file_abs_path, function_name=function_name, code_info=code_info
+    )
     return function_bot.ask(question)
 
 
-def get_function_summaries(
-    code_info: Annotated[
-        pd.DataFrame, Field(description="Extracted codebase info in pd.dataframe.")
-    ]
-    # file_path: Annotated[Path | str, Field(description="Path to the file.")]
+# TODO: Rethink if we can have an abstract function which just returns inputs.
+def get_functions_summary(
+    functions_summary: Annotated[str, Field(description="Cached functions summary.")]
 ) -> str:
     """For getting the summaries of all functions in this file."""
-    # FIXME: this is just a fake function.
-    return """This file contains the following functions or methods (Note this is just a brief introduction, please refer to the source code for more details):
+    return functions_summary
 
-__main__: This code checks if the file is being run as a script and then starts the ChatGPT command-line interface, printing some introductory messages and calling the main function with the configuration dictionary.
 
-Chatbot: The Chatbot class is responsible for handling chatbot functionalities such as logging in, sending messages, managing conversations, and getting conversation history. The class also has methods for caching and checking credentials, setting up session tokens and access tokens, writing and reading from cache, sending requests to OpenAI's API, checking message content and responses, retrieving conversation details and their histories, generating and changing conversation titles, deleting and clearing conversations, mapping conversations, resetting chats and rolling back conversations.
-
-AsyncChatbot: The AsyncChatbot class, inheriting the Chatbot class, includes async functionalities for posting messages, asking questions, continuing writing, getting conversations, managing message histories, handling conversation titles, deleting conversations, and clearing all conversations.
-
-configure: This code reads configuration from various places and returns it as a dictionary.
-
-main: This Python code defines the main function for a chatbot program, which handles user input, commands and chatbot responses. It also includes commands such as resetting the chat session, displaying the current configuration, rolling back conversation and changing conversation. A logger is used to log the chat session.
-
-imports: This Python code imports various modules, including httpx, json, typing, and requests. It also defines some utilities and logging functionality.
-
-assignments: The code initializes a logger, sets the base URL, and decorates the 'get_input' function.
-
-logger: The given code defines a decorator function named 'logger'. It takes a boolean parameter 'is_timed' and returns a decorated function. The decorator logs the function name, arguments, and return value when the decorated function is called. If 'is_timed' is True, the decorator also logs the time taken by the decorated function to complete.
-
-"""
+def get_file_summary(
+    file_summary: Annotated[str, Field(description="Cached file summary.")],
+) -> str:
+    """For getting the summary of the file managed by this bot."""
+    return file_summary
 
 
 def get_function_code(
@@ -92,15 +85,20 @@ def get_function_code(
     return f"{result.values[0]}\n\n"
 
 
-def get_code_length(code: str, unit: str) -> int:
+class CodeLengthUnit(str, Enum):
+    CHAR = "char"
+    LINE = "line"
+    TOKEN = "token"
+
+
+def get_code_length(code: str, unit: CodeLengthUnit) -> int:
     """For getting the length of the code."""
-    # TODO: use token
-    if unit == "char":
+    if unit == CodeLengthUnit.CHAR:
         return len(code)
-    elif unit == "line":
-        return len(code)
-    elif unit == "token":
-        raise NotImplementedError
+    elif unit == CodeLengthUnit.LINE:
+        return len(code.split("\n"))
+    elif unit == CodeLengthUnit.TOKEN:
+        return len(tokenize(code))
     else:
         raise ValueError(f"Unknown unit {unit}.")
 
@@ -117,6 +115,7 @@ def get_related_functions(
         int, Field(description="Number of function names to be returned.", default=5)
     ] = 5,
     code_info: pd.DataFrame | None = None,
+    length_unit: CodeLengthUnit = CodeLengthUnit.TOKEN,
 ) -> str:
     """For getting the name of related functions based on the semantic similarity of the function code and your input query.
     Semantic similarity is the vector distance of embeddings, so please include enough semantic information in your query.
@@ -134,11 +133,11 @@ def get_related_functions(
         logger.error(f"Cannot find {want} in the codebase info.")
         return f"Cannot find {want} in the codebase info."
 
-    # TODO: create enum for unit
-    unit = "char"
-    got_list = [f"name, code length ({unit})", "============="]
+    got_list = [f"name, code length ({length_unit})", "============="]
     for w, c in zip(res[want], res["code"]):
-        got_list.append(f"{w}, {get_code_length(c, unit)}")
+        # TODO: The best way of getting code length is to calculate length once when parsing codebase info,
+        # store it in the cache and then retrieve it here. For that we need refactor the cache structure.
+        got_list.append(f"{w}, {get_code_length(c, length_unit)}")
     return "\n".join(got_list) + "\n\n"
 
 

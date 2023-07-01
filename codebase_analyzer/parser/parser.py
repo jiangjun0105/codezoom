@@ -63,11 +63,11 @@ def load_raw_code(file: Path) -> str:
 
 
 def load_cached_codebase_info(
-    cache_path: str | Path, auto_embedding: bool = False
+    path: str | Path, auto_embedding: bool = False
 ) -> pd.DataFrame:
     """Load cached codebase info from the given csv file."""
-    codebase_info = pd.read_csv(cache_path).set_index("Unnamed: 0")
-    logger.info(f"Loaded codebase info from {cache_path}")
+    codebase_info = pd.read_csv(path).set_index("Unnamed: 0")
+    logger.info(f"Loaded codebase info from {path}")
     if "embedding" not in codebase_info.columns and auto_embedding:
         logger.info("Embeddings not found in cache, embedding codebase...")
         embed_codebase(codebase_info)

@@ -9,3 +9,7 @@ class Bot(ABC, BaseModel):
     @abstractmethod
     def ask(self, *args, **kwargs) -> str:
         pass
+
+    def save_cache(self) -> None:
+        # NOTE: Not all bots need to save cache
+        pass
