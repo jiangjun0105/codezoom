@@ -120,7 +120,7 @@ class CodeExtractor(ast.NodeVisitor):
             )
         self.code_blocks[class_node.name] = class_code
 
-    def convert_to_blocks(self) -> list[CodeBlock]:
+    def convert_lines_to_blocks(self) -> list[CodeBlock]:
         """Converts imports and others to code blocks."""
         if self.converted:
             logger.warning(
@@ -128,7 +128,10 @@ class CodeExtractor(ast.NodeVisitor):
             )
             return
 
-        for name, blocks in zip(["imports", "others"], [self.imports, self.others]):
+        for name, blocks in zip(
+            ["module-level imports", "module-level executable statements"],
+            [self.imports, self.others],
+        ):
             for i, code in enumerate(self._split_list(blocks)):
                 self.add_block(name=f"{name} (segment {i})", code=code)
         self.converted = True
@@ -163,13 +166,12 @@ class CodeExtractor(ast.NodeVisitor):
         )
 
     @classmethod
-    def blocks_from_code(cls, code: str, block_lines: int = 50) -> list[CodeBlock]:
+    def blocks_from_code(cls, code: str, block_lines: int = 50) -> pd.DataFrame:
         # TODO: Rethink if I can reuse the extractor for multiple files.
         tree = ast.parse(code)
         extractor = cls(block_lines=block_lines)
         extractor.visit(tree)
-        extractor.convert_to_blocks()
-        # extractor.generate_file_block()
+        extractor.convert_lines_to_blocks()
         return pd.DataFrame([b.dict() for b in extractor.code_blocks])
 
 
