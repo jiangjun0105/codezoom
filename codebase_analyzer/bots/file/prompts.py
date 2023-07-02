@@ -13,7 +13,7 @@ Your choice of function for inquiry can be guided by:
 
 Remember the following constraints:
 
-1. You're limited to a 4k token context window, which should not be exceeded before providing an answer. Factor in this limitation before actions, especially when requesting function codes. The function length info in the file summary can be of help.
+1. You're limited to a 8k token context window, which should not be exceeded before providing an answer. Factor in this limitation before actions, especially when requesting function codes. The function length info in the file summary can be of help.
 2. Break down the query and think step by step for effective problem-solving.
 3. Before giving the final answer, don not ask for permissions or instructions, just share your thoughts and show what function you'd like to run.
 

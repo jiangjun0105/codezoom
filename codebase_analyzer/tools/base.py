@@ -11,7 +11,6 @@ Pydantic's type annotations.
 import importlib.util
 import inspect
 import subprocess
-from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any, Callable
 
@@ -19,8 +18,8 @@ import pandas as pd
 from loguru import logger
 from pydantic import Field
 
+from codebase_analyzer.tools.context import CodeLengthUnit, get_code_length
 from codebase_analyzer.tools.embedding import search_functions
-from codebase_analyzer.tools.token import tokenize
 
 
 def ask_function_bot(
@@ -30,7 +29,7 @@ def ask_function_bot(
     function_name: Annotated[
         str, Field(description="Which function your question is about.")
     ],
-    file_abs_path: Annotated[
+    file_path: Annotated[
         Path, Field(description="Absolute path to the file containing the function.")
     ],
     get_bot_func: Annotated[
@@ -46,7 +45,7 @@ def ask_function_bot(
     Also remember include enough information in the question so that the bot can give you a good answer."""
 
     function_bot = get_bot_func(
-        file_path=file_abs_path, function_name=function_name, code_info=code_info
+        file_path=file_path, function_name=function_name, code_info=code_info
     )
     return function_bot.ask(question)
 
@@ -83,24 +82,6 @@ def get_function_code(
     if result.empty:
         return f"Cannot find the function {function_name}."
     return f"{result.values[0]}\n\n"
-
-
-class CodeLengthUnit(str, Enum):
-    CHAR = "char"
-    LINE = "line"
-    TOKEN = "token"
-
-
-def get_code_length(code: str, unit: CodeLengthUnit) -> int:
-    """For getting the length of the code."""
-    if unit == CodeLengthUnit.CHAR:
-        return len(code)
-    elif unit == CodeLengthUnit.LINE:
-        return len(code.split("\n"))
-    elif unit == CodeLengthUnit.TOKEN:
-        return len(tokenize(code))
-    else:
-        raise ValueError(f"Unknown unit {unit}.")
 
 
 def get_related_functions(
@@ -227,10 +208,14 @@ def load_single_function(file_path: Path, function_name: str):
     return function_code
 
 
-# FIXME: This function is not used yet and won't work, but we will need a search tool.
-def search_keyword(keyword: str, semantic_filer: str, raw_code: str) -> list[str]:
-    """Search for a keyword in the codebase and filter using semantic_filer."""
-    print(f"Searching for keyword '{keyword}'...")
+def search_keyword(
+    keyword: Annotated[str, Field(description="The keyword to search for.")],
+    semantic_filer: str,
+    file_path: Annotated[Path, Field(description="The path to file to search in.")],
+    raw_code: str,
+) -> list[str]:
+    """Search for a keyword in the given file."""
+    logger.info(f"Searching for keyword '{keyword}'...")
     result = [
         f"{i}: {line}"
         for i, line in enumerate(raw_code.split("\n"), 1)

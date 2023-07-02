@@ -22,7 +22,9 @@ from codebase_analyzer.bots.file import config
 from codebase_analyzer.bots.file.prompts import SYSTEM_MESSAGE
 from codebase_analyzer.parser.parser import (
     extract_code_info,
-    load_cached_codebase_info,
+    generate_file_summary,
+    generate_functions_summary,
+    load_cached_code_info,
 )
 from codebase_analyzer.tools import (
     ask_function_bot,
@@ -58,16 +60,16 @@ class Cache(BaseModel):
     pass
 
 
-def get_cache_path(cache_root: Path, file_path: Path) -> Path:
+def get_cache_path(cache_root: Path, relative_path: Path) -> Path:
     """Gets the cache path for the given repo and file paths."""
-    if file_path.is_absolute():
+    if relative_path.is_absolute():
         raise ValueError(
-            f"file_path must be relative to repo_root, but got {file_path}"
+            f"relative_path must be relative to repo_root, but got {relative_path}"
         )
 
     # Cache uses the same folder structure as the repo but create a new folder
-    # for each file, e.g. main.py -> main_py
-    return cache_root / file_path.parent / file_path.name.replace(".", "_")
+    # for each file, e.g. src/main.py -> src/main_py/
+    return cache_root / relative_path.parent / relative_path.name.replace(".", "_")
 
 
 class AllowArbitraryTypeConfig(BaseModel.Config):
@@ -89,13 +91,51 @@ class FileCache(BaseModel):
     code_info: pd.DataFrame
 
     @classmethod
-    def load_from_disk(cls, cache_root: Path, file_path: Path) -> FileCache:
-        cache_path = get_cache_path(cache_root=cache_root, file_path=file_path)
+    def init(
+        cls, repo_root: Path, cache_root: Path, relative_path: Path
+    ) -> FileCache:
+        """Loads cache from disk if exists, otherwise generates cache from code.
+        We need this extra method to not override the BaseModel.__init__ method."""
+
+        cache_path = get_cache_path(
+            cache_root=cache_root, relative_path=relative_path
+        )
+        if cls.is_cache_valid(cache_path=cache_path):
+            return cls.load_from_disk(cache_path=cache_path)
+        return cls.generate_from_code(
+            cache_path=cache_path, file_path=repo_root / relative_path
+        )
+
+    @classmethod
+    def is_cache_valid(cls, cache_path: Path) -> bool:
+        # TODO: More validation based on metadata.
+        if not cache_path.exists():
+            return False
+        if not (cache_path / cls.FILE_SUMMARY).exists():
+            return False
+        if not (cache_path / cls.FUNCTIONS_SUMMARY).exists():
+            return False
+        if not (cache_path / cls.CODE_INFO).exists():
+            return False
+        return True
+
+    @classmethod
+    def load_from_disk(cls, cache_path: Path) -> FileCache:
         return cls(
             cache_path=cache_path,
             file_summary=read_file(path=cache_path / cls.FILE_SUMMARY),
             function_summary=read_file(path=cache_path / cls.FUNCTIONS_SUMMARY),
-            code_info=load_cached_codebase_info(path=cache_path / cls.CODE_INFO),
+            code_info=load_cached_code_info(path=cache_path / cls.CODE_INFO),
+        )
+
+    @classmethod
+    def generate_from_code(cls, cache_path: Path, file_path: Path) -> FileCache:
+        code_info = extract_code_info(file_path)
+        return cls(
+            cache_path=cache_path,
+            file_summary=generate_file_summary(code_info=code_info),
+            function_summary=generate_functions_summary(code_info=code_info),
+            code_info=code_info,
         )
 
     @validator("code_info")
@@ -123,7 +163,7 @@ class FileCache(BaseModel):
 class FileBot(Bot):
     llm = ChatOpenAI
     repo_root: Path
-    file_path: Path  # Relative path to repo root
+    file_relative_path: Path  # Relative to repo root
     cache: FileCache
     tools: list[StructuredTool]
     executor: AgentExecutor
@@ -131,23 +171,27 @@ class FileBot(Bot):
 
     @classmethod
     def from_cache(
-        cls, repo_root: Path, cache_root: Path, file_path: Path, **kwargs: Any
+        cls,
+        repo_root: Path,
+        cache_root: Path,
+        file_relative_path: Path,
+        **kwargs: Any,
     ) -> FileBot:
         return cls(
             repo_root=repo_root,
-            file_path=file_path,
-            cache=FileCache.load_from_disk(
-                cache_root=cache_root, file_path=file_path
+            file_relative_path=file_relative_path,
+            cache=FileCache.init(
+                repo_root=repo_root,
+                cache_root=cache_root,
+                relative_path=file_relative_path,
             ),
             **kwargs,
         )
 
-    # TODO: Add method without loading cache
-
     @root_validator(pre=True)
     def init_tools(cls, values: dict) -> dict:
         repo_root = values.get("repo_root")
-        file_path = values.get("file_path")
+        file_relative_path = values.get("file_relative_path")
         cache = values.get("cache")
         get_bot_func = values.get("get_bot_func")
 
@@ -171,7 +215,7 @@ class FileBot(Bot):
             StructuredTool.from_function(
                 func=patch_tool(
                     ask_function_bot,
-                    file_abs_path=repo_root / file_path,
+                    file_path=repo_root / file_relative_path,
                     code_info=cache.code_info,
                     get_bot_func=get_bot_func,
                 )

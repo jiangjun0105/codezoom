@@ -1,13 +1,16 @@
 import numpy as np
 import openai
 import pandas as pd
+from langchain.embeddings import OpenAIEmbeddings
+
+from codebase_analyzer.common.credentials import get_api_key
 
 
 def get_embedding(text: str, model: str = "text-embedding-ada-002") -> list[float]:
-
-    # replace newlines, which can negatively affect performance.
-    text = text.replace("\n", " ")
-    return openai.Embedding.create(input=[text], model=model)["data"][0]["embedding"]
+    """Get the embedding of the given text using OpenAI Embedding API."""
+    # TODO: If the embedding is too slow, think about async.
+    embeddings = OpenAIEmbeddings(openai_api_key=get_api_key(), model=model)
+    return embeddings.embed_query(text=text)
 
 
 def embed_codebase(codebase_info: pd.DataFrame) -> pd.DataFrame:
@@ -25,5 +28,4 @@ def search_functions(df, code_query, n=1):
     df["similarities"] = df.embedding.apply(
         lambda x: cosine_similarity(x, embedding)
     )
-
     return df.sort_values("similarities", ascending=False).head(n)

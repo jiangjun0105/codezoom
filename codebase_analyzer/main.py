@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -7,6 +8,14 @@ import click
 
 from codebase_analyzer.bots.file.base import FileBot
 from codebase_analyzer.managers.function import FunctionBotManager
+
+
+def calculate_path_hash(path: Path | str) -> str:
+    """Calculate the hash256 of the given path."""
+
+    # Resolve the absolute path and check if it exists
+    path = Path(path).resolve()
+    return hashlib.sha256(str(path).encode()).hexdigest()
 
 
 def interaction_loop(master_bot: Any) -> None:
@@ -23,6 +32,7 @@ def main(repo: Path, cache: Path | None = None) -> None:
     """Ichigen Coder - A cluster of coding bots
     Codebase Analyzer module
     """
+    cache = cache or calculate_path_hash(repo)
 
     # FIXME after supporting multiple files
     file_path = Path("src/revChatGPT/V1.py")
@@ -34,7 +44,7 @@ def main(repo: Path, cache: Path | None = None) -> None:
     file_bot = FileBot.from_cache(
         repo_root=repo,
         cache_root=cache,
-        file_path=file_path,
+        file_relative_path=file_path,
         get_bot_func=manager.get_bot,
     )
     interaction_loop(file_bot)
