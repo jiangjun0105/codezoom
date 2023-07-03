@@ -22,7 +22,7 @@ def ast_type(node: ast.AST) -> str:
 class CodeInfoLevel(int, Enum):
     MODULE = 0
     DIRECT_CHILD = 1
-    CLASS_METHOD = 2
+    NESTED_CHILD = 2
 
 
 class CodeInfo(BaseModel):
@@ -85,7 +85,7 @@ class CodeExtractor(ast.NodeVisitor):
         code_node = CodeNode(isolated=True, ast=[node])
         self.code_tree.children.append(code_node)
         if get_code_length(ast.unparse(node)) > self.block_size:
-            self.split_class_methods(code_node)
+            self.split_class(code_node)
 
     def add_with_trying_merge(
         self, node: ast.AST, parent: CodeNode | None = None
@@ -128,7 +128,7 @@ class CodeExtractor(ast.NodeVisitor):
                 return True
         return False
 
-    def split_class_methods(self, parent_node: CodeNode) -> None:
+    def split_class(self, parent_node: CodeNode) -> None:
         class_node = parent_node.ast[0]
         for node in class_node.body:
             # TODO: Handle assignment and other types of statements.
@@ -177,15 +177,21 @@ def add_block(
     )
 
 
-def code_info_from_ast(node: CodeNode, level: int, index: int) -> None:
+def code_info_from_ast(
+    node: CodeNode, level: CodeInfoLevel, index: int, parent: CodeNode
+) -> None:
     """Generates code info from the AST. Summary and embedding are not populated."""
 
     if not node.children:
         if node.isolated:
+            # Full class or function
             ast_node = node.ast[0]
             code = ast.unparse(ast_node)
             name = ast_node.name
+            if level == CodeInfoLevel.NESTED_CHILD:
+                name = f"{parent.ast[0].name}.{name}"
         else:
+            # Group of statements
             code = "\n".join(ast.unparse(n) for n in node.ast)
             name = f"code_block_of_level_{level}_index_{index}"
     else:
@@ -193,9 +199,11 @@ def code_info_from_ast(node: CodeNode, level: int, index: int) -> None:
         assert node.isolated is True
         ast_node = node.ast[0]
         if level != CodeInfoLevel.MODULE:
+            # Splitted class
             name = ast_node.name
             code = ast.unparse(ast_node)
         else:
+            # Module
             name = "module_structure_overview"
             code = "\n\n".join(n.info.name for n in node.children)
 
@@ -207,12 +215,19 @@ def code_info_from_ast(node: CodeNode, level: int, index: int) -> None:
     )
 
 
-def generate_code_info(node: CodeNode, level: int = 0, index: int = 0) -> CodeInfo:
+def generate_code_info(
+    node: CodeNode,
+    level: CodeInfoLevel = CodeInfoLevel.MODULE,
+    index: int = 0,
+    parent: CodeNode = None,
+) -> CodeInfo:
     """Recursively generate code info from code tree. A node's info can be
-    generated only after all its children's info are generated."""
+    generated only after all its children's info are generated.
+    TODO: This way we cannot do lazy generation for a large codebase."""
+
     for i, child in enumerate(node.children):
-        generate_code_info(child, level=level + 1, index=i)
-    code_info_from_ast(node, level=level, index=index)
+        generate_code_info(child, level=level + 1, index=i, parent=node)
+    code_info_from_ast(node, level=level, index=index, parent=parent)
 
 
 import asyncio
