@@ -12,7 +12,7 @@ class CodeLengthUnit(str, Enum):
     TOKEN = "token"
 
 
-def get_code_length(code: str, unit: CodeLengthUnit) -> int:
+def get_code_length(code: str, unit: CodeLengthUnit = CodeLengthUnit.TOKEN) -> int:
     """For getting the length of the code."""
     if unit == CodeLengthUnit.CHAR:
         return len(code)

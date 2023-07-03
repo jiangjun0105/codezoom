@@ -20,6 +20,7 @@ from codebase_analyzer.bots.base import Bot
 from codebase_analyzer.bots.callbacks import BotStreamingStdOutCallbackHandler
 from codebase_analyzer.bots.file import config
 from codebase_analyzer.bots.file.prompts import SYSTEM_MESSAGE
+from codebase_analyzer.common.pydantic import AllowArbitraryTypeConfig
 from codebase_analyzer.parser.parser import (
     extract_code_info,
     generate_file_summary,
@@ -70,11 +71,6 @@ def get_cache_path(cache_root: Path, relative_path: Path) -> Path:
     # Cache uses the same folder structure as the repo but create a new folder
     # for each file, e.g. src/main.py -> src/main_py/
     return cache_root / relative_path.parent / relative_path.name.replace(".", "_")
-
-
-class AllowArbitraryTypeConfig(BaseModel.Config):
-    # Used by pydantic to allow arbitrary type e.g. pd.DataFrame
-    arbitrary_types_allowed = True
 
 
 class FileCache(BaseModel):

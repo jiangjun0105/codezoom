@@ -54,3 +54,16 @@ class SummaryBot(BaseModel):
             f"Actual length is {get_code_length(response, CodeLengthUnit.TOKEN)}"
         )
         return response
+
+    async def asummarize_code(self, code: str) -> str:
+        """Summarize the code using LLM model."""
+        code_tokens = get_code_length(code, CodeLengthUnit.TOKEN)
+        length = min(
+            self.max_tokens, max(self.min_tokens, int(code_tokens / self.ratio))
+        )
+        logger.debug(f"Length of summary should be {length} tokens.")
+        response = await self.chain.arun(length=length, code=code)
+        logger.debug(
+            f"Actual length is {get_code_length(response, CodeLengthUnit.TOKEN)}"
+        )
+        return response
