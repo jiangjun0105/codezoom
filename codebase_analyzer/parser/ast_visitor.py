@@ -236,36 +236,49 @@ async def populate_summary_and_embedding(root: CodeNode):
     def count_children(node):
         todo_children[node] += len(node.children)
         for child in node.children:
-            # todo_children[node] += 1
             child_to_parent[child] = node
             count_children(child)
 
     count_children(root)
 
-    queue = asyncio.Queue()
-    for node, count in todo_children.items():
-        if count == 0:
-            await queue.put(node)
+    condition = asyncio.Condition()
+    ready = {node for node, count in todo_children.items() if count == 0}
+    total = len(todo_children)
+    code_info = []
 
-    while not queue.empty():
-        tasks = []
-        while not queue.empty():
-            node = await queue.get()
-            tasks.extend(
-                [
-                    populate_embedding(node, embeddings),
-                    populate_summary(node, summary_bot),
-                ]
-            )
-            parent = child_to_parent.get(node)
-            todo_children[node] -= 1  # Mark as done.
-            if parent is not None:
-                todo_children[parent] -= 1
-        await asyncio.gather(*tasks)
+    async def process_node(node):
+        nonlocal code_info
+        await asyncio.gather(
+            populate_embedding(node, embeddings),
+            populate_summary(node, summary_bot),
+        )
+        code_info.append(node.info)
+        parent = child_to_parent.get(node)
+        if parent is not None:
+            todo_children[parent] -= 1
+            if todo_children[parent] == 0:
+                ready.add(parent)
+        async with condition:
+            condition.notify_all()  # Notify all workers whenever a node is completed.
+        # print(f"children {todo_children.values()}")
+        # print(f"Completed {node.info.name} {completed}/{total}.")
 
-        for node, count in todo_children.items():
-            if count == 0:
-                await queue.put(node)
+    async def worker():
+        while True:  # Infinite loop, we'll break out when completed >= total.
+            # print(f"Ready {len(ready)}")
+            print(f"Completed {len(code_info)}/{total}.")
+            async with condition:
+                await condition.wait_for(lambda: ready or len(code_info) >= total)
+                if len(code_info) >= total:
+                    break
+                node = ready.pop()
+            await process_node(node)
+
+    workers = [
+        asyncio.create_task(worker()) for _ in range(10)
+    ]  # Adjust the number of workers to your needs.
+    await asyncio.gather(*workers)
+    return pd.DataFrame(c.dict() for c in code_info)
 
 
 # TODO: Move to test file.
@@ -294,8 +307,9 @@ class Foo:
 if __name__=="__main__":
     Foo()
 """
-
+# from pathlib import Path
+# code = Path("~/ChatGPT/src/revChatGPT/V1.py").expanduser().read_text(encoding="utf-8")
 t = CodeExtractor.generate_code_tree(code=code, block_size=30, skip_token_num=10)
 generate_code_info(t)
-asyncio.run(populate_summary_and_embedding(t))
-print(t.info.summary)
+code_info = asyncio.run(populate_summary_and_embedding(t))
+code_info.to_csv("test.csv")
