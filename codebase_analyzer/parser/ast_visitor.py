@@ -51,6 +51,9 @@ class CodeNode(BaseModel):
 
 
 class CodeExtractor(ast.NodeVisitor):
+    """For extracting tree of code info from AST.
+    TODO: Currently cannot preserve hash comments. Check tools like astor or libcst"""
+
     def __init__(self, block_size: int = 1000, skip_token_num: int = 50) -> None:
         self.code_tree: CodeNode = None
         self.block_size: int = block_size  # in tokens
@@ -139,11 +142,9 @@ class CodeExtractor(ast.NodeVisitor):
             ):
                 if get_code_length(ast.unparse(node)) <= self.skip_token_num:
                     continue
-                method_name = f"{class_node.name}.{node.name}"
                 parent_node.children.append(CodeNode(isolated=True, ast=[node]))
-                comment = f"Function body is omitted here but accessable in block `{method_name}`."
-                node.body = [ast.Expr(value=ast.Str(s=comment)), ast.Pass()]
-
+        return
+        # We don't know the split class code for now.
         class_code = ast.unparse(class_node)
         if len(class_code) > self.block_size:
             logger.warning(
@@ -177,6 +178,23 @@ def add_block(
     )
 
 
+def _prefix_name(node: CodeNode, parent: CodeNode, level: int) -> str:
+    """For nested class or function, prefix its name with its parent's name.
+    E.g. method `foo` in class `A`'s name is `A.foo`"""
+    name = node.ast[0].name
+    if level == CodeInfoLevel.NESTED_CHILD:
+        name = f"{parent.ast[0].name}.{name}"
+    return name
+
+
+def _omit_children_code(node: CodeNode) -> str:
+    """For long class or function, omit its children code for brevity."""
+    for child in node.children:
+        comment = f"NOTE: function body is ommited here but can be found in block `{child.info.name}`."
+        child.ast[0].body = [ast.Expr(value=ast.Str(s=comment))]
+    return ast.unparse(node.ast[0])
+
+
 def code_info_from_ast(
     node: CodeNode, level: CodeInfoLevel, index: int, parent: CodeNode
 ) -> None:
@@ -185,11 +203,8 @@ def code_info_from_ast(
     if not node.children:
         if node.isolated:
             # Full class or function
-            ast_node = node.ast[0]
-            code = ast.unparse(ast_node)
-            name = ast_node.name
-            if level == CodeInfoLevel.NESTED_CHILD:
-                name = f"{parent.ast[0].name}.{name}"
+            code = ast.unparse(node.ast[0])
+            name = _prefix_name(node=node, parent=parent, level=level)
         else:
             # Group of statements
             code = "\n".join(ast.unparse(n) for n in node.ast)
@@ -197,11 +212,10 @@ def code_info_from_ast(
     else:
         assert len(node.ast) == 1
         assert node.isolated is True
-        ast_node = node.ast[0]
         if level != CodeInfoLevel.MODULE:
-            # Splitted class
-            name = ast_node.name
-            code = ast.unparse(ast_node)
+            # Splitted class or function
+            name = node.ast[0].name
+            code = _omit_children_code(node=node)
         else:
             # Module
             name = "module_structure_overview"
@@ -238,11 +252,31 @@ async def populate_embedding(node: CodeNode, embeddings: OpenAIEmbeddings) -> No
     node.info.embedding = await embeddings.aembed_query(node.info.code)
 
 
+def _construct_code(node: CodeNode) -> str:
+    if node.children:
+        children_summary = "\n".join(
+            f"{c.info.name}: {c.info.summary}" for c in node.children
+        )
+        code = (
+            f"Note to AI bot: some blocks are ommited in the skeleton but explained in `summary of ommited blocks` "
+            f"Please combine both to reconstruct the original code in your mind and the give a compresive summary of it."
+            f"\n=====\n"
+            f"Skeleton code:\n\n{node.info.code}"
+            f"\n=====\n"
+            f"Summary of ommited blocks:\n\n{children_summary}"
+        )
+    else:
+        code = node.info.code
+    return code
+
+
 async def populate_summary(node: CodeNode, summary_bot: SummaryBot) -> None:
-    node.info.summary = await summary_bot.asummarize_code(node.info.code)
+    node.info.summary = await summary_bot.asummarize_code(code=_construct_code(node))
 
 
-async def populate_summary_and_embedding(root: CodeNode):
+async def populate_summary_and_embedding(
+    root: CodeNode, worker_num: int = 20
+) -> None:
     todo_children = defaultdict(int)
     child_to_parent = {}
     summary_bot = SummaryBot()
@@ -274,14 +308,12 @@ async def populate_summary_and_embedding(root: CodeNode):
             if todo_children[parent] == 0:
                 ready.add(parent)
         async with condition:
-            condition.notify_all()  # Notify all workers whenever a node is completed.
-        # print(f"children {todo_children.values()}")
-        # print(f"Completed {node.info.name} {completed}/{total}.")
+            # Notify all workers to check updated state.
+            condition.notify_all()
 
     async def worker():
-        while True:  # Infinite loop, we'll break out when completed >= total.
-            # print(f"Ready {len(ready)}")
-            print(f"Completed {len(code_info)}/{total}.")
+        while True:
+            logger.info(f"Completed {len(code_info)}/{total}.")
             async with condition:
                 await condition.wait_for(lambda: ready or len(code_info) >= total)
                 if len(code_info) >= total:
@@ -289,9 +321,7 @@ async def populate_summary_and_embedding(root: CodeNode):
                 node = ready.pop()
             await process_node(node)
 
-    workers = [
-        asyncio.create_task(worker()) for _ in range(10)
-    ]  # Adjust the number of workers to your needs.
+    workers = [asyncio.create_task(worker()) for _ in range(worker_num)]
     await asyncio.gather(*workers)
     return pd.DataFrame(c.dict() for c in code_info)
 
@@ -322,9 +352,14 @@ class Foo:
 if __name__=="__main__":
     Foo()
 """
-# from pathlib import Path
-# code = Path("~/ChatGPT/src/revChatGPT/V1.py").expanduser().read_text(encoding="utf-8")
-t = CodeExtractor.generate_code_tree(code=code, block_size=30, skip_token_num=10)
+from pathlib import Path
+
+code = (
+    Path("~/ChatGPT/src/revChatGPT/V1.py").expanduser().read_text(encoding="utf-8")
+)
+t = CodeExtractor.generate_code_tree(
+    code=code,
+)  # block_size=30, skip_token_num=10)
 generate_code_info(t)
 code_info = asyncio.run(populate_summary_and_embedding(t))
 code_info.to_csv("test.csv")
