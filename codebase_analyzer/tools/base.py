@@ -18,6 +18,7 @@ import pandas as pd
 from loguru import logger
 from pydantic import Field
 
+from codebase_analyzer.parser.base import CodeInfoLevel
 from codebase_analyzer.tools.context import CodeLengthUnit, get_code_length
 from codebase_analyzer.tools.embedding import search_functions
 
@@ -55,19 +56,23 @@ def ask_function_bot(
     return function_bot.ask(question)
 
 
-# TODO: Rethink if we can have an abstract function which just returns inputs.
 def get_functions_summary(
-    functions_summary: Annotated[str, Field(description="Cached functions summary.")]
+    code_info: Annotated[pd.DataFrame, Field(description="Pre-provided code info.")]
 ) -> str:
     """For getting the summaries of all functions in this file."""
-    return functions_summary
+    direct_child = code_info.loc[code_info.level == CodeInfoLevel.DIRECT_CHILD]
+    return "\n".join(
+        f"{n}: {s}" for n, s in zip(direct_child.name, direct_child.summary)
+    )
 
 
 def get_file_summary(
-    file_summary: Annotated[str, Field(description="Cached file summary.")],
+    code_info: Annotated[pd.DataFrame, Field(description="Pre-provided code info.")],
 ) -> str:
     """For getting the summary of the file managed by this bot."""
-    return file_summary
+    module = code_info.loc[code_info.level == CodeInfoLevel.MODULE]
+    assert len(module) == 1
+    return module.summary.values[0]
 
 
 def get_function_code(

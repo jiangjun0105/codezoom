@@ -170,15 +170,24 @@ async def populate_summary_and_embedding(
     return pd.DataFrame(c.dict() for c in code_info)
 
 
-def check_code_info(code_info: pd.DataFrame, block_size: int) -> None:
+def check_code_info(code_info: pd.DataFrame, block_size: int, raw_code: str) -> None:
     """Some sanity check on the generated code info to give insights to developers."""
     for name, length in zip(code_info.name, code_info.length_in_token):
         if length > block_size:
             logger.warning(f"Block {name} has length {length} > {block_size}.")
 
+    summary = "\n".join(i["summary"] for i in code_info)
+    logger.info(
+        f"\n===== Code Info Summary =====\n"
+        f"Original Code length: {len(raw_code)}\n"
+        f"Extracted block num: {len(code_info)}\n"
+        f"Extracted Code length: {len(summary)}\n"
+    )
 
+
+# TODO: Centralize all the configs.
 def extract_code_info(
-    filepath: Path, block_size: int, skip_token_num=10
+    filepath: Path, block_size: int = 1000, skip_token_num: int = 10
 ) -> pd.DataFrame:
     """Extracts code info from a file.
 
@@ -197,6 +206,16 @@ def extract_code_info(
         skip_token_num=skip_token_num,
     )
     code_info = asyncio.run(populate_summary_and_embedding(code_tree))
-    check_code_info(code_info, block_size=block_size)
-    # code_info.to_csv("test.csv")
+    check_code_info(code_info, block_size=block_size, raw_code=code)
+    return code_info
+
+
+def load_cached_code_info(path: Path) -> pd.DataFrame:
+    """Load cached codebase info from the given csv file."""
+    code_info = pd.read_csv(path).set_index("Unnamed: 0")
+    logger.info(f"Loaded codebase info from {path}")
+
+    # TODO: Use format supporting storing the embeddings instead of CSV
+    # TODO: Create single source of true for names of the columns, mabye use langchain.Document
+    code_info["embedding"] = code_info["embedding"].apply(ast.literal_eval)
     return code_info
