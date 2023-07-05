@@ -2,6 +2,7 @@
 from pathlib import Path
 
 import pandas as pd
+from loguru import logger
 from pydantic import Field
 from singleton_decorator import singleton
 
@@ -26,9 +27,18 @@ class FunctionBotManager(BotManagerBase):
         bot_id = self.bot_id(file_path, function_name)
         if bot_id not in self.bots:
             # NOTE: Use the code info to get the function code but might change to reading file
-            function_code = code_info.loc[
-                code_info["name"] == function_name, "code"
-            ].values[0]
+            candidate = code_info.loc[code_info["name"] == function_name, "code"]
+            if len(candidate) == 0:
+                logger.error(f"Cannot find function {function_name} in {file_path}.")
+                return None
+
+            if len(candidate) > 1:
+                logger.error(
+                    f"Found {len(candidate)} functions with the same name {function_name} in {file_path}. "
+                    "Will use the first function but please check if the cache is corrupted."
+                )
+
+            function_code = candidate.values[0]
             self.bots[bot_id] = FunctionBot.from_str_code(
                 file_path=file_path,
                 function_name=function_name,

@@ -1,49 +1,36 @@
 from __future__ import annotations
 
 import ast
-from enum import Enum
 
 import pandas as pd
 from loguru import logger
-from pydantic import BaseModel
 
-from codebase_analyzer.tools.context import CodeLengthUnit, get_code_length
-from codebase_analyzer.tools.embedding import get_embedding
-from codebase_analyzer.tools.summary import SummaryBot
+from codebase_analyzer.parser.schema import CodeNode
+from codebase_analyzer.tools.context import get_code_length
 
 
-class CodeBlockLevel(int, Enum):
-    FILE = 0
-    DIRECT_CHILD = 1
-    CLASS_METHOD = 2
-
-
-class CodeBlock(BaseModel):
-    name: str
-    code: str
-    length_in_token: int  # Unit is token by default.
-    level: CodeBlockLevel = CodeBlockLevel.DIRECT_CHILD
-    summary: str = None
-    embedding: list[float] = None
+def ast_type(node: ast.AST) -> str:
+    """For getting the type of the ast node."""
+    return node.__class__.__name__
 
 
 class CodeExtractor(ast.NodeVisitor):
-    def __init__(self, block_lines: int = 50) -> None:
-        self.code_blocks: list[
-            CodeBlock
-        ] = []  # Function, class and file entry point.
-        self.imports: list[str] = []
-        self.others: list[str] = []  # Global variables, assignments, etc.
-        self.block_lines: int = block_lines  # Max lines of code in a block.
-        self.converted: bool = False
-        self.summary_bot: SummaryBot = SummaryBot()
+    """For extracting tree of code info from AST.
+    TODO: Currently cannot preserve hash comments. Check tools like astor or libcst"""
+
+    def __init__(self, block_size: int = 1000, skip_token_num: int = 50) -> None:
+        self.code_tree: CodeNode = None
+        self.block_size: int = block_size  # in tokens
+        # class method shorter than this won't be splitted.
+        self.skip_token_num: int = skip_token_num
 
     def generic_visit(self, node: ast.AST) -> None:
         """Catches the type of node that is not handled."""
-        if node.__class__.__name__ == "Module":
+        if ast_type(node) == "Module":  # root node
+            self.code_tree = CodeNode(isolated=True, ast=[node])
             super().generic_visit(node)
         else:
-            self.others.append(ast.unparse(node))
+            self.add_with_trying_merge(node)
             logger.info(f"Other node type: {type(node)}")
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -52,34 +39,46 @@ class CodeExtractor(ast.NodeVisitor):
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         self.parse_function(node)
 
-    def visit_Import(self, node: ast.Import) -> None:
-        self.imports.append(ast.unparse(node))
-
-    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        self.imports.append(ast.unparse(node))
-
     def visit_If(self, node: ast.If) -> None:
         """Handle the entry point of a module when being executed."""
         if self.is_file_entrypoint(node):
-            code = ast.unparse(node)
-            self.add_block(name="File entry point", code=code)
+            # HACK: Add name to the node to simplify logic in code_info_from_ast.
+            node.name = "module_entrypoint"
+            self.code_tree.children.append(CodeNode(isolated=True, ast=[node]))
         else:
             self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        code = ast.unparse(node)
-        self.add_block(name=node.name, code=code)
-        if len(code) > self.block_lines:
-            self.split_class_methods(node)
+        code_node = CodeNode(isolated=True, ast=[node])
+        self.code_tree.children.append(code_node)
+        if get_code_length(ast.unparse(node)) > self.block_size:
+            self.split_class(code_node)
+
+    def add_with_trying_merge(
+        self, node: ast.AST, parent: CodeNode | None = None
+    ) -> None:
+        """This method allows merging non-isolated node on the fly while traversing the AST."""
+        if parent is None:
+            parent = self.code_tree
+
+        children = self.code_tree.children
+        if (
+            children
+            and not children[-1].isolated
+            and len(children) < self.block_size
+        ):
+            children[-1].ast.append(node)
+        else:
+            children.append(CodeNode(isolated=False, ast=[node]))
 
     def parse_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        code = ast.unparse(node)
-        self.add_block(name=node.name, code=code)
-        if len(code) > self.block_lines:
+        self.code_tree.children.append(CodeNode(isolated=True, ast=[node]))
+        code_length = get_code_length(ast.unparse(node))
+        if code_length > self.block_size:
             # TODO: Split the function into smaller functions.
             logger.warning(
                 f"Function {node.name} is too long after splitting. "
-                f"({len(code)} > {self.block_lines}) line threshold."
+                f"({code_length} > {self.block_size}) line threshold."
             )
 
     def is_file_entrypoint(self, node: ast.If) -> bool:
@@ -96,98 +95,24 @@ class CodeExtractor(ast.NodeVisitor):
                 return True
         return False
 
-    def split_class_methods(self, class_node: ast.ClassDef) -> None:
+    def split_class(self, parent_node: CodeNode) -> None:
+        class_node = parent_node.ast[0]
         for node in class_node.body:
-            # TODO: Handle nested classes?
-            if isinstance(node, ast.FunctionDef) or isinstance(
-                node, ast.AsyncFunctionDef
+            # TODO: Handle assignment and other types of statements.
+            if (
+                isinstance(node, ast.FunctionDef)
+                or isinstance(node, ast.AsyncFunctionDef)
+                or isinstance(node, ast.ClassDef)
             ):
-                method_name = f"{class_node.name}.{node.name}"
-                method_code = ast.unparse(node)
-                self.add_block(
-                    name=node.name,
-                    code=method_code,
-                    level=CodeBlockLevel.CLASS_METHOD,
-                )
-                comment = f"# Function body is omitted here but accessable in block `{method_name}`."
-                node.body = [ast.Expr(value=ast.Str(s=comment)), ast.Pass()]
-
-        class_code = ast.unparse(class_node)
-        if len(class_code) > self.block_lines:
-            logger.warning(
-                f"Class {class_node.name} is still too long after splitting."
-                f"({len(class_code)} > {self.block_lines}) line threshold."
-            )
-        self.code_blocks[class_node.name] = class_code
-
-    def convert_to_blocks(self) -> list[CodeBlock]:
-        """Converts imports and others to code blocks."""
-        if self.converted:
-            logger.warning(
-                "Code blocks have already been converted, won't convert again."
-            )
-            return
-
-        for name, blocks in zip(["imports", "others"], [self.imports, self.others]):
-            for i, code in enumerate(self._split_list(blocks)):
-                self.add_block(name=f"{name} (segment {i})", code=code)
-        self.converted = True
-
-    def _split_list(self, lines: list[str]) -> list[str]:
-        """Split the lines into smaller chunks and join."""
-        return [
-            "\n".join(lines[i : i + self.block_lines])
-            for i in range(0, len(lines), self.block_lines)
-        ]
-
-    def add_block(
-        self,
-        name: str,
-        code: str,
-        level: CodeBlockLevel = CodeBlockLevel.DIRECT_CHILD,
-    ) -> None:
-        self.code_blocks.append(
-            CodeBlock(
-                name=name,
-                code=code,
-                level=level,
-                length_in_token=get_code_length(
-                    code=code,
-                    unit=CodeLengthUnit.TOKEN,
-                ),
-                # TODO: Rethink of the summary generation, maybe it should
-                # be done centralized to run asyncly.
-                summary=self.summary_bot.summarize_code(code=code),
-                embedding=get_embedding(text=code),
-            )
-        )
+                if get_code_length(ast.unparse(node)) <= self.skip_token_num:
+                    continue
+                parent_node.children.append(CodeNode(isolated=True, ast=[node]))
+        return
 
     @classmethod
-    def blocks_from_code(cls, code: str, block_lines: int = 50) -> list[CodeBlock]:
+    def generate_code_tree(cls, code: str, **kwargs) -> CodeNode:
         # TODO: Rethink if I can reuse the extractor for multiple files.
         tree = ast.parse(code)
-        extractor = cls(block_lines=block_lines)
+        extractor = cls(**kwargs)
         extractor.visit(tree)
-        extractor.convert_to_blocks()
-        # extractor.generate_file_block()
-        return pd.DataFrame([b.dict() for b in extractor.code_blocks])
-
-
-# TODO: Move to test file.
-code = """
-from __future__ import annotations
-
-GREETING = "Hi"
-
-def foo():
-    print(GREETING)
-
-class Foo:
-    def __init__(self):
-        foo()
-
-if __name__=="__main__":
-    Foo()
-"""
-
-# CodeExtractor.blocks_from_code(code=code)
+        return extractor.code_tree

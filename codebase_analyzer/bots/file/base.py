@@ -20,12 +20,12 @@ from codebase_analyzer.bots.base import Bot
 from codebase_analyzer.bots.callbacks import BotStreamingStdOutCallbackHandler
 from codebase_analyzer.bots.file import config
 from codebase_analyzer.bots.file.prompts import SYSTEM_MESSAGE
-from codebase_analyzer.parser.parser import (
+from codebase_analyzer.common.pydantic import AllowArbitraryTypeConfig
+from codebase_analyzer.parser.codeinfo import (
     extract_code_info,
-    generate_file_summary,
-    generate_functions_summary,
     load_cached_code_info,
 )
+from codebase_analyzer.parser.schema import CodeInfo
 from codebase_analyzer.tools import (
     ask_function_bot,
     get_file_summary,
@@ -72,22 +72,13 @@ def get_cache_path(cache_root: Path, relative_path: Path) -> Path:
     return cache_root / relative_path.parent / relative_path.name.replace(".", "_")
 
 
-class AllowArbitraryTypeConfig(BaseModel.Config):
-    # Used by pydantic to allow arbitrary type e.g. pd.DataFrame
-    arbitrary_types_allowed = True
-
-
 class FileCache(BaseModel):
     """Cache for a single file."""
 
-    FILE_SUMMARY: ClassVar[str] = "file.md"
-    FUNCTIONS_SUMMARY: ClassVar[str] = "functions.md"
-    CODE_INFO: ClassVar[str] = "code_info.csv"
+    CODE_INFO_FILE: ClassVar[str] = "code_info.csv"
 
     Config = AllowArbitraryTypeConfig
     cache_path: Path
-    file_summary: str
-    function_summary: str
     code_info: pd.DataFrame
 
     @classmethod
@@ -100,22 +91,18 @@ class FileCache(BaseModel):
         cache_path = get_cache_path(
             cache_root=cache_root, relative_path=relative_path
         )
-        if cls.is_cache_valid(cache_path=cache_path):
+        if cls.cache_exists(cache_path=cache_path):
             return cls.load_from_disk(cache_path=cache_path)
         return cls.generate_from_code(
             cache_path=cache_path, file_path=repo_root / relative_path
         )
 
     @classmethod
-    def is_cache_valid(cls, cache_path: Path) -> bool:
+    def cache_exists(cls, cache_path: Path) -> bool:
         # TODO: More validation based on metadata.
         if not cache_path.exists():
             return False
-        if not (cache_path / cls.FILE_SUMMARY).exists():
-            return False
-        if not (cache_path / cls.FUNCTIONS_SUMMARY).exists():
-            return False
-        if not (cache_path / cls.CODE_INFO).exists():
+        if not (cache_path / cls.CODE_INFO_FILE).exists():
             return False
         return True
 
@@ -123,19 +110,16 @@ class FileCache(BaseModel):
     def load_from_disk(cls, cache_path: Path) -> FileCache:
         return cls(
             cache_path=cache_path,
-            file_summary=read_file(path=cache_path / cls.FILE_SUMMARY),
-            function_summary=read_file(path=cache_path / cls.FUNCTIONS_SUMMARY),
-            code_info=load_cached_code_info(path=cache_path / cls.CODE_INFO),
+            code_info=load_cached_code_info(path=cache_path / cls.CODE_INFO_FILE),
         )
 
     @classmethod
-    def generate_from_code(cls, cache_path: Path, file_path: Path) -> FileCache:
-        code_info = extract_code_info(file_path)
+    def generate_from_code(
+        cls, cache_path: Path, file_path: Path, **kwargs
+    ) -> FileCache:
         return cls(
             cache_path=cache_path,
-            file_summary=generate_file_summary(code_info=code_info),
-            function_summary=generate_functions_summary(code_info=code_info),
-            code_info=code_info,
+            code_info=extract_code_info(file_path, **kwargs),
         )
 
     @validator("code_info")
@@ -146,18 +130,22 @@ class FileCache(BaseModel):
             )
         if code_info.empty:
             raise ValueError("code_info cannot be empty")
-        for column in ["name", "code"]:
-            if column not in code_info.columns:
-                raise ValueError(f"code_info must have '{column}' column")
+
+        got = set(code_info.columns)
+        expected = set(CodeInfo.__annotations__.keys())
+        if got != expected:
+            raise ValueError(
+                "Columns of loaded cache do not match schema of CodeInfo. "
+                f"Expected: {expected}. Got: {got}. Diff: {expected ^ got}. "
+                "Please check or delete the cache and try again."
+            )
         return code_info
 
     def save_to_disk(self, path: Path | None = None) -> None:
         if path is None:
             path = self.cache_path
         path.mkdir(parents=True, exist_ok=True)
-        self.code_info.to_csv(path / self.CODE_INFO, index=False)
-        (path / self.FILE_SUMMARY).write_text(self.file_summary)
-        (path / self.FUNCTIONS_SUMMARY).write_text(self.function_summary)
+        self.code_info.to_csv(path / self.CODE_INFO_FILE, index=False)
 
 
 class FileBot(Bot):
@@ -201,6 +189,7 @@ class FileBot(Bot):
                     get_related_functions,
                     code_info=cache.code_info,
                     want="name",
+                    # TODO: not hardcode but based on similarity
                     n=5,
                 )
             ),
@@ -208,9 +197,7 @@ class FileBot(Bot):
                 func=patch_tool(get_function_code, code_info=cache.code_info)
             ),
             StructuredTool.from_function(
-                func=patch_tool(
-                    get_functions_summary, functions_summary=cache.function_summary
-                )
+                func=patch_tool(get_functions_summary, code_info=cache.code_info)
             ),
             StructuredTool.from_function(
                 func=patch_tool(
@@ -227,12 +214,14 @@ class FileBot(Bot):
     def init_agent_executor(cls, values: dict) -> dict:
         tools = values.get("tools")
         cache = values.get("cache")
+        file_relative_path = values.get("file_relative_path")
         agent = OpenAIFunctionsAgent.from_llm_and_tools(
             llm=config.LLM,
             tools=tools,
             system_message=SystemMessage(
                 content=SYSTEM_MESSAGE.format(
-                    file_summary=get_file_summary(file_summary=cache.file_summary),
+                    file_path=file_relative_path,
+                    file_summary=get_file_summary(code_info=cache.code_info),
                 )
             ),
             extra_prompt_messages=[MessagesPlaceholder(variable_name="history")],
