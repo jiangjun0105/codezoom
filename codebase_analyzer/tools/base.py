@@ -18,7 +18,7 @@ import pandas as pd
 from loguru import logger
 from pydantic import Field
 
-from codebase_analyzer.parser.base import CodeInfoLevel
+from codebase_analyzer.parser.schema import CodeInfoLevel
 from codebase_analyzer.tools.context import CodeLengthUnit, get_code_length
 from codebase_analyzer.tools.embedding import search_functions
 

@@ -11,7 +11,7 @@ from loguru import logger
 
 from codebase_analyzer.common.credentials import get_api_key
 from codebase_analyzer.parser.ast_visitor import CodeExtractor
-from codebase_analyzer.parser.base import CodeInfo, CodeInfoLevel, CodeNode
+from codebase_analyzer.parser.schema import CodeInfo, CodeInfoLevel, CodeNode
 from codebase_analyzer.tools.context import get_code_length
 from codebase_analyzer.tools.summary import SummaryBot
 
@@ -110,15 +110,15 @@ def _construct_code(node: CodeNode) -> str:
     return code
 
 
-async def populate_summary(node: CodeNode, summary_bot: SummaryBot) -> None:
+async def apopulate_summary(node: CodeNode, summary_bot: SummaryBot) -> None:
     node.info.summary = await summary_bot.asummarize_code(code=_construct_code(node))
 
 
-async def populate_embedding(node: CodeNode, embeddings: OpenAIEmbeddings) -> None:
+async def apopulate_embedding(node: CodeNode, embeddings: OpenAIEmbeddings) -> None:
     node.info.embedding = await embeddings.aembed_query(node.info.code)
 
 
-async def populate_summary_and_embedding(
+async def apopulate_summary_and_embedding(
     root: CodeNode, worker_num: int = 20
 ) -> None:
     todo_children = defaultdict(int)
@@ -142,8 +142,8 @@ async def populate_summary_and_embedding(
     async def process_node(node):
         nonlocal code_info
         await asyncio.gather(
-            populate_embedding(node, embeddings),
-            populate_summary(node, summary_bot),
+            apopulate_embedding(node, embeddings),
+            apopulate_summary(node, summary_bot),
         )
         code_info.append(node.info)
         parent = child_to_parent.get(node)
@@ -176,7 +176,7 @@ def check_code_info(code_info: pd.DataFrame, block_size: int, raw_code: str) -> 
         if length > block_size:
             logger.warning(f"Block {name} has length {length} > {block_size}.")
 
-    summary = "\n".join(i["summary"] for i in code_info)
+    summary = "\n".join(s for s in code_info.summary)
     logger.info(
         f"\n===== Code Info Summary =====\n"
         f"Original Code length: {len(raw_code)}\n"
@@ -187,7 +187,7 @@ def check_code_info(code_info: pd.DataFrame, block_size: int, raw_code: str) -> 
 
 # TODO: Centralize all the configs.
 def extract_code_info(
-    filepath: Path, block_size: int = 1000, skip_token_num: int = 10
+    filepath: Path, block_size: int = 1000, skip_token_num: int = 20
 ) -> pd.DataFrame:
     """Extracts code info from a file.
 
@@ -205,14 +205,15 @@ def extract_code_info(
         block_size=block_size,
         skip_token_num=skip_token_num,
     )
-    code_info = asyncio.run(populate_summary_and_embedding(code_tree))
+    generate_code_info(code_tree)
+    code_info = asyncio.run(apopulate_summary_and_embedding(code_tree))
     check_code_info(code_info, block_size=block_size, raw_code=code)
     return code_info
 
 
 def load_cached_code_info(path: Path) -> pd.DataFrame:
     """Load cached codebase info from the given csv file."""
-    code_info = pd.read_csv(path).set_index("Unnamed: 0")
+    code_info = pd.read_csv(path)
     logger.info(f"Loaded codebase info from {path}")
 
     # TODO: Use format supporting storing the embeddings instead of CSV

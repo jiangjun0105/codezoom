@@ -5,7 +5,7 @@ import ast
 import pandas as pd
 from loguru import logger
 
-from codebase_analyzer.parser.base import CodeNode
+from codebase_analyzer.parser.schema import CodeNode
 from codebase_analyzer.tools.context import get_code_length
 
 
@@ -110,7 +110,7 @@ class CodeExtractor(ast.NodeVisitor):
         return
 
     @classmethod
-    def generate_code_tree(cls, code: str, **kwargs) -> pd.DataFrame:
+    def generate_code_tree(cls, code: str, **kwargs) -> CodeNode:
         # TODO: Rethink if I can reuse the extractor for multiple files.
         tree = ast.parse(code)
         extractor = cls(**kwargs)

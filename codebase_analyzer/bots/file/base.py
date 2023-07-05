@@ -25,6 +25,7 @@ from codebase_analyzer.parser.codeinfo import (
     extract_code_info,
     load_cached_code_info,
 )
+from codebase_analyzer.parser.schema import CodeInfo
 from codebase_analyzer.tools import (
     ask_function_bot,
     get_file_summary,
@@ -90,14 +91,14 @@ class FileCache(BaseModel):
         cache_path = get_cache_path(
             cache_root=cache_root, relative_path=relative_path
         )
-        if cls.is_cache_valid(cache_path=cache_path):
+        if cls.cache_exists(cache_path=cache_path):
             return cls.load_from_disk(cache_path=cache_path)
         return cls.generate_from_code(
             cache_path=cache_path, file_path=repo_root / relative_path
         )
 
     @classmethod
-    def is_cache_valid(cls, cache_path: Path) -> bool:
+    def cache_exists(cls, cache_path: Path) -> bool:
         # TODO: More validation based on metadata.
         if not cache_path.exists():
             return False
@@ -129,9 +130,15 @@ class FileCache(BaseModel):
             )
         if code_info.empty:
             raise ValueError("code_info cannot be empty")
-        for column in ["name", "code"]:
-            if column not in code_info.columns:
-                raise ValueError(f"code_info must have '{column}' column")
+
+        got = set(code_info.columns)
+        expected = set(CodeInfo.__annotations__.keys())
+        if got != expected:
+            raise ValueError(
+                "Columns of loaded cache do not match schema of CodeInfo. "
+                f"Expected: {expected}. Got: {got}. Diff: {expected ^ got}. "
+                "Please check or delete the cache and try again."
+            )
         return code_info
 
     def save_to_disk(self, path: Path | None = None) -> None:
