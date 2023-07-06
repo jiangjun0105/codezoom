@@ -43,7 +43,7 @@ class CodeExtractor(ast.NodeVisitor):
         """Handle the entry point of a module when being executed."""
         if self.is_file_entrypoint(node):
             # HACK: Add name to the node to simplify logic in code_info_from_ast.
-            node.name = "module_entrypoint"
+            node.name = "script execution block"
             self.code_tree.children.append(CodeNode(isolated=True, ast=[node]))
         else:
             self.generic_visit(node)

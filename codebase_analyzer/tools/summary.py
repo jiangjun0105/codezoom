@@ -17,6 +17,7 @@ SYSTEM_TEMPLATE = (
     "Your goal is to help someone who cannot see the code to understand its main function and how it works quickly."
 )
 
+# FIXME: the length restriction is not working well for 3.5. Should I use gpt-4?
 HUMAN_TEMPLATE = """Summarize the following code using less than {length} tokens:
 
 {code}
