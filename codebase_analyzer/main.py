@@ -34,23 +34,25 @@ def interaction_loop(master_bot: Any) -> None:
         master_bot.ask(inputs=query)
 
 
-def main(repo: Path, cache: Path | None = None) -> None:
+def main(repo_root: Path, file_path: Path, cache_root: Path | None = None) -> None:
     """Ichigen Coder - A cluster of coding bots
     Codebase Analyzer module
     """
-    cache = cache or get_cache_root(repo)
+    cache_root = cache_root or get_cache_root(repo_root)
 
     # FIXME after supporting multiple files
-    file_path = Path("src/revChatGPT/V1.py")
+    file_relative_path = file_path
+    if not file_path.is_absolute():
+        file_relative_path = file_path.relative_to(repo_root)
 
     # Singleton managers
     manager = FunctionBotManager()
 
     # FIXME: For now we use the file bot as master bot
     file_bot = FileBot.from_cache(
-        repo_root=repo,
-        cache_root=cache,
-        file_relative_path=file_path,
+        repo_root=repo_root,
+        cache_root=cache_root,
+        file_relative_path=file_relative_path,
         get_bot_func=manager.get_bot,
     )
     interaction_loop(file_bot)
@@ -60,12 +62,29 @@ def main(repo: Path, cache: Path | None = None) -> None:
 
 @click.command()
 @click.option(
-    "--repo", type=Path, required=True, help="Path to the repository to analyze"
+    "--repo-root",
+    "-r",
+    type=Path,
+    required=True,
+    help="Path to the root of the repository to analyze.",
 )
-@click.option("--cache", type=Path, help="Path to the cache repo info csv file")
-def cli(repo: Path, cache: Path) -> None:
+@click.option(
+    "--file-path",
+    "-f",
+    type=Path,
+    required=True,
+    help="Relative or absoluate path to the file in the repository to analyze. "
+    "Will become Optional after supporting multiple files.",
+)
+@click.option(
+    "--cache-root",
+    "-c",
+    type=Path,
+    help="Path to the root cache repo. Will cacluate based on sha256 of repo root if not assigned",
+)
+def cli(repo_root: Path, file_path: Path, cache_root: Path) -> None:
     """CLI: wrapper for the main function for easy testing."""
-    main(repo=repo, cache=cache)
+    main(repo_root=repo_root, cache_root=cache_root, file_path=file_path)
 
 
 if __name__ == "__main__":

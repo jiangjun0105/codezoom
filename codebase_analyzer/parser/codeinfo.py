@@ -10,7 +10,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from loguru import logger
 
 from codebase_analyzer.common.credentials import get_api_key
-from codebase_analyzer.parser.ast_visitor import CodeExtractor
+from codebase_analyzer.parser.codetree import CodeExtractor
 from codebase_analyzer.parser.schema import CodeInfo, CodeInfoLevel, CodeNode
 from codebase_analyzer.tools.context import get_code_length
 from codebase_analyzer.tools.summary import SummaryBot
@@ -57,6 +57,7 @@ def code_info_from_ast(
         else:
             # Module
             name = "module_structure_overview"
+            # TODO: When having multiple files, we need a better way to show the structure of the module.
             code = "\n\n".join(n.info.name for n in node.children)
 
     node.info = CodeInfo(
@@ -64,21 +65,22 @@ def code_info_from_ast(
         code=code,
         length_in_token=get_code_length(code),
         level=level,
+        index=index,
     )
 
 
-def generate_code_info(
+def populate_name_and_code(
     node: CodeNode,
     level: CodeInfoLevel = CodeInfoLevel.MODULE,
     index: int = 0,
     parent: CodeNode = None,
 ) -> CodeInfo:
-    """Recursively generate code info from code tree. A node's info can be
-    generated only after all its children's info are generated.
+    """Recursively generate code info from code tree and populate name and source code.
+    A node's info can be generated only after all its children's info are generated.
     TODO: This way we cannot do lazy generation for a large codebase."""
 
     for i, child in enumerate(node.children):
-        generate_code_info(child, level=level + 1, index=i, parent=node)
+        populate_name_and_code(child, level=level + 1, index=i, parent=node)
     code_info_from_ast(node, level=level, index=index, parent=parent)
 
 
@@ -167,7 +169,7 @@ async def apopulate_summary_and_embedding(
 
     workers = [asyncio.create_task(worker()) for _ in range(worker_num)]
     await asyncio.gather(*workers)
-    return pd.DataFrame(c.dict() for c in code_info)
+    return pd.DataFrame(c.dict() for c in code_info).sort_values("index")
 
 
 def check_code_info(code_info: pd.DataFrame, block_size: int, raw_code: str) -> None:
@@ -205,7 +207,7 @@ def extract_code_info(
         block_size=block_size,
         skip_token_num=skip_token_num,
     )
-    generate_code_info(code_tree)
+    populate_name_and_code(code_tree)
     code_info = asyncio.run(apopulate_summary_and_embedding(code_tree))
     check_code_info(code_info, block_size=block_size, raw_code=code)
     return code_info
@@ -217,6 +219,7 @@ def load_cached_code_info(path: Path) -> pd.DataFrame:
     logger.info(f"Loaded codebase info from {path}")
 
     # TODO: Use format supporting storing the embeddings instead of CSV
-    # TODO: Create single source of true for names of the columns, mabye use langchain.Document
+    # TODO: Create single source of true for names of the columns, mabye use
+    # langchain.Document will solve the problem automatically.
     code_info["embedding"] = code_info["embedding"].apply(ast.literal_eval)
     return code_info

@@ -20,6 +20,7 @@ class CodeInfo(BaseModel):
     code: str
     length_in_token: int
     level: CodeInfoLevel
+    index: int
     summary: str = None
     embedding: list[float] = None
 

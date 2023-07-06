@@ -61,9 +61,14 @@ def get_functions_summary(
 ) -> str:
     """For getting the summaries of all functions in this file."""
     direct_child = code_info.loc[code_info.level == CodeInfoLevel.DIRECT_CHILD]
-    return "\n".join(
-        f"{n}: {s}" for n, s in zip(direct_child.name, direct_child.summary)
+    guide = (
+        "Below is the summary of code blocks in the file. Each block could be a function or a group of statements."
+        "Names of the blocks are shown in [] which can be used to retrive code or find corresponding function bot."
     )
+    summary = "\n\n".join(
+        f"[{n}]\n{s}" for n, s in zip(direct_child.name, direct_child.summary)
+    )
+    return f"{guide}\n\n{summary}"
 
 
 def get_file_summary(
@@ -151,7 +156,7 @@ def get_directory_tree(
     E.g. directory_tree(path="./", level=2)
     """
     if not root_path:
-        # TOOD: for now this shouldn't happen but later may change to let bot
+        # TODO: for now this shouldn't happen but later may change to let bot
         # ask user to provide codebase root directory
         raise ValueError("root_path is not provided.")
 
