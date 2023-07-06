@@ -133,7 +133,7 @@ class FileCache(BaseModel):
 
         got = set(code_info.columns)
         expected = set(CodeInfo.__annotations__.keys())
-        if got != expected:
+        if got < expected:
             raise ValueError(
                 "Columns of loaded cache do not match schema of CodeInfo. "
                 f"Expected: {expected}. Got: {got}. Diff: {expected ^ got}. "

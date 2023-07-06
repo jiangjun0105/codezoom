@@ -39,10 +39,11 @@ def main(repo_root: Path, file_path: Path, cache_root: Path | None = None) -> No
     Codebase Analyzer module
     """
     cache_root = cache_root or get_cache_root(repo_root)
+    file_path = Path(file_path).expanduser()
 
     # FIXME after supporting multiple files
     file_relative_path = file_path
-    if not file_path.is_absolute():
+    if file_path.is_absolute():
         file_relative_path = file_path.relative_to(repo_root)
 
     # Singleton managers
