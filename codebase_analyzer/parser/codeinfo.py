@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 import asyncio
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import pandas as pd
@@ -120,52 +120,125 @@ async def apopulate_embedding(node: CodeNode, embeddings: OpenAIEmbeddings) -> N
     node.info.embedding = await embeddings.aembed_query(node.info.code)
 
 
-async def apopulate_summary_and_embedding(
-    root: CodeNode, worker_num: int = 20
+def _handle_error(
+    error: Exception,
+    node: CodeNode,
+    failures: dict[int],
+    max_failures: int,
+    timeout: int,
+    ready: set[CodeNode],
 ) -> None:
-    todo_children = defaultdict(int)
-    child_to_parent = {}
+    """Handle error when processing a node.
+
+    TODO: Currently we raise the error when a node fails too many times, which
+    also makes the whole code tree fail. Later we might want to finish the sub
+    tree we can finish and make the user can resume from a wip tree."""
+    if type(error) is asyncio.TimeoutError:
+        logger.error(
+            f"Processing node {node} timed out after {timeout}s, will retry."
+        )
+    failures[node] += 1
+    if failures[node] < max_failures:
+        ready.add(node)
+    else:
+        logger.exception(
+            f"Node {node} failed {failures[node]} times. Abort as we cannot "
+            "finish processing the whole code tree anyway."
+        )
+        raise error
+
+
+def _update_states(
+    node: CodeNode,
+    ready: set,
+    code_info: list[CodeInfo],
+    todo_children: dict,
+    child_to_parent: dict,
+) -> None:
+    """Update states after a node is processed successfully.
+    Will update `ready`, `code_info` and `todo_children` inplace."""
+    code_info.append(node.info)
+    parent = child_to_parent.get(node)
+    if parent is not None:
+        todo_children[parent] -= 1
+        if todo_children[parent] == 0:
+            ready.add(parent)
+
+
+def _count_children(
+    node: CodeNode,
+    todo_children: dict[CodeNode, int],
+    child_to_parent: dict[CodeNode, CodeNode],
+) -> None:
+    """Recursively counts how many children a node has and build connections
+    from children to parents."""
+    todo_children[node] += len(node.children)
+    for child in node.children:
+        child_to_parent[child] = node
+        _count_children(
+            node=child,
+            todo_children=todo_children,
+            child_to_parent=child_to_parent,
+        )
+
+
+async def apopulate_summary_and_embedding(
+    root: CodeNode, worker_num: int = 20, timeout: int = 180, max_failures: int = 5
+) -> None:
+    """Populate summary and embedding for all nodes in the code tree."""
     summary_bot = SummaryBot()
     embeddings = OpenAIEmbeddings(openai_api_key=get_api_key())
+    todo_children = defaultdict(int)
+    child_to_parent = {}
 
-    def count_children(node):
-        todo_children[node] += len(node.children)
-        for child in node.children:
-            child_to_parent[child] = node
-            count_children(child)
-
-    count_children(root)
+    _count_children(
+        node=root, todo_children=todo_children, child_to_parent=child_to_parent
+    )
 
     condition = asyncio.Condition()
     ready = {node for node, count in todo_children.items() if count == 0}
     total = len(todo_children)
+    failures = Counter()
     code_info = []
 
     async def process_node(node):
-        nonlocal code_info
-        await asyncio.gather(
-            apopulate_embedding(node, embeddings),
-            apopulate_summary(node, summary_bot),
-        )
-        code_info.append(node.info)
-        parent = child_to_parent.get(node)
-        if parent is not None:
-            todo_children[parent] -= 1
-            if todo_children[parent] == 0:
-                ready.add(parent)
+        # nonlocal code_info
+        try:
+            await asyncio.gather(
+                apopulate_embedding(node, embeddings),
+                apopulate_summary(node, summary_bot),
+            )
+        except Exception as e:
+            _handle_error(
+                error=e,
+                node=node,
+                failures=failures,
+                max_failures=max_failures,
+                timeout=timeout,
+                ready=ready,
+            )
+        else:
+            _update_states(
+                node=node,
+                ready=ready,
+                code_info=code_info,
+                child_to_parent=child_to_parent,
+                todo_children=todo_children,
+            )
+
+        # Notify all workers to check updated state.
         async with condition:
-            # Notify all workers to check updated state.
             condition.notify_all()
 
     async def worker():
         while True:
-            logger.info(f"Completed {len(code_info)}/{total}.")
             async with condition:
                 await condition.wait_for(lambda: ready or len(code_info) >= total)
                 if len(code_info) >= total:
                     break
                 node = ready.pop()
             await process_node(node)
+            logger.info(f"Completed {len(code_info)}/{total}.")
 
     workers = [asyncio.create_task(worker()) for _ in range(worker_num)]
     await asyncio.gather(*workers)
