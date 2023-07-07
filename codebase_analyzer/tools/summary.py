@@ -18,12 +18,26 @@ SYSTEM_TEMPLATE = (
 )
 
 # FIXME: the length restriction is not working well for 3.5. Should I use gpt-4?
-HUMAN_TEMPLATE = """Summarize the following code using less than {length} tokens:
+HUMAN_TEMPLATE = """Summarize the following code using less than {want_tokens} tokens:
 
 {code}
 """
 
-# TODO: Rethink the design of the bot
+DEBUG_LOG = """
+** Input code **
+{code}
+
+** Got summary **
+{response}
+
+** Token usage **
+* Comporession ratio: {ratio}
+* Input code: {code_tokens} tokens
+* Wanted: {want_tokens} tokens
+* Actual used: {got_tokens} tokens
+"""
+
+# TODO: Rethink the design of the bot. Use manager to manage the chain.
 llm: ChatOpenAI = ChatOpenAI(temperature=0, model="gpt-3.5-turbo-0613")
 
 
@@ -44,25 +58,47 @@ class SummaryBot(BaseModel):
     def summarize_code(self, code: str) -> str:
         """Summarize the code using LLM model."""
         code_tokens = get_code_length(code, CodeLengthUnit.TOKEN)
-        length = min(
-            self.max_tokens, max(self.min_tokens, int(code_tokens / self.ratio))
-        )
-        logger.debug(f"Length of summary should be {length} tokens.")
-        response = self.chain.run(length=length, code=code)
-        logger.debug(
-            f"Actual length is {get_code_length(response, CodeLengthUnit.TOKEN)}"
+        want_tokens = self.get_want_tokens(code_tokens)
+        response = self.chain.run(want_tokens=want_tokens, code=code)
+        self.report(
+            code=code,
+            code_tokens=code_tokens,
+            response=response,
+            want_tokens=want_tokens,
         )
         return response
 
     async def asummarize_code(self, code: str) -> str:
-        """Summarize the code using LLM model."""
+        """Async summarize the code using LLM model."""
         code_tokens = get_code_length(code, CodeLengthUnit.TOKEN)
-        length = min(
-            self.max_tokens, max(self.min_tokens, int(code_tokens / self.ratio))
-        )
-        logger.debug(f"Length of summary should be {length} tokens.")
-        response = await self.chain.arun(length=length, code=code)
-        logger.debug(
-            f"Actual length is {get_code_length(response, CodeLengthUnit.TOKEN)}"
+        want_tokens = self.get_want_tokens(code_tokens)
+        response = await self.chain.arun(want_tokens=want_tokens, code=code)
+        self.report(
+            code=code,
+            code_tokens=code_tokens,
+            response=response,
+            want_tokens=want_tokens,
         )
         return response
+
+    def get_want_tokens(self, code_tokens: int) -> int:
+        """Calculate the number of tokens to use for summarization."""
+        # TODO: use a better algorithm
+        return min(
+            self.max_tokens, max(self.min_tokens, int(code_tokens / self.ratio))
+        )
+
+    def report(
+        self, code: str, code_tokens: int, want_tokens: int, response: str
+    ) -> None:
+        got_tokens = get_code_length(response, CodeLengthUnit.TOKEN)
+        logger.debug(
+            DEBUG_LOG.format(
+                code=code,
+                response=response,
+                ratio=self.ratio,
+                code_tokens=code_tokens,
+                want_tokens=want_tokens,
+                got_tokens=got_tokens,
+            )
+        )
