@@ -7,7 +7,7 @@ LLM = ChatOpenAI(
     temperature=0,
     model="gpt-3.5-turbo-0613",
     # model="gpt-4-0613",
-    openai_api_key=get_api_key(),
+    
     streaming=True,
     client=None,  # TODO: How to fix pydantic error?
 )

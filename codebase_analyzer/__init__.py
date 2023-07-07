@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dotenv import load_dotenv
 
 import loguru
 
@@ -14,3 +15,5 @@ loguru.logger.remove()
 # Let it print to a file and rotate every week
 # TODO: see if need retention policy
 logger = loguru.logger.add(str(LOG_FILE_PATH / "{time}.log"), rotation="1 week")
+
+load_dotenv()
