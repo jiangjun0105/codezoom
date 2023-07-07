@@ -11,7 +11,30 @@ This module is to help a human developer quickly understand a large codebase by 
 
 The main chatbot will ask its chatbot buddies to collect necessary info using various tools in order to give a accurate and in-depth answer. They might interact for several time before the main chatbot gives the final answer.
 
-Sample questions:
+## How to run
+1. Install `poetry` following their [official docs](https://python-poetry.org/docs/#installation). If you have an old version of poetry, please install `1.5.1` or newer.
+
+1. Install dependencies
+```bash
+poetry install
+```
+If encountered any error run `poetry lock`.
+
+1. Create an OpenAI account and [create an API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-secret-api-key)
+1. Setup OpenAI API key
+```bash
+cp .env.example .env`
+# Then add your key to `.env` file
+```
+1. `poetry run python ./codebase_analyzer/main.py  --help` to check if it works.
+1. For asking questions again a certain file:
+```bash
+poetry run python ./codebase_analyzer/main.py \
+    --repo-root <path-to-repo-root> \
+    --file-path <path-to-file>
+```
+
+## Sample questions
 ```
 q1 = "Which url does the ChatBot send request to after a user ask question to it?"
 q2 = "How is the authentication done in the ChatBot?"

@@ -20,7 +20,6 @@ from codebase_analyzer.tools.base import load_single_function
 
 function_llm = OpenAI(
     temperature=0,
-    openai_api_key=get_api_key(),
     streaming=True,
     callbacks=[BotStreamingStdOutCallbackHandler(color="blue")],
 )

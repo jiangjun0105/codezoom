@@ -24,9 +24,7 @@ HUMAN_TEMPLATE = """Summarize the following code using less than {length} tokens
 """
 
 # TODO: Rethink the design of the bot
-llm: ChatOpenAI = ChatOpenAI(
-    temperature=0, openai_api_key=get_api_key(), model="gpt-3.5-turbo-0613"
-)
+llm: ChatOpenAI = ChatOpenAI(temperature=0, model="gpt-3.5-turbo-0613")
 
 
 class SummaryBot(BaseModel):

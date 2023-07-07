@@ -14,4 +14,4 @@ def get_api_key():
         return safe_load(f)["api_key"]
 
 
-openai.api_key = get_api_key()
+# openai.api_key = get_api_key()
