@@ -30,7 +30,7 @@ cp .env.example .env`
 1. For asking questions again a certain file:
 ```bash
 poetry run python ./codebase_analyzer/main.py \
-    --repo-root <path-to-repo-root> \ 
+    --repo-root <path-to-repo-root> \
     --file-path <path-to-file>
 ```
 

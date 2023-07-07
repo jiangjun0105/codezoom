@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from dotenv import load_dotenv
 
 import loguru
+from dotenv import load_dotenv
 
 # TODO: Make this configurable.
 LOG_FILE_PATH = Path("~/ichigen-coder/.logs/").expanduser()

@@ -9,7 +9,7 @@ from codebase_analyzer.common.credentials import get_api_key
 def get_embedding(text: str, model: str = "text-embedding-ada-002") -> list[float]:
     """Get the embedding of the given text using OpenAI Embedding API."""
     # TODO: If the embedding is too slow, think about async.
-    embeddings = OpenAIEmbeddings( model=model)
+    embeddings = OpenAIEmbeddings(model=model)
     return embeddings.embed_query(text=text)
 
 
