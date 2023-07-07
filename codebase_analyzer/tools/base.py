@@ -30,8 +30,8 @@ def ask_function_bot(
     function_name: Annotated[
         str, Field(description="Which function your question is about.")
     ],
-    file_abs_path: Annotated[
-        Path, Field(description="Absolute path to the file containing the function.")
+    file_path: Annotated[
+        Path, Field(description="Full path to the file containing the function.")
     ],
     get_bot_func: Annotated[
         Callable, Field(description="Function to get the function bot.")
@@ -46,11 +46,11 @@ def ask_function_bot(
     Also remember include enough information in the question so that the bot can give you a good answer."""
 
     function_bot = get_bot_func(
-        file_path=file_abs_path, function_name=function_name, code_info=code_info
+        file_path=file_path, function_name=function_name, code_info=code_info
     )
     if function_bot is None:
         return (
-            f"Cannot find the function {function_name} in {file_abs_path}. "
+            f"Cannot find the function {function_name} in {file_path}. "
             "Please check if the function name is correct."
         )
     return function_bot.ask(question)
