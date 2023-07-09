@@ -20,7 +20,7 @@ poetry install
 ```
 If encountered any error run `poetry lock`.
 
-1. Create an OpenAI account and [create an API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-secret-api-key)
+1. Create an OpenAI account and [create an API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-secret-api-key). If you don't have access to GPT-4, change the model [here](https://github.com/jiangjun0105/ichigen-coder/blob/main/codebase_analyzer/bots/file/config.py#L9C9-L9C9) (TODO: Make model configurable.)
 1. Setup OpenAI API key
 ```bash
 cp .env.example .env`

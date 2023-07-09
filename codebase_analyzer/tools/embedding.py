@@ -3,8 +3,6 @@ import openai
 import pandas as pd
 from langchain.embeddings import OpenAIEmbeddings
 
-from codebase_analyzer.common.credentials import get_api_key
-
 
 def get_embedding(text: str, model: str = "text-embedding-ada-002") -> list[float]:
     """Get the embedding of the given text using OpenAI Embedding API."""
