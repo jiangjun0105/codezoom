@@ -9,8 +9,12 @@ import pandas as pd
 from langchain.embeddings import OpenAIEmbeddings
 from loguru import logger
 
-from codebase_analyzer.parser.codetree import CodeExtractor
-from codebase_analyzer.parser.schema import CodeInfo, CodeInfoLevel, CodeNode
+from codebase_analyzer.parser.deftree import (
+    CodeInfo,
+    CodeNode,
+    ModuleDefTreeExtractor,
+)
+from codebase_analyzer.parser.schema import CodeInfoLevel
 from codebase_analyzer.tools.context import get_code_length
 from codebase_analyzer.tools.summary import SummaryBot
 
@@ -99,6 +103,7 @@ Summary of ommited blocks:
 
 
 def _construct_code(node: CodeNode) -> str:
+    # TODO: Use children summary to generate summary for the parent.
     if node.children:
         children_summary = "\n".join(
             f"{c.info.name}: {c.info.summary}" for c in node.children
@@ -274,7 +279,7 @@ def extract_code_info(
         A dataframe of code info, each row is a code block. Check `CodeInfo` for columns.
     """
     code = filepath.expanduser().read_text()
-    code_tree = CodeExtractor.generate_code_tree(
+    code_tree = ModuleDefTreeExtractor.generate_code_tree(
         code=code,
         block_size=block_size,
         skip_token_num=skip_token_num,

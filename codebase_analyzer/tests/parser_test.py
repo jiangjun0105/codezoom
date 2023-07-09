@@ -6,7 +6,7 @@ from codebase_analyzer.parser.codeinfo import (
     check_code_info,
     populate_name_and_code,
 )
-from codebase_analyzer.parser.codetree import CodeExtractor
+from codebase_analyzer.parser.deftree import CodeExtractor
 
 code = """
 from __future__ import annotations
