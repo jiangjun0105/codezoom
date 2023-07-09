@@ -9,7 +9,6 @@ import pandas as pd
 from langchain.embeddings import OpenAIEmbeddings
 from loguru import logger
 
-from codebase_analyzer.common.credentials import get_api_key
 from codebase_analyzer.parser.codetree import CodeExtractor
 from codebase_analyzer.parser.schema import CodeInfo, CodeInfoLevel, CodeNode
 from codebase_analyzer.tools.context import get_code_length
@@ -187,7 +186,7 @@ async def apopulate_summary_and_embedding(
 ) -> None:
     """Populate summary and embedding for all nodes in the code tree."""
     summary_bot = SummaryBot()
-    embeddings = OpenAIEmbeddings(openai_api_key=get_api_key())
+    embeddings = OpenAIEmbeddings()
     todo_children = defaultdict(int)
     child_to_parent = {}
 

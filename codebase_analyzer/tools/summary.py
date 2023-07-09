@@ -9,7 +9,6 @@ from loguru import logger
 from pydantic import BaseModel, root_validator
 from tqdm import tqdm
 
-from codebase_analyzer.common.credentials import get_api_key
 from codebase_analyzer.tools.context import CodeLengthUnit, get_code_length
 
 SYSTEM_TEMPLATE = (

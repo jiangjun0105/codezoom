@@ -15,7 +15,6 @@ from pydantic import BaseModel, root_validator, validator
 from codebase_analyzer.bots.base import Bot
 from codebase_analyzer.bots.callbacks import BotStreamingStdOutCallbackHandler
 from codebase_analyzer.bots.function.prompts import DOC_PROMPT, PROMPT
-from codebase_analyzer.common.credentials import get_api_key
 from codebase_analyzer.tools.base import load_single_function
 
 function_llm = OpenAI(
