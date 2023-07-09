@@ -15,25 +15,27 @@ The main chatbot will ask its chatbot buddies to collect necessary info using va
 1. Install `poetry` following their [official docs](https://python-poetry.org/docs/#installation). If you have an old version of poetry, please install `1.5.1` or newer.
 
 1. Install dependencies
-```bash
-poetry install
-```
-If encountered any error run `poetry lock`.
+    ```bash
+    poetry install
+    ```
+    If encountered any error run `poetry lock`.
 
 1. Create an OpenAI account and [create an API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-secret-api-key). If you don't have access to GPT-4, change the model [here](https://github.com/jiangjun0105/ichigen-coder/blob/main/codebase_analyzer/bots/file/config.py#L9C9-L9C9) (TODO: Make model configurable.)
-1. Setup OpenAI API key
-```bash
-cp .env.example .env`
-# Then add your key to `.env` file
-```
-1. `poetry run python ./codebase_analyzer/main.py  --help` to check if it works.
-1. For asking questions again a certain file:
-```bash
-poetry run python ./codebase_analyzer/main.py \
-    --repo-root <path-to-repo-root> \
-    --file-path <path-to-file>
-```
 
+1. Setup OpenAI API key
+    ```bash
+    cp .env.example .env
+    # Then add your key to .env file
+    ```
+1. `poetry run python ./codebase_analyzer/main.py  --help` to check if it works.
+
+1. For asking questions again a certain file:
+    ```bash
+    poetry run python ./codebase_analyzer/main.py \
+        --repo-root <path-to-repo-root> \
+        --file-path <path-to-file>  # Will remove after supporting multiple files
+    ```
+    As currently the codebase_analyzer only supports one file at a time, I used this very [long python file](https://github.com/acheong08/ChatGPT/blob/main/src/revChatGPT/V1.py) to test.
 ## Sample questions
 ```
 q1 = "Which url does the ChatBot send request to after a user ask question to it?"
