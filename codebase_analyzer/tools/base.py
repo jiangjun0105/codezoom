@@ -24,22 +24,15 @@ from codebase_analyzer.tools.embedding import search_functions
 
 
 def ask_function_bot(
-    question: Annotated[
-        str, Field(description="Question to ask to the function bot")
-    ],
-    function_name: Annotated[
-        str, Field(description="Which function your question is about.")
-    ],
-    file_path: Annotated[
-        Path, Field(description="Full path to the file containing the function.")
-    ],
-    get_bot_func: Annotated[
-        Callable, Field(description="Function to get the function bot.")
-    ],
-    code_info: Annotated[
-        pd.DataFrame,
-        Field(description="Extracted code info containing source code."),
-    ],
+    question: str = Field(description="Question to ask to the function bot"),
+    function_name: str = Field(description="Which function your question is about."),
+    file_path: Path = Field(
+        description="Full path to the file containing the function."
+    ),
+    get_bot_func: Callable = Field(description="Function to get the function bot."),
+    code_info: pd.DataFrame = Field(
+        description="Extracted code info containing source code."
+    ),
 ) -> str:
     """For asking a question to a function bot knowing the code of a specific function.
     Consider using this method first before using `get_function_code` when the function code length > 10 lines.
@@ -57,7 +50,7 @@ def ask_function_bot(
 
 
 def get_functions_summary(
-    code_info: Annotated[pd.DataFrame, Field(description="Pre-provided code info.")]
+    code_info: pd.DataFrame = Field(description="Pre-provided code info."),
 ) -> str:
     """For getting the summaries of all functions in this file."""
     direct_child = code_info.loc[code_info.level == CodeInfoLevel.DIRECT_CHILD]
@@ -72,7 +65,7 @@ def get_functions_summary(
 
 
 def get_file_summary(
-    code_info: Annotated[pd.DataFrame, Field(description="Pre-provided code info.")],
+    code_info: pd.DataFrame = Field(description="Pre-provided code info."),
 ) -> str:
     """For getting the summary of the file managed by this bot."""
     module = code_info.loc[code_info.level == CodeInfoLevel.MODULE]
@@ -81,13 +74,13 @@ def get_file_summary(
 
 
 def get_function_code(
-    function_name: Annotated[
-        str, Field(description="Name of the function whose code will be returned.")
-    ],
+    function_name: str = Field(
+        description="Name of the function whose code will be returned."
+    ),
     # file_path: Annotated[Path | str, Field(description="Path to the file containing the function.")],
-    code_info: Annotated[
-        pd.DataFrame, Field(description="Extracted codebase info in pd.dataframe.")
-    ],
+    code_info: pd.DataFrame = Field(
+        description="Extracted codebase info in pd.dataframe."
+    ),
 ) -> str:
     """For getting the code of a specific function. For class methods, use `class_name.method_name` as function_name."""
     result = code_info.loc[
@@ -100,16 +93,13 @@ def get_function_code(
 
 
 def get_related_functions(
-    query: Annotated[
-        str,
-        Field(
-            description="Functions having semantic similarity to this query will be returned, so please include enough semantic information in your query."
-        ),
-    ],
+    query: str = Field(
+        description="Functions having semantic similarity to this query will be returned, so please include enough semantic information in your query."
+    ),
+    n: int = Field(
+        default=5, description="Number of function names to be returned."
+    ),
     want: str = "name",
-    n: Annotated[
-        int, Field(description="Number of function names to be returned.", default=5)
-    ] = 5,
     code_info: pd.DataFrame | None = None,
     length_unit: CodeLengthUnit = CodeLengthUnit.TOKEN,
 ) -> str:
@@ -138,16 +128,13 @@ def get_related_functions(
 
 
 def get_directory_tree(
-    path: Annotated[
-        str | Path,
-        Field(
-            description="Path to the directory whose tree will be returned. './' is the root directory."
-        ),
-    ],
-    level: Annotated[
-        int,
-        Field(description="Level of the directory tree to be returned.", default=1),
-    ],
+    path: str
+    | Path = Field(
+        description="Path to the directory whose tree will be returned. './' is the root directory."
+    ),
+    level: int = Field(
+        description="Level of the directory tree to be returned.", default=1
+    ),
     # TODO: How to provide default value for root_path? Maybe using kwargs of the tools?
     root_path: Path | None = None,
 ) -> str:
@@ -178,12 +165,10 @@ def get_directory_tree(
 
 
 def get_file_content(
-    path: Annotated[
-        str | Path,
-        Field(
-            description="Path to the file whose content will be returned. './' is the root directory."
-        ),
-    ],
+    path: str
+    | Path = Field(
+        description="Path to the file whose content will be returned. './' is the root directory."
+    ),
     # TODO: How to provide default value for root_path?
     root_path: Path | str | None = None,
 ) -> str:
@@ -224,10 +209,10 @@ def load_single_function(file_path: Path, function_name: str):
 
 
 def search_keyword(
-    keyword: Annotated[str, Field(description="The keyword to search for.")],
-    semantic_filer: str,
-    file_path: Annotated[Path, Field(description="The path to file to search in.")],
-    raw_code: str,
+    keyword: str = Field(description="The keyword to search for."),
+    semantic_filer: str = Field(description="The semantic filter to use."),
+    file_path: Path = Field(description="The path to file to search in."),
+    raw_code: str = Field(description="The raw code of the file to search in."),
 ) -> list[str]:
     """Search for a keyword in the given file."""
     logger.info(f"Searching for keyword '{keyword}'...")
