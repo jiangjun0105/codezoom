@@ -17,8 +17,8 @@ def ast_type(node: ast.AST) -> str:
     return node.__class__.__name__
 
 
-class ModuleDefTreeExtractor(ast.NodeVisitor):
-    """For extracting tree of code info from AST.
+class DefTreeExtractor(ast.NodeVisitor):
+    """For extracting the definition tree of a python module from AST.
     TODO: Currently cannot preserve hash comments. Check tools like astor or libcst"""
 
     def __init__(
@@ -280,7 +280,7 @@ class CodeNode(BaseModel):
         path: Path,
         level: int,
         parent: CodeNode,
-        extractor: ModuleDefTreeExtractor,
+        extractor: DefTreeExtractor,
     ) -> CodeNode:
         """Generates a CodeNode from a folder."""
         if not path.is_dir():
@@ -314,7 +314,7 @@ class CodeNode(BaseModel):
         path: Path,
         level: int,
         parent: CodeNode,
-        extractor: ModuleDefTreeExtractor,
+        extractor: DefTreeExtractor,
     ) -> CodeNode:
         """Generates a CodeNode from a file."""
         code = path.expanduser().read_text()
@@ -333,7 +333,7 @@ def generate_def_tree(repo_root: Path, **kwargs) -> CodeNode:
         path=repo_root,
         level=0,
         parent=None,
-        extractor=ModuleDefTreeExtractor(**kwargs),
+        extractor=DefTreeExtractor(**kwargs),
     )
     return root
 
