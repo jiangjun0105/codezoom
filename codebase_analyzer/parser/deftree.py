@@ -28,8 +28,10 @@ class DefTreeExtractor(ast.NodeVisitor):
         skip_token_num: int = 50,
     ) -> None:
         self.block_size: int = block_size  # in tokens
-        # class method shorter than this won't be splitted.
+        # class method shorter than this won't be splitted. Disabled for now.
         self.skip_token_num: int = skip_token_num
+        # Currently only the nodes could be called are added to self.uri2node.
+        self.uri2node: dict[str, CodeNode] = dict()
 
     def visit(
         self, *, node: ast.AST, level: int, parent: CodeNode, **kwargs
@@ -121,6 +123,7 @@ class DefTreeExtractor(ast.NodeVisitor):
             parent=parent,
         )
         parent.children.append(code_node)
+        self.uri2node[code_node.uri] = code_node
         if get_code_length(ast.unparse(node)) > self.block_size:
             self.split_class(parent=code_node, level=level + 1)
 
@@ -147,14 +150,20 @@ class DefTreeExtractor(ast.NodeVisitor):
             )
 
     def _uri(self, *, node: ast.AST, parent: CodeNode) -> str:
-        """Generates the uri of a node."""
+        """Generates the uri of a node. See more in _uri function."""
         if parent is None:
             raise ValueError("Parent cannot be None.")
+
+        # Module node.uri is suffixed with a slash.
+        seg = "" if parent.type == NodeType.MODULE else "."
         try:
-            return parent.uri + "." + node.name
+            return parent.uri + seg + node.name
         except AttributeError:
             logger.info(f"Use 'statements' as end uri for {node=} with {parent=}.")
-            return parent.uri + "." + "statements"
+            # Has to be something impossible to be a function/class name.
+            # FIXME: There could be two statements with the same name.
+            _STATEMENTS_URI = "[statements]"
+            return parent.uri + seg + _STATEMENTS_URI
 
     def parse_function(
         self,
@@ -163,16 +172,16 @@ class DefTreeExtractor(ast.NodeVisitor):
         level: int,
         parent: CodeNode,
     ) -> None:
-        parent.children.append(
-            CodeNode(
-                merged=False,
-                uri=self._uri(node=node, parent=parent),
-                ast=[node],
-                level=level,
-                parent=parent,
-                type=NodeType.FUNCTION,
-            )
+        code_node = CodeNode(
+            merged=False,
+            uri=self._uri(node=node, parent=parent),
+            ast=[node],
+            level=level,
+            parent=parent,
+            type=NodeType.FUNCTION,
         )
+        parent.children.append(code_node)
+        self.uri2node[code_node.uri] = code_node
         code_length = get_code_length(ast.unparse(node))
         if code_length > self.block_size:
             # TODO: Split the function into smaller functions.
@@ -204,18 +213,20 @@ class DefTreeExtractor(ast.NodeVisitor):
                 or isinstance(node, ast.AsyncFunctionDef)
                 or isinstance(node, ast.ClassDef)
             ):
-                if get_code_length(ast.unparse(node)) <= self.skip_token_num:
-                    continue
-                parent.children.append(
-                    CodeNode(
-                        uri=self._uri(node, parent),
-                        merged=False,
-                        ast=[node],
-                        level=level,
-                        parent=parent,
-                        type=NodeType.CLASS_METHOD,
-                    )
+                ## TODO: Think if this should be removed as callgraph needs
+                ## every method to be a node.
+                # if get_code_length(ast.unparse(node)) <= self.skip_token_num:
+                #     continue
+                code_node = CodeNode(
+                    uri=self._uri(node, parent),
+                    merged=False,
+                    ast=[node],
+                    level=level,
+                    parent=parent,
+                    type=NodeType.CLASS_METHOD,
                 )
+                parent.children.append(code_node)
+                self.uri2node[code_node.uri] = code_node
         return
 
     def generate_def_tree(
@@ -248,10 +259,15 @@ class CodeInfo(BaseModel):
 
 
 def _uri(*, path: Path, parent: CodeNode) -> str:
-    uri = path.name
+    """Generates the Universal Resource Identifier (URI) of a node based on its path
+    and parent node. E.g. of uri: /path.subpath.filename/Class.method(). The uri
+    after filename is handled by DefTreeExtractor._uri function."""
     if parent:
-        uri = parent.uri + "." + uri
-    return uri
+        seg = "" if parent.uri == "/" else "."
+        end = "/" if path.is_file() else ""
+        return parent.uri + seg + path.stem + end
+    else:
+        return "/"
 
 
 class CodeNode(BaseModel):
@@ -259,11 +275,17 @@ class CodeNode(BaseModel):
     merged: bool = Field(
         default=False, description="If the node is merged from multiple ast nodes."
     )
-    type: str = Field(...)
-    level: int = Field(...)
+    type: str = Field(..., description="See NodeType class.")
+    level: int = Field(..., description="The level of the node in the whole tree.")
     ast: list[ast.AST] = Field(default_factory=list)
     children: list[CodeNode] = Field(default_factory=list)
     parent: CodeNode | None = None
+    calls: list[CodeNode] = Field(
+        default_factory=list, description="Nodes called by this node."
+    )
+    called_by: list[CodeNode] = Field(
+        default_factory=list, description="Nodes calling this node."
+    )
     info: CodeInfo | None = None
     Config = AllowArbitraryTypeConfig  # For allowing AST type for pydantic.
 
@@ -279,7 +301,7 @@ class CodeNode(BaseModel):
         *,
         path: Path,
         level: int,
-        parent: CodeNode,
+        parent: CodeNode | None,
         extractor: DefTreeExtractor,
     ) -> CodeNode:
         """Generates a CodeNode from a folder."""
@@ -326,16 +348,18 @@ class CodeNode(BaseModel):
         )
 
 
-def generate_def_tree(repo_root: Path, **kwargs) -> CodeNode:
+def generate_def_tree(
+    repo_root: Path, **kwargs
+) -> tuple[CodeNode, dict[str, CodeNode]]:
     """Generates the definition tree of the given repository."""
-    ns_to_node: dict[CodeNode, CodeNode] = dict()
+    extractor = DefTreeExtractor(**kwargs)
     root = CodeNode.from_folder(
         path=repo_root,
         level=0,
         parent=None,
-        extractor=DefTreeExtractor(**kwargs),
+        extractor=extractor,
     )
-    return root
+    return root, extractor.uri2node
 
 
 if __name__ == "__main__":
