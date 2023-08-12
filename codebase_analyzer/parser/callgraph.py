@@ -65,6 +65,7 @@ class Graph(BaseModel):
 class FastenGraph(BaseModel):
     modules: Modules
     graph: Graph
+    index2uri: dict[Index, URI] = Field(default_factory=dict)
 
     class Config:
         extra = "allow"
@@ -90,24 +91,28 @@ def extract_fasten_graph(entry_point: Path, output_path: Path) -> dict:
     return FastenGraph(**fasten_graph)
 
 
-def parse_fasten_graph(fasten_graph: FastenGraph) -> dict:
+def populate_idx2uri_mapping(
+    fasten_graph: FastenGraph,
+) -> tuple[dict[Index, list[Index]], dict[Index, URI]]:
     """Parses the call graph in FastenGraph format."""
-    caller2callees: dict[Index, list[Index]] = defaultdict(list)
-    index2URI: dict[Index, URI] = dict()
-
     # For now we only care about the internal modules and calls.
-    for _uri, module in fasten_graph.modules.internal.items():
+    for _, module in fasten_graph.modules.internal.items():
         for index, namespace in module.namespaces.items():
-            index2URI[index] = namespace.namespace  # URI of namespace
-
-    for call in fasten_graph.graph.internalCalls:
-        caller2callees[call.caller].append(call.callee)
-
-    return caller2callees, index2URI
+            # Some function namespace doesn't have () at the end.
+            uri = namespace.namespace.rstrip("()")
+            fasten_graph.index2uri[index] = uri
+    return fasten_graph
 
 
-p = "/Users/jun.jiang/ichigen-coder/fasten.json"
-with open(p, "r") as f:
-    fasten_graph = json.load(f)
-fasten_graph = FastenGraph(**fasten_graph)
-parse_fasten_graph(fasten_graph)
+def extract_call_info(entry_point: Path, output_path: Path) -> FastenGraph:
+    """Extracts call graph for a given entry point."""
+    fasten_graph = extract_fasten_graph(entry_point, output_path)
+    fasten_graph = populate_idx2uri_mapping(fasten_graph)
+    return fasten_graph
+
+
+# p = "/Users/jun.jiang/ichigen-coder/fasten.json"
+# with open(p, "r") as f:
+#     fasten_graph = json.load(f)
+# fasten_graph = FastenGraph(**fasten_graph)
+# parse_fasten_graph(fasten_graph)

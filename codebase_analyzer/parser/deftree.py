@@ -362,7 +362,7 @@ def generate_def_tree(
     return root, extractor.uri2node
 
 
-if __name__ == "__main__":
-    p = Path("~/ichigen-coder/codebase_analyzer/tests/").expanduser()
+# if __name__ == "__main__":
+#     p = Path("~/ichigen-coder/codebase_analyzer/tests/").expanduser()
 
-    generate_def_tree(repo_root=p)
+#     generate_def_tree(repo_root=p)
