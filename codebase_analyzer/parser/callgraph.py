@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections import defaultdict
 from pathlib import Path
 from typing import NewType
 
@@ -18,6 +17,7 @@ class Metadata(BaseModel):
     # @singleton decorator confused pgcg so the line numbers are null.
     first: int | None = Field(..., description="First line number.")
     last: int | None = Field(..., description="Last line number.")
+    superClasses: list[URI] | None = None
 
 
 class Namespace(BaseModel):
@@ -66,6 +66,7 @@ class FastenGraph(BaseModel):
     modules: Modules
     graph: Graph
     index2uri: dict[Index, URI] = Field(default_factory=dict)
+    inheritance: list[tuple[URI, URI]] = Field(default_factory=list)
 
     class Config:
         extra = "allow"
@@ -86,29 +87,40 @@ def extract_fasten_graph(entry_point: Path, output_path: Path) -> dict:
             "Please ensure that pycg is installed."
         )
         raise e
+
     with open(output_path, "r") as f:
-        fasten_graph = json.load(f)
-    return FastenGraph(**fasten_graph)
+        return FastenGraph(**json.load(f))
 
 
-def populate_idx2uri_mapping(
-    fasten_graph: FastenGraph,
-) -> tuple[dict[Index, list[Index]], dict[Index, URI]]:
+def namespace_to_uri(namespace: str) -> URI:
+    """Converts FASTEN python namespace to CodeNode URI. This is to handle some
+    corner cases where the namespace doesn't match the URI nameing rules.
+
+    Corner cases:
+        * Some function namespace doesn't have () at the end.
+    """
+    return namespace.rstrip("()")
+
+
+def extract_extra_info(graph: FastenGraph) -> FastenGraph:
     """Parses the call graph in FastenGraph format."""
-    # For now we only care about the internal modules and calls.
-    for _, module in fasten_graph.modules.internal.items():
+    # For now we only care about the internal modules' calls and inheritance.
+    for _, module in graph.modules.internal.items():
         for index, namespace in module.namespaces.items():
-            # Some function namespace doesn't have () at the end.
-            uri = namespace.namespace.rstrip("()")
-            fasten_graph.index2uri[index] = uri
-    return fasten_graph
+            uri = namespace_to_uri(namespace.namespace)
+            graph.index2uri[index] = uri
+            if not namespace.metadata.superClasses:
+                continue
+            for superclass in namespace.metadata.superClasses:
+                graph.inheritance.append((uri, namespace_to_uri(superclass)))
+    return graph
 
 
 def extract_call_info(entry_point: Path, output_path: Path) -> FastenGraph:
     """Extracts call graph for a given entry point."""
-    fasten_graph = extract_fasten_graph(entry_point, output_path)
-    fasten_graph = populate_idx2uri_mapping(fasten_graph)
-    return fasten_graph
+    graph = extract_fasten_graph(entry_point, output_path)
+    graph = extract_extra_info(graph=graph)
+    return graph
 
 
 # p = "/Users/jun.jiang/ichigen-coder/fasten.json"

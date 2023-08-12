@@ -218,7 +218,7 @@ class DefTreeExtractor(ast.NodeVisitor):
                 # if get_code_length(ast.unparse(node)) <= self.skip_token_num:
                 #     continue
                 code_node = CodeNode(
-                    uri=self._uri(node, parent),
+                    uri=self._uri(node=node, parent=parent),
                     merged=False,
                     ast=[node],
                     level=level,
@@ -286,6 +286,8 @@ class CodeNode(BaseModel):
     called_by: list[CodeNode] = Field(
         default_factory=list, description="Nodes calling this node."
     )
+    superclasses: list[CodeNode] = Field(default_factory=list)
+    subclasses: list[CodeNode] = Field(default_factory=list)
     info: CodeInfo | None = None
     Config = AllowArbitraryTypeConfig  # For allowing AST type for pydantic.
 
@@ -316,16 +318,18 @@ class CodeNode(BaseModel):
             parent=parent,
         )
 
-        node.children = [
-            cls.from_folder(
-                path=child, level=level + 1, parent=node, extractor=extractor
-            )
-            if child.is_dir()
-            else cls.from_file(
-                path=child, level=level + 1, parent=node, extractor=extractor
-            )
-            for child in path.iterdir()
-        ]
+        for child in path.iterdir():
+            if child.is_dir():
+                child_node = cls.from_folder(
+                    path=child, level=level + 1, parent=node, extractor=extractor
+                )
+            elif child.suffix == ".py":
+                child_node = cls.from_file(
+                    path=child, level=level + 1, parent=node, extractor=extractor
+                )
+            else:
+                continue
+            node.children.append(child_node)
 
         return node
 
