@@ -17,21 +17,6 @@ def ast_type(node: ast.AST) -> str:
     return node.__class__.__name__
 
 
-def _extract_code(node: ast.AST, type: NodeType) -> str:
-    if type in (
-        NodeType.FUNCTION,
-        NodeType.CLASS_METHOD,
-        NodeType.STATEMENT,  # Should be the first statement in the CodeNode
-        NodeType.ENTRYPOINT,
-    ):
-        return ast.unparse(node)
-    if type in (NodeType.CLASS, NodeType.MODULE):
-        return (
-            f"TODO: Code of node {type=} should be done after children are generated"
-        )
-    raise ValueError(f"Cannot extract code for {type=}")
-
-
 def _omit_function_body(ast_node: ast.AST, code_node: CodeNode) -> None:
     """For long class or function, omit its children code for brevity."""
     assert code_node.code is not None
@@ -39,6 +24,11 @@ def _omit_function_body(ast_node: ast.AST, code_node: CodeNode) -> None:
         f"NOTE: function body is ommited here. See {code_node.uri} for details."
     )
     ast_node.body = [ast.Expr(value=ast.Str(s=comment))]
+
+
+# _omit_function_body(ast_node=child_node, code_node=child_code_node)
+# class_code_node.code = ast.unparse(node)
+# class_code_node.code_length_tokens = get_code_length(class_code_node.code)
 
 
 class DefTreeExtractor(ast.NodeVisitor):
@@ -81,7 +71,7 @@ class DefTreeExtractor(ast.NodeVisitor):
                 self.visit(node=value, level=level, parent=parent)
 
     def generic_visit(self, *, node: ast.AST, level: int, parent: CodeNode) -> None:
-        """Catches the type of node that is not handled."""
+        """Catches the type of node that is not handled. Usually statements."""
         self.add_with_trying_merge(node=node, level=level, parent=parent)
         logger.info(f"Other node type: {type(node)}")
 
@@ -98,20 +88,12 @@ class DefTreeExtractor(ast.NodeVisitor):
     def visit_FunctionDef(
         self, *, node: ast.FunctionDef, level: int, parent: CodeNode
     ) -> None:
-        self.parse_function(
-            node=node,
-            level=level,
-            parent=parent,
-        )
+        self.parse_function(node=node, level=level, parent=parent)
 
     def visit_AsyncFunctionDef(
         self, *, node: ast.AsyncFunctionDef, level: int, parent: CodeNode
     ) -> None:
-        self.parse_function(
-            node=node,
-            level=level,
-            parent=parent,
-        )
+        self.parse_function(node=node, level=level, parent=parent)
 
     def visit_If(self, *, node: ast.If, level: int, parent: CodeNode) -> None:
         """Handle the entry point of a module when being executed."""
@@ -145,10 +127,6 @@ class DefTreeExtractor(ast.NodeVisitor):
                     level=level + 1,
                     type=NodeType.CLASS_METHOD,
                 )
-                # _omit_function_body(ast_node=child_node, code_node=child_code_node)
-
-        # class_code_node.code = ast.unparse(node)
-        # class_code_node.code_length_tokens = get_code_length(class_code_node.code)
 
     def add_with_trying_merge(
         self, *, node: ast.AST, level: int, parent: CodeNode
@@ -235,10 +213,12 @@ class DefTreeExtractor(ast.NodeVisitor):
         # The whole code is extracted here but will be processed again when
         # generating summaries.
         code = ast.unparse(node)
+        lineno = None if type == NodeType.MODULE else node.lineno
         code_node = CodeNode(
             uri=uri or self._uri(node=node, parent=parent),
             merged=merged,
             code=code,
+            lineno=lineno,
             code_length_tokens=get_code_length(code),
             level=level,
             parent=parent,
@@ -280,22 +260,27 @@ def _uri(*, path: Path, parent: CodeNode, root_prefix: str = "") -> str:
 
 
 class CodeNode(BaseModel):
+    # Common fields for all nodes
     uri: str = Field(..., description="Node Uniform Resource Idendifier.")
-    merged: bool = Field(
-        default=False, description="If the node is merged from multiple ast nodes."
-    )
     type: str = Field(..., description="See NodeType class.")
     level: int = Field(..., description="The level of the node in the whole tree.")
-    # ast: list[ast.AST] = Field(default_factory=list)
-    code: str | None = Field(None, description="Code for non-package nodes.")
-    code_length_tokens: int | None = Field(
-        None, description="Code length in tokens."
-    )
-    index: int = None
     summary: str = None
     embedding: list[float] = None
     children: list[CodeNode] = Field(default_factory=list)
     parent: CodeNode | None = None
+
+    # Only for nodes having code.
+    merged: bool = Field(
+        default=False, description="If the node is merged from multiple ast nodes."
+    )
+    code: str | None = Field(default=None, description="Code for non-package nodes.")
+    code_length_tokens: int | None = Field(
+        default=None,
+        description="Length of code in tokens. Omited code for classes(?).",
+    )
+    lineno: int = Field(
+        default=None, description="Number of code starting line in the file."
+    )
     calls: list[CodeNode] = Field(
         default_factory=list, description="Nodes called by this node."
     )
@@ -305,7 +290,8 @@ class CodeNode(BaseModel):
     superclasses: list[CodeNode] = Field(default_factory=list)
     subclasses: list[CodeNode] = Field(default_factory=list)
 
-    Config = AllowArbitraryTypeConfig  # For allowing AST type for pydantic.
+    # For allowing AST type for pydantic.
+    Config = AllowArbitraryTypeConfig
 
     def __hash__(self):
         return id(self)
