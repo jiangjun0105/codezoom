@@ -149,21 +149,18 @@ class DefTreeExtractor(ast.NodeVisitor):
                 merged=True,
             )
 
-    def _uri(self, *, node: ast.AST, parent: CodeNode) -> str:
+    def _uri(self, *, node: ast.AST, parent: CodeNode, type: NodeType) -> str:
         """Generates the uri of a node. See more in _uri function."""
         if parent is None:
             raise ValueError("Parent cannot be None.")
 
         # Module node.uri is suffixed with a slash so no need to add seg here.
         seg = "" if parent.type == NodeType.MODULE else "."
-        try:
-            return parent.uri + seg + node.name
-        except AttributeError:
-            logger.info(f"Use 'statements' as end uri for {node=} with {parent=}.")
-            # Has to be something impossible to be a function/class name.
-            # FIXME: There could be two statements with the same name.
-            _STATEMENTS_URI = "[statements]"
-            return parent.uri + seg + _STATEMENTS_URI
+        if type == NodeType.STATEMENT:
+            name = f"[{type}_lineno_{node.lineno}]"
+        else:
+            name = node.name
+        return parent.uri + seg + name
 
     def parse_function(
         self,
@@ -215,7 +212,7 @@ class DefTreeExtractor(ast.NodeVisitor):
         code = ast.unparse(node)
         lineno = None if type == NodeType.MODULE else node.lineno
         code_node = CodeNode(
-            uri=uri or self._uri(node=node, parent=parent),
+            uri=uri or self._uri(node=node, parent=parent, type=type),
             merged=merged,
             code=code,
             lineno=lineno,
@@ -224,7 +221,11 @@ class DefTreeExtractor(ast.NodeVisitor):
             parent=parent,
             type=type,
         )
+
         parent.children.append(code_node)
+        if code_node.uri in self.uri2node:
+            # TODO: Change to warning in production?
+            raise ValueError(f"{code_node.uri} already exists.")
         self.uri2node[code_node.uri] = code_node
         return code_node
 
