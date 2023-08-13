@@ -17,3 +17,8 @@ loguru.logger.remove()
 logger = loguru.logger.add(str(LOG_FILE_PATH / "{time}.log"), retention="3 days")
 
 load_dotenv()
+
+# def foo():
+#     print("foo")
+
+# foo()

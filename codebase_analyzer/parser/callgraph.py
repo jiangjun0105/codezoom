@@ -7,28 +7,49 @@ from pathlib import Path
 from typing import NewType
 
 from loguru import logger
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, root_validator, validator
 
 Index = NewType("Index", str)
 URI = NewType("URI", str)
 
 
+class InvalidNamespaceError(Exception):
+    """The namespace is invalid as it doesn't have line numbers."""
+
+    pass
+
+
 class Metadata(BaseModel):
-    # @singleton decorator confused pgcg so the line numbers are null.
-    first: int | None = Field(..., description="First line number.")
-    last: int | None = Field(..., description="Last line number.")
+    first: int = Field(..., description="First line number.")
+    last: int = Field(..., description="Last line number.")
     superClasses: list[URI] | None = None
 
 
 class Namespace(BaseModel):
     namespace: URI
-    # Exteranl modules's metadata is an empty {}.
-    metadata: Metadata | dict
+    # External modules's metadata is an empty {}.
+    metadata: Metadata | None
+
+    # @validator("metadata", pre=True)
+    # def check_metadata(cls, value: dict) -> dict:
+    #     if value is {}:
+    #         return None
+    #     if value["first"] is None:
+    #         raise InvalidNamespaceError("first must be an integer.")
+    #     return value
 
 
 class Module(BaseModel):
     sourceFile: Path
     namespaces: dict[Index, Namespace]
+
+    # @validator("namespaces", pre=True)
+    # def filter_namespaces(cls, value: dict) -> dict:
+    #     filtered = dict()
+    #     for index, namespace in value.items():
+    #         if namespace.metadata.get("first", "empty") is None:
+    #             continue
+    #         filtered[index] = namespace
 
 
 class Modules(BaseModel):
@@ -80,7 +101,9 @@ def extract_fasten_graph(entry_point: Path, output_path: Path) -> dict:
 
     # TODO: Handle multiple entry points.
     try:
-        subprocess.call(f"pycg --fasten -o {output_path} {entry_point}", shell=True)
+        subprocess.run(
+            ["pycg", "--fasten", "-o", output_path, entry_point], check=True
+        )
     except Exception as e:
         logger.error(
             f"Error extracting call graph for {entry_point=} {output_path=}"

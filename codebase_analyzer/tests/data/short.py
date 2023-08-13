@@ -10,7 +10,11 @@ def foo():
 TEST = "test"
 
 
-class Foo:
+class Bar:
+    pass
+
+
+class Foo(Bar):
     a = 1
     b = 2
 

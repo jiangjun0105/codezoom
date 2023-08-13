@@ -17,6 +17,30 @@ def ast_type(node: ast.AST) -> str:
     return node.__class__.__name__
 
 
+def _extract_code(node: ast.AST, type: NodeType) -> str:
+    if type in (
+        NodeType.FUNCTION,
+        NodeType.CLASS_METHOD,
+        NodeType.STATEMENT,  # Should be the first statement in the CodeNode
+        NodeType.ENTRYPOINT,
+    ):
+        return ast.unparse(node)
+    if type in (NodeType.CLASS, NodeType.MODULE):
+        return (
+            f"TODO: Code of node {type=} should be done after children are generated"
+        )
+    raise ValueError(f"Cannot extract code for {type=}")
+
+
+def _omit_function_body(ast_node: ast.AST, code_node: CodeNode) -> None:
+    """For long class or function, omit its children code for brevity."""
+    assert code_node.code is not None
+    comment = (
+        f"NOTE: function body is ommited here. See {code_node.uri} for details."
+    )
+    ast_node.body = [ast.Expr(value=ast.Str(s=comment))]
+
+
 class DefTreeExtractor(ast.NodeVisitor):
     """For extracting the definition tree of a python module from AST.
     TODO: Currently cannot preserve hash comments. Check tools like astor or libcst"""
@@ -27,6 +51,8 @@ class DefTreeExtractor(ast.NodeVisitor):
         block_size: int = 1000,
         skip_token_num: int = 50,
     ) -> None:
+        # Function having more than this number of tokens will throw a warning.
+        # Statement nodes having more than this number of tokens will stop merging new statements.
         self.block_size: int = block_size  # in tokens
         # class method shorter than this won't be splitted. Disabled for now.
         self.skip_token_num: int = skip_token_num
@@ -65,14 +91,8 @@ class DefTreeExtractor(ast.NodeVisitor):
         """Extracts the root node of the module."""
         if ast_type(node) != "Module":
             raise ValueError(f"Node type must be Module, but got {ast_type(node)}")
-
-        return CodeNode(
-            uri=uri,
-            merged=False,
-            ast=[node],
-            level=level,
-            type=NodeType.MODULE,
-            parent=parent,
+        return self._add_code_node(
+            node=node, uri=uri, parent=parent, level=level, type=NodeType.MODULE
         )
 
     def visit_FunctionDef(
@@ -97,16 +117,9 @@ class DefTreeExtractor(ast.NodeVisitor):
         """Handle the entry point of a module when being executed."""
         if self.is_file_entrypoint(node=node):
             # HACK: Add name to the node to simplify logic in code_info_from_ast.
-            node.name = "script execution block"
-            parent.children.append(
-                CodeNode(
-                    uri=self._uri(node=node, parent=parent),
-                    merged=False,
-                    ast=[node],
-                    type=NodeType.ENTRYPOINT,
-                    level=level,
-                    parent=parent,
-                )
+            node.name = "[entrypoint]"
+            self._add_code_node(
+                node=node, parent=parent, level=level, type=NodeType.ENTRYPOINT
             )
         else:
             self.generic_visit(node=node, level=level, parent=parent)
@@ -114,18 +127,28 @@ class DefTreeExtractor(ast.NodeVisitor):
     def visit_ClassDef(
         self, *, node: ast.ClassDef, level: int, parent: CodeNode
     ) -> None:
-        code_node = CodeNode(
-            uri=self._uri(node=node, parent=parent),
-            merged=False,
-            ast=[node],
-            type=NodeType.CLASS,
-            level=level,
-            parent=parent,
+        class_code_node = self._add_code_node(
+            node=node, parent=parent, level=level, type=NodeType.CLASS
         )
-        parent.children.append(code_node)
-        self.uri2node[code_node.uri] = code_node
-        if get_code_length(ast.unparse(node)) > self.block_size:
-            self.split_class(parent=code_node, level=level + 1)
+
+        # Extract class methods as CodeNodes.
+        for child_node in node.body:
+            # TODO: Handle assignment and other types of statements.
+            if (
+                isinstance(child_node, ast.FunctionDef)
+                or isinstance(child_node, ast.AsyncFunctionDef)
+                or isinstance(child_node, ast.ClassDef)
+            ):
+                self._add_code_node(
+                    node=child_node,
+                    parent=class_code_node,
+                    level=level + 1,
+                    type=NodeType.CLASS_METHOD,
+                )
+                # _omit_function_body(ast_node=child_node, code_node=child_code_node)
+
+        # class_code_node.code = ast.unparse(node)
+        # class_code_node.code_length_tokens = get_code_length(class_code_node.code)
 
     def add_with_trying_merge(
         self, *, node: ast.AST, level: int, parent: CodeNode
@@ -134,19 +157,18 @@ class DefTreeExtractor(ast.NodeVisitor):
         if parent is None:
             raise ValueError("Parent cannot be None.")
 
-        children = parent.children
-        if children and children[-1].merged and len(children) < self.block_size:
-            children[-1].ast.append(node)
+        last = parent.children[-1] if parent.children else None
+
+        if last and last.merged and last.code_length_tokens < self.block_size:
+            last.code += f"\n{ast.unparse(node)}"
+            last.code_length_tokens = get_code_length(last.code)
         else:
-            children.append(
-                CodeNode(
-                    merged=True,
-                    uri=self._uri(node=node, parent=parent),
-                    level=level,
-                    ast=[node],
-                    parent=parent,
-                    type=NodeType.STATEMENT,
-                )
+            self._add_code_node(
+                node=node,
+                parent=parent,
+                level=level,
+                type=NodeType.STATEMENT,
+                merged=True,
             )
 
     def _uri(self, *, node: ast.AST, parent: CodeNode) -> str:
@@ -154,7 +176,7 @@ class DefTreeExtractor(ast.NodeVisitor):
         if parent is None:
             raise ValueError("Parent cannot be None.")
 
-        # Module node.uri is suffixed with a slash.
+        # Module node.uri is suffixed with a slash so no need to add seg here.
         seg = "" if parent.type == NodeType.MODULE else "."
         try:
             return parent.uri + seg + node.name
@@ -172,16 +194,9 @@ class DefTreeExtractor(ast.NodeVisitor):
         level: int,
         parent: CodeNode,
     ) -> None:
-        code_node = CodeNode(
-            merged=False,
-            uri=self._uri(node=node, parent=parent),
-            ast=[node],
-            level=level,
-            parent=parent,
-            type=NodeType.FUNCTION,
+        self._add_code_node(
+            node=node, parent=parent, level=level, type=NodeType.FUNCTION
         )
-        parent.children.append(code_node)
-        self.uri2node[code_node.uri] = code_node
         code_length = get_code_length(ast.unparse(node))
         if code_length > self.block_size:
             # TODO: Split the function into smaller functions.
@@ -204,30 +219,34 @@ class DefTreeExtractor(ast.NodeVisitor):
                 return True
         return False
 
-    def split_class(self, *, parent: CodeNode, level: int) -> None:
-        class_node = parent.ast[0]
-        for node in class_node.body:
-            # TODO: Handle assignment and other types of statements.
-            if (
-                isinstance(node, ast.FunctionDef)
-                or isinstance(node, ast.AsyncFunctionDef)
-                or isinstance(node, ast.ClassDef)
-            ):
-                ## TODO: Think if this should be removed as callgraph needs
-                ## every method to be a node.
-                # if get_code_length(ast.unparse(node)) <= self.skip_token_num:
-                #     continue
-                code_node = CodeNode(
-                    uri=self._uri(node=node, parent=parent),
-                    merged=False,
-                    ast=[node],
-                    level=level,
-                    parent=parent,
-                    type=NodeType.CLASS_METHOD,
-                )
-                parent.children.append(code_node)
-                self.uri2node[code_node.uri] = code_node
-        return
+    def _add_code_node(
+        self,
+        *,
+        node: ast.AST,
+        level: int,
+        parent: CodeNode,
+        type: NodeType,
+        uri: str | None = None,
+        merged: bool = False,
+    ) -> None:
+        """Adds a code node to the tree."""
+        assert uri is None or type == NodeType.MODULE
+
+        # The whole code is extracted here but will be processed again when
+        # generating summaries.
+        code = ast.unparse(node)
+        code_node = CodeNode(
+            uri=uri or self._uri(node=node, parent=parent),
+            merged=merged,
+            code=code,
+            code_length_tokens=get_code_length(code),
+            level=level,
+            parent=parent,
+            type=type,
+        )
+        parent.children.append(code_node)
+        self.uri2node[code_node.uri] = code_node
+        return code_node
 
     def generate_def_tree(
         self, *, code: str, uri: str, level: int, parent: CodeNode | None
@@ -248,17 +267,7 @@ class NodeType(str, Enum):
     CLASS_METHOD = "class_method"
 
 
-class CodeInfo(BaseModel):
-    name: str
-    code: str
-    length_in_token: int
-    level: int
-    index: int
-    summary: str = None
-    embedding: list[float] = None
-
-
-def _uri(*, path: Path, parent: CodeNode) -> str:
+def _uri(*, path: Path, parent: CodeNode, root_prefix: str = "") -> str:
     """Generates the Universal Resource Identifier (URI) of a node based on its path
     and parent node. E.g. of uri: /path.subpath.filename/Class.method(). The uri
     after filename is handled by DefTreeExtractor._uri function."""
@@ -267,7 +276,7 @@ def _uri(*, path: Path, parent: CodeNode) -> str:
         end = "/" if path.is_file() else ""
         return parent.uri + seg + path.stem + end
     else:
-        return "/"
+        return root_prefix or "/"
 
 
 class CodeNode(BaseModel):
@@ -277,7 +286,14 @@ class CodeNode(BaseModel):
     )
     type: str = Field(..., description="See NodeType class.")
     level: int = Field(..., description="The level of the node in the whole tree.")
-    ast: list[ast.AST] = Field(default_factory=list)
+    # ast: list[ast.AST] = Field(default_factory=list)
+    code: str | None = Field(None, description="Code for non-package nodes.")
+    code_length_tokens: int | None = Field(
+        None, description="Code length in tokens."
+    )
+    index: int = None
+    summary: str = None
+    embedding: list[float] = None
     children: list[CodeNode] = Field(default_factory=list)
     parent: CodeNode | None = None
     calls: list[CodeNode] = Field(
@@ -288,7 +304,7 @@ class CodeNode(BaseModel):
     )
     superclasses: list[CodeNode] = Field(default_factory=list)
     subclasses: list[CodeNode] = Field(default_factory=list)
-    info: CodeInfo | None = None
+
     Config = AllowArbitraryTypeConfig  # For allowing AST type for pydantic.
 
     def __hash__(self):
@@ -304,6 +320,7 @@ class CodeNode(BaseModel):
         path: Path,
         level: int,
         parent: CodeNode | None,
+        uri_prefix: str = "",
         extractor: DefTreeExtractor,
     ) -> CodeNode:
         """Generates a CodeNode from a folder."""
@@ -311,7 +328,7 @@ class CodeNode(BaseModel):
             raise ValueError(f"{path} is not a folder.")
 
         node = cls(
-            uri=_uri(path=path, parent=parent),
+            uri=_uri(path=path, parent=parent, root_prefix=uri_prefix),
             level=level,
             type=NodeType.PACKAGE,
             path=path,
@@ -320,16 +337,18 @@ class CodeNode(BaseModel):
 
         for child in path.iterdir():
             if child.is_dir():
-                child_node = cls.from_folder(
-                    path=child, level=level + 1, parent=node, extractor=extractor
+                node.children.append(
+                    cls.from_folder(
+                        path=child, level=level + 1, parent=node, extractor=extractor
+                    )
                 )
             elif child.suffix == ".py":
-                child_node = cls.from_file(
+                # Adding to parent.children is handled inside extractor
+                cls.from_file(
                     path=child, level=level + 1, parent=node, extractor=extractor
                 )
             else:
                 continue
-            node.children.append(child_node)
 
         return node
 
@@ -353,20 +372,27 @@ class CodeNode(BaseModel):
 
 
 def generate_def_tree(
-    repo_root: Path, **kwargs
+    repo_root: Path, uri_prefix: str = "", **kwargs
 ) -> tuple[CodeNode, dict[str, CodeNode]]:
     """Generates the definition tree of the given repository."""
+    if not repo_root.exists():
+        raise ValueError(f"{repo_root=} doesn't exist.")
+
     extractor = DefTreeExtractor(**kwargs)
     root = CodeNode.from_folder(
         path=repo_root,
         level=0,
         parent=None,
+        uri_prefix=uri_prefix,
         extractor=extractor,
     )
     return root, extractor.uri2node
 
 
-# if __name__ == "__main__":
-#     p = Path("~/ichigen-coder/codebase_analyzer/tests/").expanduser()
+if __name__ == "__main__":
+    p = Path(
+        "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/"
+    ).expanduser()
 
-#     generate_def_tree(repo_root=p)
+    node = generate_def_tree(repo_root=p)
+    pass

@@ -9,11 +9,7 @@ import pandas as pd
 from langchain.embeddings import OpenAIEmbeddings
 from loguru import logger
 
-from codebase_analyzer.parser.deftree import (
-    CodeInfo,
-    CodeNode,
-    ModuleDefTreeExtractor,
-)
+from codebase_analyzer.parser.deftree import CodeInfo, CodeNode
 from codebase_analyzer.parser.schema import CodeInfoLevel
 from codebase_analyzer.tools.context import get_code_length
 from codebase_analyzer.tools.summary import SummaryBot
@@ -26,65 +22,6 @@ def _prefix_name(node: CodeNode, parent: CodeNode, level: int) -> str:
     if level == CodeInfoLevel.NESTED_CHILD:
         name = f"{parent.ast[0].name}.{name}"
     return name
-
-
-def _omit_children_code(node: CodeNode) -> str:
-    """For long class or function, omit its children code for brevity."""
-    for child in node.children:
-        comment = f"NOTE: function body is ommited here but can be found in block `{child.info.name}`."
-        child.ast[0].body = [ast.Expr(value=ast.Str(s=comment))]
-    return ast.unparse(node.ast[0])
-
-
-def code_info_from_ast(
-    node: CodeNode, level: CodeInfoLevel, index: int, parent: CodeNode
-) -> None:
-    """Generates code info from the AST. Summary and embedding are not populated."""
-
-    if not node.children:
-        if node.isolated:
-            # Full class or function
-            code = ast.unparse(node.ast[0])
-            name = _prefix_name(node=node, parent=parent, level=level)
-        else:
-            # Group of statements
-            code = "\n".join(ast.unparse(n) for n in node.ast)
-            name = f"code_block_of_level_{level}_index_{index}"
-    else:
-        assert len(node.ast) == 1
-        assert node.isolated is True
-        if level != CodeInfoLevel.MODULE:
-            # Splitted class or function
-            name = node.ast[0].name
-            code = _omit_children_code(node=node)
-        else:
-            # Module
-            name = "module_structure_overview"
-            # TODO: When having multiple files, we need a better way to show the structure of the module.
-            code = "\n\n".join(n.info.name for n in node.children)
-
-    node.info = CodeInfo(
-        name=name,
-        code=code,
-        length_in_token=get_code_length(code),
-        level=level,
-        index=index,
-    )
-
-
-def populate_name_and_code(
-    node: CodeNode,
-    level: CodeInfoLevel = CodeInfoLevel.MODULE,
-    index: int = 0,
-    parent: CodeNode = None,
-) -> CodeInfo:
-    """Recursively generate code info from code tree and populate name and source code.
-    A node's info can be generated only after all its children's info are generated.
-    TODO: This way we cannot do lazy generation for a large codebase."""
-
-    for i, child in enumerate(node.children):
-        populate_name_and_code(child, level=level + 1, index=i, parent=node)
-    code_info_from_ast(node, level=level, index=index, parent=parent)
 
 
 _OMIT_CODE_PROMPT = """Note to AI bot: some blocks are ommited in the skeleton but explained in `summary of ommited blocks`
@@ -249,13 +186,14 @@ async def apopulate_summary_and_embedding(
     return pd.DataFrame(c.dict() for c in code_info).sort_values("index")
 
 
-def check_code_info(code_info: pd.DataFrame, block_size: int, raw_code: str) -> None:
+def check_code_info(code_info: pd.DataFrame, block_size: int) -> None:
     """Some sanity check on the generated code info to give insights to developers."""
     for name, length in zip(code_info.name, code_info.length_in_token):
         if length > block_size:
             logger.warning(f"Block {name} has length {length} > {block_size}.")
 
     summary = "\n".join(s for s in code_info.summary)
+    raw_code = "\n".join(s for s in code_info.code)
     logger.info(
         f"\n===== Code Info Summary =====\n"
         f"Original Code length: {len(raw_code)}\n"
@@ -266,7 +204,8 @@ def check_code_info(code_info: pd.DataFrame, block_size: int, raw_code: str) -> 
 
 # TODO: Centralize all the configs.
 def extract_code_info(
-    filepath: Path, block_size: int = 1000, skip_token_num: int = 20
+    root_node: CodeNode,
+    block_size: int = 1000,
 ) -> pd.DataFrame:
     """Extracts code info from a file.
 
@@ -278,15 +217,9 @@ def extract_code_info(
     Returns:
         A dataframe of code info, each row is a code block. Check `CodeInfo` for columns.
     """
-    code = filepath.expanduser().read_text()
-    code_tree = ModuleDefTreeExtractor.generate_code_tree(
-        code=code,
-        block_size=block_size,
-        skip_token_num=skip_token_num,
-    )
-    populate_name_and_code(code_tree)
-    code_info = asyncio.run(apopulate_summary_and_embedding(code_tree))
-    check_code_info(code_info, block_size=block_size, raw_code=code)
+
+    code_info = asyncio.run(apopulate_summary_and_embedding(root_node))
+    check_code_info(code_info, block_size=block_size)
     return code_info
 
 

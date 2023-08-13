@@ -14,6 +14,8 @@ def _idx_to_node(
     index2uri: dict[Index, URI],
 ) -> CodeNode:
     """Converts index to CodeNode."""
+    # TODO: handle the namespace of /pkg/__init__.py file is just /pkg/ in
+    # fasten_graph but /pkg.__init__/ in CodeNode. Doesn't have to be here.
     uri = index2uri[idx]
     return uri2node[uri]
 
@@ -53,10 +55,12 @@ def generate_merge_fasten_graph(
 
 
 def generate_and_merge_all(
-    repo_root: Path, output_path: Path, entry_point: Path
+    repo_root: Path, output_path: Path, entry_point: Path, uri_prefix: str = ""
 ) -> CodeNode:
     """Generates the definition tree and merges call graph information."""
-    root_node, uri2node = generate_def_tree(repo_root=repo_root)
+    root_node, uri2node = generate_def_tree(
+        repo_root=repo_root, uri_prefix=uri_prefix
+    )
     generate_merge_fasten_graph(
         uri2node=uri2node,
         output_path=output_path,
@@ -67,14 +71,16 @@ def generate_and_merge_all(
     return root_node
 
 
-if __name__ == "__main__":
-    repo_root = Path("/Users/jun.jiang/ichigen-coder")
-    entry_point = Path(
-        "/Users/jun.jiang/ichigen-coder/codebase_analyzer/parser/merge.py"
-    )
-    output_path = Path(
-        "/Users/jun.jiang/ichigen-coder/codebase_analyzer/parser/merge.json"
-    )
-    generate_and_merge_all(
-        repo_root=repo_root, output_path=output_path, entry_point=entry_point
-    )
+# if __name__ == "__main__":
+#     repo_root = Path("/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data")
+#     entry_point = Path(
+#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/short.py"
+#     )
+#     output_path = Path(
+#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/fasten.json"
+#     )
+#     uri_prefix = "/codebase_analyzer.tests.data"
+#     root_node = generate_and_merge_all(
+#         repo_root=repo_root, output_path=output_path, entry_point=entry_point, uri_prefix=uri_prefix
+#     )
+#     pass
