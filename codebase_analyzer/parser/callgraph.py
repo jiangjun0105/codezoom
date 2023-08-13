@@ -20,23 +20,20 @@ class InvalidNamespaceError(Exception):
 
 
 class Metadata(BaseModel):
-    first: int = Field(..., description="First line number.")
-    last: int = Field(..., description="Last line number.")
+    # Some namespaces don't have line numbers.
+    first: int | None = Field(..., description="First line number.")
+    last: int | None = Field(..., description="Last line number.")
     superClasses: list[URI] | None = None
 
 
 class Namespace(BaseModel):
     namespace: URI
-    # External modules's metadata is an empty {}.
     metadata: Metadata | None
 
-    # @validator("metadata", pre=True)
-    # def check_metadata(cls, value: dict) -> dict:
-    #     if value is {}:
-    #         return None
-    #     if value["first"] is None:
-    #         raise InvalidNamespaceError("first must be an integer.")
-    #     return value
+    @validator("metadata", pre=True)
+    def check_metadata(cls, value: dict) -> dict:
+        # External modules's metadata is an empty {}.
+        return None if not value else value
 
 
 class Module(BaseModel):
@@ -115,13 +112,17 @@ def extract_fasten_graph(entry_point: Path, output_path: Path) -> dict:
         return FastenGraph(**json.load(f))
 
 
-def namespace_to_uri(namespace: str) -> URI:
+def namespace_to_uri(namespace: str, file: Path | None = None) -> URI:
     """Converts FASTEN python namespace to CodeNode URI. This is to handle some
     corner cases where the namespace doesn't match the URI nameing rules.
 
     Corner cases:
         * Some function namespace doesn't have () at the end.
+        * __init__ is omitted but is needed to be consistent with CodeNode URI.
     """
+    if file and file.name == "__init__.py" and namespace.endswith("/"):
+        namespace = namespace.rstrip("/")
+        namespace = f"{namespace}.__init__/"
     return namespace.rstrip("()")
 
 
@@ -130,11 +131,12 @@ def extract_extra_info(graph: FastenGraph) -> FastenGraph:
     # For now we only care about the internal modules' calls and inheritance.
     for _, module in graph.modules.internal.items():
         for index, namespace in module.namespaces.items():
-            uri = namespace_to_uri(namespace.namespace)
+            uri = namespace_to_uri(namespace.namespace, file=module.sourceFile)
             graph.index2uri[index] = uri
             if not namespace.metadata.superClasses:
                 continue
             for superclass in namespace.metadata.superClasses:
+                # FIXME: We assume superclass is not defined in __init__.py
                 graph.inheritance.append((uri, namespace_to_uri(superclass)))
     return graph
 
@@ -146,8 +148,6 @@ def extract_call_info(entry_point: Path, output_path: Path) -> FastenGraph:
     return graph
 
 
-# p = "/Users/jun.jiang/ichigen-coder/fasten.json"
-# with open(p, "r") as f:
-#     fasten_graph = json.load(f)
-# fasten_graph = FastenGraph(**fasten_graph)
-# parse_fasten_graph(fasten_graph)
+# p = "/Users/jun/Projects/ichigen-coder/codebase_analyzer/main.py"
+# extract_call_info(p, "/Users/jun/Projects/ichigen-coder/codebase_analyzer/main.json")
+# pass

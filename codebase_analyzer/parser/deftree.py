@@ -292,7 +292,7 @@ class CodeNode(BaseModel):
     subclasses: list[CodeNode] = Field(default_factory=list)
 
     # For allowing AST type for pydantic.
-    Config = AllowArbitraryTypeConfig
+    # Config = AllowArbitraryTypeConfig
 
     def __hash__(self):
         return id(self)
@@ -376,10 +376,10 @@ def generate_def_tree(
     return root, extractor.uri2node
 
 
-if __name__ == "__main__":
-    p = Path(
-        "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/"
-    ).expanduser()
+# if __name__ == "__main__":
+#     p = Path(
+#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/"
+#     ).expanduser()
 
-    node = generate_def_tree(repo_root=p)
-    pass
+#     node = generate_def_tree(repo_root=p)
+#     pass

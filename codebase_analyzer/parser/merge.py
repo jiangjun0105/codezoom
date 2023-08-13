@@ -5,6 +5,7 @@ from pathlib import Path
 from loguru import logger
 
 from codebase_analyzer.parser.callgraph import URI, Index, extract_call_info
+from codebase_analyzer.parser.codeinfo import generate_summary_embedding
 from codebase_analyzer.parser.deftree import CodeNode, generate_def_tree
 
 
@@ -67,20 +68,29 @@ def generate_and_merge_all(
         repo_root=repo_root,
         entry_point=entry_point,
     )
+    generate_summary_embedding(root_node=root_node)
     # Can merge more other relations here.
     return root_node
 
 
-# if __name__ == "__main__":
-#     repo_root = Path("/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data")
-#     entry_point = Path(
-#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/short.py"
-#     )
-#     output_path = Path(
-#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/fasten.json"
-#     )
-#     uri_prefix = "/codebase_analyzer.tests.data"
-#     root_node = generate_and_merge_all(
-#         repo_root=repo_root, output_path=output_path, entry_point=entry_point, uri_prefix=uri_prefix
-#     )
-#     pass
+if __name__ == "__main__":
+    repo_root = Path(
+        "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data"
+    )
+    entry_point = Path(
+        "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/short.py"
+    )
+    output_path = Path(
+        "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/fasten.json"
+    )
+    uri_prefix = "/codebase_analyzer.tests.data"
+    root_node = generate_and_merge_all(
+        repo_root=repo_root,
+        output_path=output_path,
+        entry_point=entry_point,
+        uri_prefix=uri_prefix,
+    )
+    with open("root_node.json", "w") as file:
+        file.write(root_node.json())
+
+    pass
