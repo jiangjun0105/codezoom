@@ -58,7 +58,7 @@ async def apopulate_embedding(node: CodeNode, embeddings: OpenAIEmbeddings) -> N
 def _handle_error(
     error: Exception,
     node: CodeNode,
-    failures: dict[int],
+    failures: dict[CodeNode, int],
     max_failures: int,
     timeout: int,
     ready: set[CodeNode],
@@ -85,57 +85,73 @@ def _handle_error(
 
 def _update_states(
     node: CodeNode,
-    ready: set[CodeNode],
+    ready: set[URI],
     summaries: list[str],
-    waiting: dict[CodeNode, int],
+    waiting: dict[URI, int],
 ) -> None:
     """Update states after a node is processed successfully.
     Will update `ready`, `summaries` and `waiting` inplace."""
     summaries.append(node.summary)
-    for parent in [node.parent] + node.called_by + node.subclasses:
-        if parent is not None:
-            waiting[parent.uri] -= 1
-            if waiting[parent.uri] == 0:
-                ready.add(parent)
+    for upstream_uri in [node.parent] + node.called_by + node.subclasses:
+        if upstream_uri is None:
+            continue
+        waiting[upstream_uri] -= 1
+        assert waiting[upstream_uri] >= 0
+        if waiting[upstream_uri] == 0:
+            ready.add(upstream_uri)
 
 
-def _count_children(
+def _check_state(
     node: CodeNode,
     waiting: dict[URI, int],
-    ready: set[CodeNode],
+    ready: set[URI],
+    uri2node: dict[URI, CodeNode],
 ) -> None:
     """Recursively counts how many children a node has and build connections
     from children to parents."""
-    depends_on = set(node.children + node.superclasses + node.calls)
-    waiting[node.uri] += len(depends_on)
-    if not depends_on:
-        ready.add(node)
+    downstream = set(node.children + node.superclasses + node.calls)
+    waiting[node.uri] += len(downstream)
+    if not downstream:
+        ready.add(node.uri)
 
-    for child in node.children:
-        _count_children(
+    for child_uri in node.children:
+        child = uri2node[child_uri]
+        _check_state(
             node=child,
             waiting=waiting,
             ready=ready,
+            uri2node=uri2node,
         )
 
 
+def check_state(root: CodeNode, uri2node: dict[URI, CodeNode]) -> tuple[dict, dict]:
+    waiting: dict[URI, int] = defaultdict(int)
+    ready: set[URI] = set()
+
+    _check_state(node=root, uri2node=uri2node, waiting=waiting, ready=ready)
+
+    assert len(waiting) == len(uri2node)
+    return waiting, ready
+
+
 async def apopulate_summary_and_embedding(
-    root: CodeNode, worker_num: int = 20, timeout: int = 180, max_failures: int = 5
+    root: CodeNode,
+    uri2node: dict[URI, CodeNode],
+    worker_num: int = 20,
+    timeout: int = 180,
+    max_failures: int = 5,
 ) -> None:
     """Populate summary and embedding for all nodes in the code tree."""
     summary_bot = SummaryBot()
     embeddings = OpenAIEmbeddings()
-    waiting: dict[URI, int] = defaultdict(int)
-    ready: set[CodeNode] = set()
-
-    _count_children(node=root, waiting=waiting, ready=ready)
-
     condition = asyncio.Condition()
+
+    waiting, ready = check_state(root=root, uri2node=uri2node)
     total = len(waiting)
     failures = Counter()
     summaries = []
 
-    async def process_node(node):
+    async def process_node(node: CodeNode) -> None:
         # nonlocal summaries
         try:
             await asyncio.gather(
@@ -169,7 +185,7 @@ async def apopulate_summary_and_embedding(
                 await condition.wait_for(lambda: ready or len(summaries) >= total)
                 if len(summaries) >= total:
                     break
-                node = ready.pop()
+                node = uri2node[ready.pop()]
             await process_node(node)
             logger.info(f"Completed {len(summaries)}/{total}.")
 
@@ -197,7 +213,8 @@ def check_summaries(summaries: list[str], block_size: int) -> None:
 
 # TODO: Centralize all the configs.
 def generate_summary_embedding(
-    root_node: CodeNode,
+    root: CodeNode,
+    uri2node: dict[URI, CodeNode],
     block_size: int = 1000,
 ) -> pd.DataFrame:
     """Extracts code info from a file.
@@ -211,6 +228,8 @@ def generate_summary_embedding(
         A dataframe of code info, each row is a code block. Check `CodeInfo` for columns.
     """
 
-    summaries = asyncio.run(apopulate_summary_and_embedding(root_node))
+    summaries = asyncio.run(
+        apopulate_summary_and_embedding(root=root, uri2node=uri2node)
+    )
     check_summaries(summaries, block_size=block_size)
     return summaries

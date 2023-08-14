@@ -8,7 +8,7 @@ import pandas as pd
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from codebase_analyzer.common.pydantic import AllowArbitraryTypeConfig
+from codebase_analyzer.parser.callgraph import URI
 from codebase_analyzer.tools.context import get_code_length
 
 
@@ -46,7 +46,6 @@ class DefTreeExtractor(ast.NodeVisitor):
         self.block_size: int = block_size  # in tokens
         # class method shorter than this won't be splitted. Disabled for now.
         self.skip_token_num: int = skip_token_num
-        # Currently only the nodes could be called are added to self.uri2node.
         self.uri2node: dict[str, CodeNode] = dict()
 
     def visit(
@@ -135,7 +134,7 @@ class DefTreeExtractor(ast.NodeVisitor):
         if parent is None:
             raise ValueError("Parent cannot be None.")
 
-        last = parent.children[-1] if parent.children else None
+        last = self.uri2node[parent.children[-1]] if parent.children else None
 
         if last and last.merged and last.code_length_tokens < self.block_size:
             last.code += f"\n{ast.unparse(node)}"
@@ -206,6 +205,7 @@ class DefTreeExtractor(ast.NodeVisitor):
     ) -> None:
         """Adds a code node to the tree."""
         assert uri is None or type == NodeType.MODULE
+        assert parent is not None
 
         # The whole code is extracted here but will be processed again when
         # generating summaries.
@@ -218,11 +218,11 @@ class DefTreeExtractor(ast.NodeVisitor):
             lineno=lineno,
             code_length_tokens=get_code_length(code),
             level=level,
-            parent=parent,
+            parent=parent.uri,
             type=type,
         )
 
-        parent.children.append(code_node)
+        parent.children.append(code_node.uri)
         if code_node.uri in self.uri2node:
             # TODO: Change to warning in production?
             raise ValueError(f"{code_node.uri} already exists.")
@@ -267,8 +267,8 @@ class CodeNode(BaseModel):
     level: int = Field(..., description="The level of the node in the whole tree.")
     summary: str = None
     embedding: list[float] = None
-    children: list[CodeNode] = Field(default_factory=list)
-    parent: CodeNode | None = None
+    children: list[URI] = Field(default_factory=list)
+    parent: URI | None = None
 
     # Only for nodes having code.
     merged: bool = Field(
@@ -282,14 +282,14 @@ class CodeNode(BaseModel):
     lineno: int = Field(
         default=None, description="Number of code starting line in the file."
     )
-    calls: list[CodeNode] = Field(
+    calls: list[URI] = Field(
         default_factory=list, description="Nodes called by this node."
     )
-    called_by: list[CodeNode] = Field(
+    called_by: list[URI] = Field(
         default_factory=list, description="Nodes calling this node."
     )
-    superclasses: list[CodeNode] = Field(default_factory=list)
-    subclasses: list[CodeNode] = Field(default_factory=list)
+    superclasses: list[URI] = Field(default_factory=list)
+    subclasses: list[URI] = Field(default_factory=list)
 
     # For allowing AST type for pydantic.
     # Config = AllowArbitraryTypeConfig
@@ -319,7 +319,7 @@ class CodeNode(BaseModel):
             level=level,
             type=NodeType.PACKAGE,
             path=path,
-            parent=parent,
+            parent=parent.uri if parent else None,
         )
 
         for child in path.iterdir():
@@ -327,7 +327,7 @@ class CodeNode(BaseModel):
                 node.children.append(
                     cls.from_folder(
                         path=child, level=level + 1, parent=node, extractor=extractor
-                    )
+                    ).uri
                 )
             elif child.suffix == ".py":
                 # Adding to parent.children is handled inside extractor
@@ -336,7 +336,10 @@ class CodeNode(BaseModel):
                 )
             else:
                 continue
-
+        # Registration of Module and lower level nodes are handled inside extractor
+        if node.uri in extractor.uri2node:
+            raise ValueError(f"{node.uri} already exists.")
+        extractor.uri2node[node.uri] = node
         return node
 
     @classmethod
@@ -381,5 +384,5 @@ def generate_def_tree(
 #         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/"
 #     ).expanduser()
 
-#     node = generate_def_tree(repo_root=p)
+#     root_node, uri2node = generate_def_tree(repo_root=p)
 #     pass

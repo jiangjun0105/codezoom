@@ -1,5 +1,6 @@
 """Merge the call graph information into the definition tree."""
 
+import json
 from pathlib import Path
 
 from loguru import logger
@@ -15,8 +16,6 @@ def _idx_to_node(
     index2uri: dict[Index, URI],
 ) -> CodeNode:
     """Converts index to CodeNode."""
-    # TODO: handle the namespace of /pkg/__init__.py file is just /pkg/ in
-    # fasten_graph but /pkg.__init__/ in CodeNode. Doesn't have to be here.
     uri = index2uri[idx]
     return uri2node[uri]
 
@@ -31,27 +30,25 @@ def generate_merge_fasten_graph(
     if not entry_point.is_relative_to(repo_root):
         raise ValueError(f"{entry_point=} is not inside {repo_root=}.")
 
-    fasten_graph = extract_call_info(
-        entry_point=entry_point, output_path=output_path
-    )
+    fasten = extract_call_info(entry_point=entry_point, output_path=output_path)
 
     # Merge call graph
-    for call in fasten_graph.graph.internalCalls:
-        caller_node = _idx_to_node(uri2node, call.caller, fasten_graph.index2uri)
-        callee_node = _idx_to_node(uri2node, call.callee, fasten_graph.index2uri)
-        caller_node.calls.append(callee_node)
-        callee_node.called_by.append(caller_node)
+    for call in fasten.graph.internalCalls:
+        caller_node = _idx_to_node(uri2node, call.caller, fasten.index2uri)
+        callee_node = _idx_to_node(uri2node, call.callee, fasten.index2uri)
+        caller_node.calls.append(callee_node.uri)
+        callee_node.called_by.append(caller_node.uri)
 
     # Merge inheritance
-    for subclass, superclass in fasten_graph.inheritance:
+    for subclass, superclass in fasten.inheritance:
         if superclass.startswith("//"):
             logger.info(f"Skipping external {superclass=} for now.")
             continue
 
-        subclass_node = uri2node[subclass]
-        superclass_node = uri2node[superclass]
-        subclass_node.superclasses.append(superclass_node)
-        superclass_node.subclasses.append(subclass_node)
+        sub_node = uri2node[subclass]
+        super_node = uri2node[superclass]
+        sub_node.superclasses.append(super_node.uri)
+        super_node.subclasses.append(sub_node.uri)
     return
 
 
@@ -68,29 +65,40 @@ def generate_and_merge_all(
         repo_root=repo_root,
         entry_point=entry_point,
     )
-    generate_summary_embedding(root_node=root_node)
+    generate_summary_embedding(root=root_node, uri2node=uri2node)
     # Can merge more other relations here.
-    return root_node
+    return root_node, uri2node
+
+
+def save_nodes_to_disk(
+    root_node: CodeNode, uri2node: dict[URI, CodeNode], output_path: Path
+) -> None:
+    """Saves the nodes into disk."""
+    uri2node["[METADATA]"] = dict(
+        root=root_node.uri,
+        count=len(uri2node),
+    )
+    with open(output_path, "w") as file:
+        json.dump(uri2node, file, default=lambda n: n.dict())
 
 
 if __name__ == "__main__":
-    repo_root = Path(
-        "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data"
-    )
-    entry_point = Path(
-        "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/short.py"
-    )
-    output_path = Path(
-        "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/fasten.json"
-    )
-    uri_prefix = "/codebase_analyzer.tests.data"
-    root_node = generate_and_merge_all(
-        repo_root=repo_root,
-        output_path=output_path,
-        entry_point=entry_point,
-        uri_prefix=uri_prefix,
-    )
-    with open("root_node.json", "w") as file:
-        file.write(root_node.json())
+    # repo_root = Path(
+    #     "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data"
+    # )
+    # entry_point = Path(
+    #     "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/short.py"
+    # )
+    # output_path = Path(
+    #     "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/fasten.json"
+    # )
+    # uri_prefix = "/codebase_analyzer.tests.data"
+    # root_node, uri2node = generate_and_merge_all(
+    #     repo_root=repo_root,
+    #     output_path=output_path,
+    #     entry_point=entry_point,
+    #     uri_prefix=uri_prefix,
+    # )
+    # save_nodes_to_disk(root_node=root_node, uri2node=uri2node, output_path="./nodes.json")
 
     pass
