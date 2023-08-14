@@ -9,6 +9,9 @@ from codebase_analyzer.parser.callgraph import URI, Index, extract_call_info
 from codebase_analyzer.parser.codeinfo import generate_summary_embedding
 from codebase_analyzer.parser.deftree import CodeNode, generate_def_tree
 
+METADATA_KEY = "metadata"
+NODE_KEY = "nodes"
+
 
 def _idx_to_node(
     uri2node: dict[URI, CodeNode],
@@ -74,12 +77,23 @@ def save_nodes_to_disk(
     root_node: CodeNode, uri2node: dict[URI, CodeNode], output_path: Path
 ) -> None:
     """Saves the nodes into disk."""
-    uri2node["[METADATA]"] = dict(
-        root=root_node.uri,
-        count=len(uri2node),
-    )
-    with open(output_path, "w") as file:
-        json.dump(uri2node, file, default=lambda n: n.dict())
+    cache = {
+        NODE_KEY: uri2node,
+        METADATA_KEY: dict(
+            root=root_node.uri,
+            count=len(uri2node),
+        ),
+    }
+    # TODO: save summaries and embeddings separately to a vector store.
+    with open(output_path, "w") as f:
+        json.dump(cache, f, default=lambda n: n.dict())
+
+
+def load_nodes_from_dick(input_path: Path) -> dict[URI, CodeNode]:
+    with open(input_path, "r") as f:
+        cache = json.load(f)
+    uri2node = {uri: CodeNode(**d) for uri, d in cache[NODE_KEY].items()}
+    return uri2node
 
 
 if __name__ == "__main__":
@@ -100,5 +114,5 @@ if __name__ == "__main__":
     #     uri_prefix=uri_prefix,
     # )
     # save_nodes_to_disk(root_node=root_node, uri2node=uri2node, output_path="./nodes.json")
-
+    # load_nodes_from_dick(input_path=Path("./nodes.json"))
     pass
