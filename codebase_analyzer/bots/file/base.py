@@ -21,11 +21,7 @@ from codebase_analyzer.bots.callbacks import BotStreamingStdOutCallbackHandler
 from codebase_analyzer.bots.file import config
 from codebase_analyzer.bots.file.prompts import SYSTEM_MESSAGE
 from codebase_analyzer.common.pydantic import AllowArbitraryTypeConfig
-from codebase_analyzer.parser.codeinfo import (
-    extract_code_info,
-    load_cached_code_info,
-)
-from codebase_analyzer.parser.schema import CodeInfo
+from codebase_analyzer.parser.deftree import CodeNode
 from codebase_analyzer.tools import (
     ask_function_bot,
     get_file_summary,
@@ -150,6 +146,7 @@ class FileCache(BaseModel):
 
 class FileBot(Bot):
     llm = ChatOpenAI
+    code_node: CodeNode
     repo_root: Path
     file_relative_path: Path  # Relative to repo root
     cache: FileCache
@@ -158,21 +155,19 @@ class FileBot(Bot):
     get_bot_func: Callable
 
     @classmethod
-    def from_cache(
+    def from_code_node(
         cls,
+        code_node: CodeNode,
         repo_root: Path,
         cache_root: Path,
         file_relative_path: Path,
         **kwargs: Any,
     ) -> FileBot:
         return cls(
+            code_node=code_node,
+            cache_root=cache_root,
             repo_root=repo_root,
             file_relative_path=file_relative_path,
-            cache=FileCache.init(
-                repo_root=repo_root,
-                cache_root=cache_root,
-                relative_path=file_relative_path,
-            ),
             **kwargs,
         )
 

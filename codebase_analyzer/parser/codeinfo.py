@@ -10,49 +10,156 @@ from langchain.embeddings import OpenAIEmbeddings
 from loguru import logger
 
 from codebase_analyzer.parser.callgraph import URI
-from codebase_analyzer.parser.deftree import CodeNode
+from codebase_analyzer.parser.deftree import (
+    CodeInfo,
+    CodeNode,
+    NodeType,
+    should_split_class_child,
+    uri_from_ast,
+)
 from codebase_analyzer.tools.context import get_code_length
 from codebase_analyzer.tools.summary import SummaryBot
 
-_OMIT_CODE_PROMPT = """Note to AI bot: some blocks are ommited in the skeleton but explained in `summary of ommited blocks`
-Please combine both to reconstruct the original code in your mind and the give a compresive summary of it."
+_EMBEDDING_INPUT_LIMIT = 8191
 
+
+# TODO: Add language type info.
+_FUNCTION_SUMMARY_PROMPT = """
 =====
-Skeleton code:
-
-{skeleton_code}
-
+CODE TO SUMMARIZE
 =====
-Summary of ommited blocks:
 
-{children_summary}
+{code}
+
+====
+REFERENCES
+====
+Summary of functions called by the above code:
+
+{summaries}
+"""
+
+_CLASS_SUMMARY_PROMPT = """
+=====
+CODE TO SUMMARIZE
+=====
+
+{code}
+
+====
+REFERENCES
+====
+The summaries of its superclasses:
+
+{summaries}
+"""
+
+_JOINED_SUMMARY_PROMPT = """
+=====
+CONTENTS TO SUMMARIZE
+=====
+This is a {type} containing the following parts in it:
+
+{summaries}
 """
 
 
-def _construct_code(node: CodeNode) -> str:
-    # TODO: Use children summary to generate summary for the parent.
-    if node.children:
-        children_summary = "\n".join(
-            f"{c.info.name}: {c.info.summary}" for c in node.children
-        )
-        code = _OMIT_CODE_PROMPT.format(
-            skeleton_code=node.code, children_summary=children_summary
-        )
-    else:
-        code = node.code
-    return code
+def _uri_stem(uri: URI) -> str:
+    return uri.split("/.")[-1]
 
 
-async def apopulate_summary(node: CodeNode, summary_bot: SummaryBot) -> None:
-    # node.summary = await summary_bot.asummarize_code(code=_construct_code(node))
+def _join_summaries(
+    uris: list[URI], uri2node: dict[URI, CodeNode], before=""
+) -> str:
+    summaries = []
+    for n in [uri2node[u] for u in uris]:
+        stem = _uri_stem(n.uri)
+        summaries.append(f"{before}{stem}: {n.summary}")
+    return "\n".join(summaries) or "No summary found."
+
+
+def _function_summary_input(node: CodeNode, uri2node: dict[URI, CodeNode]) -> str:
+    summaries = _join_summaries(uris=node.calls, uri2node=uri2node, before="  * ")
+    return _FUNCTION_SUMMARY_PROMPT.format(code=node.code, summaries=summaries)
+
+
+def _class_summary_input(node: CodeNode, uri2node: dict[URI, CodeNode]) -> str:
+    # node.body will be interpreted as a module. Need to take the class ast out.
+    ast_node = ast.parse(node.code).body[0]
+    for child_ast in ast_node.body:
+        if should_split_class_child(child_ast):
+            child_uri = uri_from_ast(
+                node=child_ast, parent=node, type=NodeType.CLASS_METHOD
+            )
+            comment = f"NOTE: Code is omitted here. Summary for it: {uri2node[child_uri].summary}"
+            child_ast.body = [ast.Expr(value=ast.Str(s=comment))]
+    summaries = _join_summaries(
+        uris=node.superclasses, uri2node=uri2node, before="  * "
+    )
+    return _CLASS_SUMMARY_PROMPT.format(
+        code=ast.unparse(ast_node), summaries=summaries
+    )
+
+
+def _summary_input(node: CodeNode, uri2node: dict[URI, CodeNode]) -> None:
+    """Shorten code of a module by replacing long children code with summaries."""
+    # TODO: Add logic to check the length of the input.
+
+    if node.type in (NodeType.STATEMENT, NodeType.ENTRYPOINT):
+        return node.code
+
+    if node.type in (NodeType.FUNCTION, NodeType.CLASS_METHOD):
+        return _function_summary_input(node, uri2node=uri2node)
+
+    if node.type == NodeType.CLASS:
+        return _class_summary_input(node, uri2node=uri2node)
+
+    if node.type in (NodeType.MODULE, NodeType.PACKAGE):
+        summaries = _join_summaries(uris=node.children, uri2node=uri2node)
+        return _JOINED_SUMMARY_PROMPT.format(type=node.type, summaries=summaries)
+
+
+def _embedding_input(
+    node: CodeNode, uri2node: dict[URI, CodeNode], limit=_EMBEDDING_INPUT_LIMIT
+) -> None:
+    """Simplify code of Modules and Classes in case length exceedes 8k token limit."""
+    # Concatenate summary for packages.
+    if not node.code:
+        assert node.type == NodeType.PACKAGE
+        return _join_summaries(uris=node.children, uri2node=uri2node)
+
+    # Use raw code if short enough.
+    if node.code and node.code_length <= limit:
+        assert node.code_length == get_code_length(node.code)  # For debugging
+        return node.code
+
+    # Use concatenated summaries if code is too long.
+    # NOTE: This won't ensure the input is short enough, but better than nothing.
+    return _join_summaries(uris=node.children, uri2node=uri2node)
+
+    # TODO: Should we keep the raw code as much as possible?
+    # if node.type == NodeType.MODULE:
+    #     _shorten_module_code(node, uri2node=uri2node)
+    # elif node.type == NodeType.CLASS:
+    #     _shorten_class_code(node, uri2node=uri2node)
+
+
+async def apopulate_summary(
+    node: CodeNode, uri2node: dict[URI, CodeNode], summary_bot: SummaryBot
+) -> None:
     print(f"generate summary for {node.uri}")
-    node.summary = f"summary for {node.uri}"
+    node.summary = await summary_bot.asummarize_code(
+        code=_summary_input(node, uri2node=uri2node)
+    )
 
 
-async def apopulate_embedding(node: CodeNode, embeddings: OpenAIEmbeddings) -> None:
-    # node.embedding = await embeddings.aembed_query(node.code)
+async def apopulate_embedding(
+    node: CodeNode, uri2node: dict[URI, CodeNode], embeddings: OpenAIEmbeddings
+) -> None:
     print(f"generate embedding for {node.uri}")
-    node.embedding = [1, 2, 3]
+    node.embedding = await embeddings.aembed_query(
+        _embedding_input(node, uri2node=uri2node)
+    )
 
 
 def _handle_error(
@@ -148,6 +255,7 @@ async def apopulate_summary_and_embedding(
 
     waiting, ready = check_state(root=root, uri2node=uri2node)
     total = len(waiting)
+    worker_num = min(worker_num, total)
     failures = Counter()
     summaries = []
 
@@ -155,8 +263,12 @@ async def apopulate_summary_and_embedding(
         # nonlocal summaries
         try:
             await asyncio.gather(
-                apopulate_embedding(node, embeddings),
-                apopulate_summary(node, summary_bot),
+                apopulate_embedding(
+                    node=node, uri2node=uri2node, embeddings=embeddings
+                ),
+                apopulate_summary(
+                    node=node, uri2node=uri2node, summary_bot=summary_bot
+                ),
             )
         except Exception as e:
             _handle_error(
@@ -213,8 +325,7 @@ def check_summaries(summaries: list[str], block_size: int) -> None:
 
 # TODO: Centralize all the configs.
 def generate_summary_embedding(
-    root: CodeNode,
-    uri2node: dict[URI, CodeNode],
+    codeinfo: CodeInfo,
     block_size: int = 1000,
 ) -> pd.DataFrame:
     """Extracts code info from a file.
@@ -229,7 +340,9 @@ def generate_summary_embedding(
     """
 
     summaries = asyncio.run(
-        apopulate_summary_and_embedding(root=root, uri2node=uri2node)
+        apopulate_summary_and_embedding(
+            root=codeinfo.root_node, uri2node=codeinfo.nodes
+        )
     )
     check_summaries(summaries, block_size=block_size)
     return summaries

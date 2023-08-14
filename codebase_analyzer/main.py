@@ -7,7 +7,7 @@ from typing import Any
 import click
 
 from codebase_analyzer.bots.file.base import FileBot
-from codebase_analyzer.managers.function import FunctionBotManager
+from codebase_analyzer.managers.base import BotManager
 
 
 def calculate_path_hash(path: Path | str) -> str:
@@ -34,30 +34,20 @@ def interaction_loop(master_bot: Any) -> None:
         master_bot.ask(inputs=query)
 
 
-def main(repo_root: Path, file_path: Path, cache_root: Path | None = None) -> None:
+def main(repo_root: Path, cache_root: Path | None = None) -> None:
     """Ichigen Coder - A cluster of coding bots
     Codebase Analyzer module
     """
     cache_root = cache_root or get_cache_root(repo_root)
-    file_path = Path(file_path).expanduser()
 
-    # FIXME after supporting multiple files
-    file_relative_path = file_path
-    if file_path.is_absolute():
-        file_relative_path = file_path.relative_to(repo_root)
-
-    # Singleton managers
-    manager = FunctionBotManager()
-
-    # FIXME: For now we use the file bot as master bot
-    file_bot = FileBot.from_cache(
+    # Singleton manager
+    manager = BotManager.from_repo(
         repo_root=repo_root,
         cache_root=cache_root,
-        file_relative_path=file_relative_path,
-        get_bot_func=manager.get_bot,
     )
-    interaction_loop(file_bot)
-    file_bot.save_cache()
+
+    # TODO: We may want a separate master bot to have more flexibility
+    interaction_loop(master_bot=manager.root_bot)
     manager.save_cache()
 
 

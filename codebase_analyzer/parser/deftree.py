@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import ast
+import json
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from loguru import logger
@@ -17,18 +19,32 @@ def ast_type(node: ast.AST) -> str:
     return node.__class__.__name__
 
 
-def _omit_function_body(ast_node: ast.AST, code_node: CodeNode) -> None:
-    """For long class or function, omit its children code for brevity."""
-    assert code_node.code is not None
-    comment = (
-        f"NOTE: function body is ommited here. See {code_node.uri} for details."
+def should_split_class_child(node: ast.AST) -> bool:
+    """Check if a certain type of ast node of a class should be splitted."""
+    return (
+        isinstance(node, ast.FunctionDef)
+        or isinstance(node, ast.AsyncFunctionDef)
+        or isinstance(node, ast.ClassDef)
     )
-    ast_node.body = [ast.Expr(value=ast.Str(s=comment))]
+
+
+def uri_from_ast(*, node: ast.AST, parent: CodeNode, type: NodeType) -> str:
+    """Generates the uri of a node. See more in _uri function."""
+    if parent is None:
+        raise ValueError("Parent cannot be None.")
+
+    # Module node.uri is suffixed with a slash so no need to add seg here.
+    seg = "" if parent.type == NodeType.MODULE else "."
+    if type == NodeType.STATEMENT:
+        name = f"[{type}_lineno_{node.lineno}]"
+    else:
+        name = node.name
+    return parent.uri + seg + name
 
 
 # _omit_function_body(ast_node=child_node, code_node=child_code_node)
 # class_code_node.code = ast.unparse(node)
-# class_code_node.code_length_tokens = get_code_length(class_code_node.code)
+# class_code_node.code_length = get_code_length(class_code_node.code)
 
 
 class DefTreeExtractor(ast.NodeVisitor):
@@ -67,6 +83,7 @@ class DefTreeExtractor(ast.NodeVisitor):
                     if isinstance(item, ast.AST):
                         self.visit(node=item, level=level, parent=parent)
             elif isinstance(value, ast.AST):
+                raise ValueError("This should not happen.")
                 self.visit(node=value, level=level, parent=parent)
 
     def generic_visit(self, *, node: ast.AST, level: int, parent: CodeNode) -> None:
@@ -115,11 +132,7 @@ class DefTreeExtractor(ast.NodeVisitor):
         # Extract class methods as CodeNodes.
         for child_node in node.body:
             # TODO: Handle assignment and other types of statements.
-            if (
-                isinstance(child_node, ast.FunctionDef)
-                or isinstance(child_node, ast.AsyncFunctionDef)
-                or isinstance(child_node, ast.ClassDef)
-            ):
+            if should_split_class_child(child_node):
                 self._add_code_node(
                     node=child_node,
                     parent=class_code_node,
@@ -136,9 +149,9 @@ class DefTreeExtractor(ast.NodeVisitor):
 
         last = self.uri2node[parent.children[-1]] if parent.children else None
 
-        if last and last.merged and last.code_length_tokens < self.block_size:
+        if last and last.merged and last.code_length < self.block_size:
             last.code += f"\n{ast.unparse(node)}"
-            last.code_length_tokens = get_code_length(last.code)
+            last.code_length = get_code_length(last.code)
         else:
             self._add_code_node(
                 node=node,
@@ -147,19 +160,6 @@ class DefTreeExtractor(ast.NodeVisitor):
                 type=NodeType.STATEMENT,
                 merged=True,
             )
-
-    def _uri(self, *, node: ast.AST, parent: CodeNode, type: NodeType) -> str:
-        """Generates the uri of a node. See more in _uri function."""
-        if parent is None:
-            raise ValueError("Parent cannot be None.")
-
-        # Module node.uri is suffixed with a slash so no need to add seg here.
-        seg = "" if parent.type == NodeType.MODULE else "."
-        if type == NodeType.STATEMENT:
-            name = f"[{type}_lineno_{node.lineno}]"
-        else:
-            name = node.name
-        return parent.uri + seg + name
 
     def parse_function(
         self,
@@ -212,11 +212,11 @@ class DefTreeExtractor(ast.NodeVisitor):
         code = ast.unparse(node)
         lineno = None if type == NodeType.MODULE else node.lineno
         code_node = CodeNode(
-            uri=uri or self._uri(node=node, parent=parent, type=type),
+            uri=uri or uri_from_ast(node=node, parent=parent, type=type),
             merged=merged,
             code=code,
             lineno=lineno,
-            code_length_tokens=get_code_length(code),
+            code_length=get_code_length(code),
             level=level,
             parent=parent.uri,
             type=type,
@@ -275,7 +275,7 @@ class CodeNode(BaseModel):
         default=False, description="If the node is merged from multiple ast nodes."
     )
     code: str | None = Field(default=None, description="Code for non-package nodes.")
-    code_length_tokens: int | None = Field(
+    code_length: int | None = Field(
         default=None,
         description="Length of code in tokens. Omited code for classes(?).",
     )
@@ -361,9 +361,31 @@ class CodeNode(BaseModel):
         )
 
 
-def generate_def_tree(
-    repo_root: Path, uri_prefix: str = "", **kwargs
-) -> tuple[CodeNode, dict[str, CodeNode]]:
+class CodeInfo(BaseModel):
+    """Code information for a single file."""
+
+    metadata: dict[str, Any]
+    nodes: dict[URI, CodeNode]
+
+    @property
+    def root_node(self) -> CodeNode:
+        # TODO: Make metadata a pydantic model.
+        return self.nodes[self.metadata["root"]]
+
+    def to_disk(self, output_path: Path) -> None:
+        """Saves the nodes into disk."""
+        # TODO: save summaries and embeddings separately to a vector store.
+        with open(output_path, "w") as f:
+            json.dump(self, f, default=lambda n: n.dict())
+
+    @classmethod
+    def from_disk(cls, input_path: Path) -> CodeInfo:
+        with open(input_path, "r") as f:
+            cache = json.load(f)
+        return cls(**cache)
+
+
+def generate_def_tree(repo_root: Path, uri_prefix: str = "", **kwargs) -> CodeInfo:
     """Generates the definition tree of the given repository."""
     if not repo_root.exists():
         raise ValueError(f"{repo_root=} doesn't exist.")
@@ -376,7 +398,13 @@ def generate_def_tree(
         uri_prefix=uri_prefix,
         extractor=extractor,
     )
-    return root, extractor.uri2node
+    return CodeInfo(
+        nodes=extractor.uri2node,
+        metadata=dict(
+            root=root.uri,
+            count=len(extractor.uri2node),
+        ),
+    )
 
 
 # if __name__ == "__main__":

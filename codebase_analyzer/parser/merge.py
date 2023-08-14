@@ -1,16 +1,19 @@
 """Merge the call graph information into the definition tree."""
 
-import json
 from pathlib import Path
 
 from loguru import logger
 
 from codebase_analyzer.parser.callgraph import URI, Index, extract_call_info
 from codebase_analyzer.parser.codeinfo import generate_summary_embedding
-from codebase_analyzer.parser.deftree import CodeNode, generate_def_tree
+from codebase_analyzer.parser.deftree import CodeInfo, CodeNode, generate_def_tree
 
-METADATA_KEY = "metadata"
-NODE_KEY = "nodes"
+
+class CacheInvalidError(Exception):
+    """The cache is invalid."""
+
+    # TODO: Add checks after loading the cache.
+    pass
 
 
 def _idx_to_node(
@@ -55,64 +58,40 @@ def generate_merge_fasten_graph(
     return
 
 
-def generate_and_merge_all(
+def generate_nodes_from_repo(
     repo_root: Path, output_path: Path, entry_point: Path, uri_prefix: str = ""
-) -> CodeNode:
+) -> CodeInfo:
     """Generates the definition tree and merges call graph information."""
-    root_node, uri2node = generate_def_tree(
-        repo_root=repo_root, uri_prefix=uri_prefix
-    )
+    codeinfo = generate_def_tree(repo_root=repo_root, uri_prefix=uri_prefix)
     generate_merge_fasten_graph(
-        uri2node=uri2node,
+        uri2node=codeinfo.nodes,
         output_path=output_path,
         repo_root=repo_root,
         entry_point=entry_point,
     )
-    generate_summary_embedding(root=root_node, uri2node=uri2node)
+    generate_summary_embedding(codeinfo=codeinfo)
     # Can merge more other relations here.
-    return root_node, uri2node
+    return codeinfo
 
 
-def save_nodes_to_disk(
-    root_node: CodeNode, uri2node: dict[URI, CodeNode], output_path: Path
-) -> None:
-    """Saves the nodes into disk."""
-    cache = {
-        NODE_KEY: uri2node,
-        METADATA_KEY: dict(
-            root=root_node.uri,
-            count=len(uri2node),
-        ),
-    }
-    # TODO: save summaries and embeddings separately to a vector store.
-    with open(output_path, "w") as f:
-        json.dump(cache, f, default=lambda n: n.dict())
-
-
-def load_nodes_from_dick(input_path: Path) -> dict[URI, CodeNode]:
-    with open(input_path, "r") as f:
-        cache = json.load(f)
-    uri2node = {uri: CodeNode(**d) for uri, d in cache[NODE_KEY].items()}
-    return uri2node
-
-
-if __name__ == "__main__":
-    # repo_root = Path(
-    #     "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data"
-    # )
-    # entry_point = Path(
-    #     "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/short.py"
-    # )
-    # output_path = Path(
-    #     "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/fasten.json"
-    # )
-    # uri_prefix = "/codebase_analyzer.tests.data"
-    # root_node, uri2node = generate_and_merge_all(
-    #     repo_root=repo_root,
-    #     output_path=output_path,
-    #     entry_point=entry_point,
-    #     uri_prefix=uri_prefix,
-    # )
-    # save_nodes_to_disk(root_node=root_node, uri2node=uri2node, output_path="./nodes.json")
-    # load_nodes_from_dick(input_path=Path("./nodes.json"))
-    pass
+# if __name__ == "__main__":
+#     repo_root = Path(
+#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data"
+#     )
+#     entry_point = Path(
+#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/short.py"
+#     )
+#     output_path = Path(
+#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/fasten.json"
+#     )
+#     uri_prefix = "/codebase_analyzer.tests.data"
+#     codeinfo = generate_nodes_from_repo(
+#         repo_root=repo_root,
+#         output_path=output_path,
+#         entry_point=entry_point,
+#         uri_prefix=uri_prefix,
+#     )
+#     codeinfo.to_disk(output_path="./nodes.json")
+#     loaded_codeinfo = CodeInfo.from_disk(input_path=Path("./nodes.json"))
+#     assert codeinfo == loaded_codeinfo
+#     pass

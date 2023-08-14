@@ -12,12 +12,15 @@ from tqdm import tqdm
 from codebase_analyzer.tools.context import CodeLengthUnit, get_code_length
 
 SYSTEM_TEMPLATE = (
-    "Your task is to analyze the provided code and provide a clear, concise, and accurate summary of its purpose, functionality, and key operations. "
-    "Your goal is to help someone who cannot see the code to understand its main function and how it works quickly."
+    "Your task is to generate a summary for the given code or descriptions of code/module/package following huamn's instructions."
+    "If provided some code, please analyze the code and generate a clear, concise, and accurate summary of its purpose, functionality, and key operations. "
+    "If provided some desriptions of a package/module, please generate the summary by keeping the most important functionalities and operations. "
+    "Some reference might be provieded to help you understand the code better. Please take them into consideration if provided."
+    "Your goal is to help someone who cannot see the original info to understand its main function and how it works quickly."
 )
 
 # FIXME: the length restriction is not working well for 3.5. Should I use gpt-4?
-HUMAN_TEMPLATE = """Summarize the following code using less than {want_tokens} tokens:
+HUMAN_TEMPLATE = """Summarize the target code/descriptions using less than {want_tokens} tokens.
 
 {code}
 """
