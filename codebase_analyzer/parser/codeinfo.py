@@ -214,15 +214,3 @@ def generate_summary_embedding(
     summaries = asyncio.run(apopulate_summary_and_embedding(root_node))
     check_summaries(summaries, block_size=block_size)
     return summaries
-
-
-# def load_cached_summaries(path: Path) -> pd.DataFrame:
-#     """Load cached codebase info from the given csv file."""
-#     summaries = pd.read_csv(path)
-#     logger.info(f"Loaded codebase info from {path}")
-
-#     # TODO: Use format supporting storing the embeddings instead of CSV
-#     # TODO: Create single source of true for names of the columns, mabye use
-#     # langchain.Document will solve the problem automatically.
-#     summaries["embedding"] = summaries["embedding"].apply(ast.literal_eval)
-#     return summaries
