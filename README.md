@@ -4,7 +4,7 @@
 
 
 ## Introduction
-Ichigen Coder is an assembly of AI bots, driven by Large Language Model technology, designed to augment the capabilities of human developers, simplifying the coding process and boosting efficiency in software development, so that human developers (including the repo owner) can slack off while working :smile:. It's still at very inital stage and currently focuses on `codebase analyzer`.
+Ichigen Coder is an assembly of AI bots, driven by Large Language Model technology, designed to augment the capabilities of human developers, simplifying the coding process and boosting efficiency in software development. It's still at very inital stage and currently focuses on `codebase analyzer`.
 
 ## Codebase Analyzer
 This module is to help a human developer quickly understand a large codebase by asking questions to a chatbot.
@@ -36,6 +36,7 @@ The main chatbot will ask its chatbot buddies to collect necessary info using va
         --file-path <path-to-file>  # Will remove after supporting multiple files
     ```
     As currently the codebase_analyzer only supports one file at a time, I used this very [long python file](https://github.com/acheong08/ChatGPT/blob/main/src/revChatGPT/V1.py) to test.
+
 ## Sample questions
 ```
 q1 = "Which url does the ChatBot send request to after a user ask question to it?"
