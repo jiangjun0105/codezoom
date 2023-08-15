@@ -42,11 +42,6 @@ def uri_from_ast(*, node: ast.AST, parent: CodeNode, type: NodeType) -> str:
     return parent.uri + seg + name
 
 
-# _omit_function_body(ast_node=child_node, code_node=child_code_node)
-# class_code_node.code = ast.unparse(node)
-# class_code_node.code_length = get_code_length(class_code_node.code)
-
-
 class DefTreeExtractor(ast.NodeVisitor):
     """For extracting the definition tree of a python module from AST.
     TODO: Currently cannot preserve hash comments. Check tools like astor or libcst"""
