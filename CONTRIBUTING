@@ -1,0 +1,58 @@
+# How to contribute
+
+## Virtual environment
+This repo use `poetry` to manage Python dependencies and virtual environments. After you run `poetry install`, a python virtual environment will be created at `.venv` under repo root with all dependencies installed. You can activate the env by
+
+```bash
+# To activate
+poetry shell
+
+# To run (no need prefix `poetry`)
+python <path-to-entrypoint.py>
+
+# To deactivate
+exit
+```
+
+or if you prefer to using vanila Python:
+```bash
+# To activate
+source .venv/bin/activate
+
+# To run
+python <path-to-entrypoint.py>
+
+# To deactivate
+deactivate
+```
+It's handy to develop after entering this virtual environment as it also contains all development dependencies. Also running `python <path-to-entrypoint.py>` is faster than running `poetry run entrypoint` so better for frequent testing.
+
+## Dependency management
+Dependencies are defined in `pyproject.toml` file. There are two sections for dependencies:
+
+* `[tool.poetry.dependencies]`: for production
+* `[tool.poetry.dev-dependencies]`: for development
+
+To add a new dependency, simply add a new line in the corresponding section and run `poetry lock`. Or you can use
+
+```bash
+# For prod dependencies
+poetry add <package-name>
+
+# For dev dependencies
+poetry add <package-name> -G dev
+```
+which will automatically update `pyproject.toml` and `poetry.lock`.
+
+Please always commit your `poetry.lock` file to make sure everyone is using the same version of dependencies.
+
+## Pre-commit
+ `pre-commit` to lint and format code, so before contributing make sure to install `pre-commit` by:
+```bash
+source .venv/bin/activate  # Or use `poetry shell`
+pre-commit install
+```
+Then `pre-commit` will run automatically before every commit.
+
+## Type annotations
+Please add type annotations to all functions and classes following the [official docs of Python 3.10](https://docs.python.org/3.10/library/typing.html). This is benenifical for high code qualit, easy reading and data validation using [Pydantic](https://docs.pydantic.dev/latest/).

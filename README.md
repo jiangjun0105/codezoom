@@ -57,6 +57,4 @@ q15 = "Can you describe what will be executed after the user run this file?"
 q16 = "List the names in order of functions that will be called after a user start the bot and send a message to it." # Hard, only focus on details obtain from a certain function, not the whole file. Mainly because the main tool is to focus on the function level, not the file level.
 ```
 ## Contribute
-```bash
-pre-commit install
-```
+See [contributing doc](./CONTRIBUTING)
