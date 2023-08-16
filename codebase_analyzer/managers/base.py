@@ -109,7 +109,7 @@ class BotManager:
         )
         calls_summaries = _join_summaries(uris=code_node.calls, uri2node=self.nodes)
 
-        return bot_cls.from_code_node(
+        return bot_cls(
             code_node=code_node,
             summary_sheet=_SUMMARY_SHEET.format(
                 children_summaries=children_summaries,
