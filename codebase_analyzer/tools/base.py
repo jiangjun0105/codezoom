@@ -47,7 +47,7 @@ def _ask_manager(
 
 
 def ask_bot(
-    ask_to: URI = Field(description="Which you want to ask to"),
+    ask_to: URI = Field(description="URI of bot to whom you want to talk."),
     inputs: str = Field(description="Question or requests to send to the bot"),
     ask_manager: Callable = Field(description="Function to ask the manager."),
     ask_by: URI = Field(description="Which bot is asking"),
@@ -101,13 +101,13 @@ def semantic_search(
     )
 
 
-def get_summaries(summary_sheet: str) -> str:
+def get_summaries(summaries: str) -> str:
     """For getting the summaries of all functions in this file."""
 
     return f"""Below is the summary of code blocks in the file. Each block could be a package/module/function/class/statements.
 URIs of the blocks are shown before colon which can be used to retrive code or find corresponding bot to talk to.
 
-{summary_sheet}"""
+{summaries}"""
 
 
 def get_directory_tree(

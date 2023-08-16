@@ -37,7 +37,9 @@ def _path(path: Path | str) -> Path:
     return Path(path).expanduser().resolve()
 
 
-def main(repo_root: Path, entry_point: Path, cache_root: Path | None = None) -> None:
+def main(
+    repo_root: Path, entry_point: Path, cache_root: Path | None = None, **kwargs: Any
+) -> None:
     """Ichigen Coder - A cluster of coding bots
     Codebase Analyzer module
     """
@@ -50,11 +52,12 @@ def main(repo_root: Path, entry_point: Path, cache_root: Path | None = None) -> 
         repo_root=repo_root,
         cache_root=cache_root,
         entry_point=entry_point,
+        **kwargs,
     )
 
     # TODO: We may want a separate master bot to have more flexibility
+    # TODO: Currently if the root_bot only have one child, the performance is bad.
     interaction_loop(master_bot=manager.root_bot)
-    manager.save_cache()
 
 
 @click.command()
@@ -85,4 +88,15 @@ def cli(repo_root: Path, entry_point: Path, cache_root: Path) -> None:
 
 
 if __name__ == "__main__":
-    cli()
+    # cli()
+
+    repo_root = Path("codebase_analyzer/tests/data/").resolve()
+    cache_root = Path("codebase_analyzer/tests/data/").resolve()
+    entry_point = Path("codebase_analyzer/tests/data/short.py").resolve()
+    uri_prefix = "/codebase_analyzer.tests.data"
+    main(
+        repo_root=repo_root,
+        cache_root=cache_root,
+        entry_point=entry_point,
+        uri_prefix=uri_prefix,
+    )
