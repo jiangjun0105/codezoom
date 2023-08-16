@@ -58,10 +58,15 @@ def generate_merge_fasten_graph(
     return
 
 
-def generate_nodes_from_repo(
+def generate_codeinfo_from_repo(
     repo_root: Path, output_path: Path, entry_point: Path, uri_prefix: str = ""
 ) -> CodeInfo:
-    """Generates the definition tree and merges call graph information."""
+    """Generates the definition tree and merges call graph information.
+
+    Args:
+        uri_prefix: useful when testing on a subset of the codebase.
+            E.g. "/codebase_analyzer.tests.data"
+    """
     codeinfo = generate_def_tree(repo_root=repo_root, uri_prefix=uri_prefix)
     generate_merge_fasten_graph(
         uri2node=codeinfo.nodes,
@@ -74,6 +79,7 @@ def generate_nodes_from_repo(
     return codeinfo
 
 
+# TODO: Organize the following tests into a test file.
 # if __name__ == "__main__":
 #     repo_root = Path(
 #         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data"

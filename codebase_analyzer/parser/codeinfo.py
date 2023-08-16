@@ -36,6 +36,8 @@ REFERENCES
 ====
 Summary of functions called by the above code:
 
+URI (type): Summary
+-----------------------
 {summaries}
 """
 
@@ -51,6 +53,8 @@ REFERENCES
 ====
 The summaries of its superclasses:
 
+URI (type): Summary
+-----------------------
 {summaries}
 """
 
@@ -60,6 +64,8 @@ CONTENTS TO SUMMARIZE
 =====
 This is a {type} containing the following parts in it:
 
+URI (type): Summary
+-----------------------
 {summaries}
 """
 
@@ -74,7 +80,7 @@ def _join_summaries(
     summaries = []
     for n in [uri2node[u] for u in uris]:
         stem = _uri_stem(n.uri)
-        summaries.append(f"{before}{stem}: (type: {n.type}) {n.summary}")
+        summaries.append(f"{before}{stem} ({n.type}): {n.summary}")
     return "\n".join(summaries) or "No summary found."
 
 

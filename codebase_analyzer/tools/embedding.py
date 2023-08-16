@@ -25,7 +25,11 @@ def search_by_embedding(embeddings: np.array, query: str, n: int = 1) -> list[in
     """Returns the indices of n of the most similar embeddings to the query."""
     # TODO: Use vector store to support it.
     query_emb = np.array(get_embedding(text=query))
-    embeddings_norm = np.linalg.norm(embeddings, axis=1)
-    query_emb_norm = np.linalg.norm(query_emb)
-    similarities = embeddings.dot(query) / (embeddings_norm * query_emb_norm)
+    # TODO: Use more numpy vector operations.
+    # embeddings_norm = np.linalg.norm(embeddings, axis=1)
+    # query_emb_norm = np.linalg.norm(query_emb)
+    # similarities = embeddings.dot(query) / (embeddings_norm * query_emb_norm)
+    similarities = np.array(
+        [cosine_similarity(query_emb, emb) for emb in embeddings]
+    )
     return similarities.argsort()[::-1][:n]

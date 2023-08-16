@@ -6,7 +6,7 @@ from typing import Any
 
 import click
 
-from codebase_analyzer.managers.base import BotManager
+from codebase_analyzer.bots.manager import BotManager
 
 
 def calculate_path_hash(path: Path | str) -> str:
@@ -33,16 +33,23 @@ def interaction_loop(master_bot: Any) -> None:
         master_bot.ask(inputs=query)
 
 
-def main(repo_root: Path, cache_root: Path | None = None) -> None:
+def _path(path: Path | str) -> Path:
+    return Path(path).expanduser().resolve()
+
+
+def main(repo_root: Path, entry_point: Path, cache_root: Path | None = None) -> None:
     """Ichigen Coder - A cluster of coding bots
     Codebase Analyzer module
     """
-    cache_root = cache_root or get_cache_root(repo_root)
+    cache_root = _path(cache_root) or get_cache_root(repo_root)
+    repo_root = _path(repo_root)
+    entry_point = _path(entry_point)
 
     # Singleton manager
     manager = BotManager.from_repo(
         repo_root=repo_root,
         cache_root=cache_root,
+        entry_point=entry_point,
     )
 
     # TODO: We may want a separate master bot to have more flexibility
@@ -59,12 +66,12 @@ def main(repo_root: Path, cache_root: Path | None = None) -> None:
     help="Path to the root of the repository to analyze.",
 )
 @click.option(
-    "--file-path",
-    "-f",
+    "--entry-point",
+    "-e",
     type=Path,
     required=True,
-    help="Relative or absoluate path to the file in the repository to analyze. "
-    "Will become Optional after supporting multiple files.",
+    # TODO: Detect the entry_point automatically
+    help="Relative or absoluate path to the entry_point file in the repository. ",
 )
 @click.option(
     "--cache-root",
@@ -72,9 +79,9 @@ def main(repo_root: Path, cache_root: Path | None = None) -> None:
     type=Path,
     help="Path to the root cache repo. Will cacluate based on sha256 of repo root if not assigned",
 )
-def cli(repo_root: Path, file_path: Path, cache_root: Path) -> None:
+def cli(repo_root: Path, entry_point: Path, cache_root: Path) -> None:
     """CLI: wrapper for the main function for easy testing."""
-    main(repo_root=repo_root, cache_root=cache_root, file_path=file_path)
+    main(repo_root=repo_root, cache_root=cache_root, entry_point=entry_point)
 
 
 if __name__ == "__main__":

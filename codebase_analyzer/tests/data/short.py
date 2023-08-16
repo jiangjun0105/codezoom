@@ -7,11 +7,11 @@ def foo():
     print(GREETING)
 
 
-TEST = "test"
+TEST = "hello"
 
 
 class Bar:
-    pass
+    test = TEST
 
 
 class Foo(Bar):
@@ -22,9 +22,7 @@ class Foo(Bar):
         foo()
 
     def bar(self):
-        print("bar")
-        print("bar")
-        print("bar")
+        print(self.test)
 
 
 if __name__ == "__main__":
