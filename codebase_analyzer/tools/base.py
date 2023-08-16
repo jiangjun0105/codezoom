@@ -22,119 +22,92 @@ import importlib.util
 import inspect
 import subprocess
 from pathlib import Path
-from typing import Annotated, Any, Callable
+from typing import Any, Callable
 
-import pandas as pd
 from loguru import logger
 from pydantic import Field
 
-from codebase_analyzer.parser.schema import CodeInfoLevel
-from codebase_analyzer.tools.context import CodeLengthUnit, get_code_length
-from codebase_analyzer.tools.embedding import search_functions
+from codebase_analyzer.parser.callgraph import URI
 
 
-def ask_function_bot(
-    question: str = Field(description="Question to ask to the function bot"),
-    function_name: str = Field(description="Which function your question is about."),
-    file_path: Path = Field(
-        description="Full path to the file containing the function."
-    ),
-    get_bot_func: Callable = Field(description="Function to get the function bot."),
-    code_info: pd.DataFrame = Field(
-        description="Extracted code info containing source code."
-    ),
+def _ask_manager(
+    ask_manager: Callable,
+    ask_by_func: Callable,
+    on_error: str = "",
+    **kwargs: Any,
+) -> str:
+    try:
+        return ask_manager(ask_type=ask_by_func.__name__, **kwargs)
+    except Exception as e:
+        logger.error(f"Error when running {ask_by_func.__name__}: {e}")
+        return on_error or (
+            f"Error when running {ask_by_func.__name__}: {e}\n"
+            "Please check if you give the correct arguments."
+        )
+
+
+def ask_bot(
+    ask_to: URI = Field(description="Which you want to ask to"),
+    inputs: str = Field(description="Question or requests to send to the bot"),
+    ask_manager: Callable = Field(description="Function to ask the manager."),
+    ask_by: URI = Field(description="Which bot is asking"),
 ) -> str:
     """For asking a question to a function bot knowing the code of a specific function.
     Consider using this method first before using `get_function_code` when the function code length > 10 lines.
     Also remember include enough information in the question so that the bot can give you a good answer."""
 
-    function_bot = get_bot_func(
-        file_path=file_path, function_name=function_name, code_info=code_info
+    return _ask_manager(
+        ask_manager=ask_manager,
+        ask_by_func=ask_bot,
+        ask_by=ask_by,
+        ask_to=ask_to,
+        inputs=inputs,
     )
-    if function_bot is None:
-        return (
-            f"Cannot find the function {function_name} in {file_path}. "
-            "Please check if the function name is correct."
-        )
-    return function_bot.ask(question)
 
 
-def get_functions_summary(
-    code_info: pd.DataFrame = Field(description="Pre-provided code info."),
+def get_code(
+    uri: str = Field(description="URI of the function whose code will be returned."),
+    ask_manager: Callable = Field(description="Function to ask the manager."),
+    ask_by: URI = Field(description="Which bot is asking"),
 ) -> str:
-    """For getting the summaries of all functions in this file."""
-    direct_child = code_info.loc[code_info.level == CodeInfoLevel.DIRECT_CHILD]
-    guide = (
-        "Below is the summary of code blocks in the file. Each block could be a function or a group of statements."
-        "Names of the blocks are shown in [] which can be used to retrive code or find corresponding function bot."
+    """For getting the code of a specific function by providing the URI of the target function."""
+    return _ask_manager(
+        ask_manager=ask_manager,
+        ask_by_func=get_code,
+        uri=uri,
+        ask_by=ask_by,
     )
-    summary = "\n\n".join(
-        f"[{n}]\n{s}" for n, s in zip(direct_child.name, direct_child.summary)
-    )
-    return f"{guide}\n\n{summary}"
 
 
-def get_file_summary(
-    code_info: pd.DataFrame = Field(description="Pre-provided code info."),
-) -> str:
-    """For getting the summary of the file managed by this bot."""
-    module = code_info.loc[code_info.level == CodeInfoLevel.MODULE]
-    assert len(module) == 1
-    return module.summary.values[0]
-
-
-def get_function_code(
-    function_name: str = Field(
-        description="Name of the function whose code will be returned."
-    ),
-    # file_path: Annotated[Path | str, Field(description="Path to the file containing the function.")],
-    code_info: pd.DataFrame = Field(
-        description="Extracted codebase info in pd.dataframe."
-    ),
-) -> str:
-    """For getting the code of a specific function. For class methods, use `class_name.method_name` as function_name."""
-    result = code_info.loc[
-        code_info["name"] == function_name,
-        "code",
-    ]
-    if result.empty:
-        return f"Cannot find the function {function_name}."
-    return f"{result.values[0]}\n\n"
-
-
-def get_related_functions(
+def semantic_search(
     query: str = Field(
         description="Functions having semantic similarity to this query will be returned, so please include enough semantic information in your query."
     ),
-    n: int = Field(
-        default=5, description="Number of function names to be returned."
-    ),
-    want: str = "name",
-    code_info: pd.DataFrame | None = None,
-    length_unit: CodeLengthUnit = CodeLengthUnit.TOKEN,
+    n: int = Field(default=5, description="Number of URIs to be returned."),
+    ask_manager: Callable = Field(description="Function to ask the manager."),
+    ask_by: URI = Field(description="Which bot is asking"),
 ) -> str:
     """For getting the name of related functions based on the semantic similarity of the function code and your input query.
     Semantic similarity is the vector distance of embeddings, so please include enough semantic information in your query.
     E.g. get_relevant_functions("Completions API test", "code")  # returns function code most relevant to "Completions API test"
     """
 
-    # logger.info("Searching for relevant functions...")
-    if code_info is None:
-        logger.error("Codebase info is not provided.")
-        return "Codebase info is not provided."
+    return _ask_manager(
+        ask_manager=ask_manager,
+        ask_by_func=semantic_search,
+        query=query,
+        n=n,
+        ask_by=ask_by,
+    )
 
-    res = search_functions(code_info, query, n=n)
 
-    if want not in res.columns:
-        logger.error(f"Cannot find {want} in the codebase info.")
-        return f"Cannot find {want} in the codebase info."
+def get_summaries(summary_sheet: str) -> str:
+    """For getting the summaries of all functions in this file."""
 
-    got_list = [f"name, code length ({length_unit})", "============="]
-    for w, c in zip(res[want], res["code"]):
-        # TODO: The best way of getting code length is to calculate length once when parsing codebase info,
-        # store it in the cache and then retrieve it here. For that we need refactor the cache structure.
-        got_list.append(f"{w}, {get_code_length(c, length_unit)}")
-    return "\n".join(got_list) + "\n\n"
+    return f"""Below is the summary of code blocks in the file. Each block could be a package/module/function/class/statements.
+URIs of the blocks are shown before colon which can be used to retrive code or find corresponding bot to talk to.
+
+{summary_sheet}"""
 
 
 def get_directory_tree(

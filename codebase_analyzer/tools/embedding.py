@@ -21,9 +21,11 @@ def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 
-def search_functions(df, code_query, n=1):
-    embedding = get_embedding(code_query, model="text-embedding-ada-002")
-    df["similarities"] = df.embedding.apply(
-        lambda x: cosine_similarity(x, embedding)
-    )
-    return df.sort_values("similarities", ascending=False).head(n)
+def search_by_embedding(embeddings: np.array, query: str, n: int = 1) -> list[int]:
+    """Returns the indices of n of the most similar embeddings to the query."""
+    # TODO: Use vector store to support it.
+    query_emb = np.array(get_embedding(text=query))
+    embeddings_norm = np.linalg.norm(embeddings, axis=1)
+    query_emb_norm = np.linalg.norm(query_emb)
+    similarities = embeddings.dot(query) / (embeddings_norm * query_emb_norm)
+    return similarities.argsort()[::-1][:n]

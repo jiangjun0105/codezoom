@@ -356,16 +356,22 @@ class CodeNode(BaseModel):
         )
 
 
+class CodeInfoMetadata(BaseModel):
+    """Metadata for CodeInfo."""
+
+    root: URI
+    count: int
+
+
 class CodeInfo(BaseModel):
     """Code information for a single file."""
 
-    metadata: dict[str, Any]
+    metadata: CodeInfoMetadata
     nodes: dict[URI, CodeNode]
 
     @property
     def root_node(self) -> CodeNode:
-        # TODO: Make metadata a pydantic model.
-        return self.nodes[self.metadata["root"]]
+        return self.nodes[self.metadata.root]
 
     def to_disk(self, output_path: Path) -> None:
         """Saves the nodes into disk."""

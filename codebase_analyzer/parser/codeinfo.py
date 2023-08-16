@@ -74,7 +74,7 @@ def _join_summaries(
     summaries = []
     for n in [uri2node[u] for u in uris]:
         stem = _uri_stem(n.uri)
-        summaries.append(f"{before}{stem}: {n.summary}")
+        summaries.append(f"{before}{stem}: (type: {n.type}) {n.summary}")
     return "\n".join(summaries) or "No summary found."
 
 

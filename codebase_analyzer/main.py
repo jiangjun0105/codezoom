@@ -6,7 +6,6 @@ from typing import Any
 
 import click
 
-from codebase_analyzer.bots.file.base import FileBot
 from codebase_analyzer.managers.base import BotManager
 
 
