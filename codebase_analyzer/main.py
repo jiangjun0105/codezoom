@@ -88,15 +88,15 @@ def cli(repo_root: Path, entry_point: Path, cache_root: Path) -> None:
 
 
 if __name__ == "__main__":
-    # cli()
+    cli()
 
-    repo_root = Path("codebase_analyzer/tests/data/").resolve()
-    cache_root = Path("codebase_analyzer/tests/data/").resolve()
-    entry_point = Path("codebase_analyzer/tests/data/short.py").resolve()
-    uri_prefix = "/codebase_analyzer.tests.data"
-    main(
-        repo_root=repo_root,
-        cache_root=cache_root,
-        entry_point=entry_point,
-        uri_prefix=uri_prefix,
-    )
+    # repo_root = Path("codebase_analyzer/tests/data/").resolve()
+    # cache_root = Path("codebase_analyzer/tests/data/").resolve()
+    # entry_point = Path("codebase_analyzer/tests/data/short.py").resolve()
+    # uri_prefix = "/codebase_analyzer.tests.data"
+    # main(
+    #     repo_root=repo_root,
+    #     cache_root=cache_root,
+    #     entry_point=entry_point,
+    #     uri_prefix=uri_prefix,
+    # )
