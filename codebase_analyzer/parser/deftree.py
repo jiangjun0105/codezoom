@@ -84,7 +84,7 @@ class DefTreeExtractor(ast.NodeVisitor):
     def generic_visit(self, *, node: ast.AST, level: int, parent: CodeNode) -> None:
         """Catches the type of node that is not handled. Usually statements."""
         self.add_with_trying_merge(node=node, level=level, parent=parent)
-        logger.info(f"Other node type: {type(node)}")
+        # logger.info(f"Other node type: {type(node)}")
 
     def visit_Module(
         self, *, node: ast.AST, level: int, parent: CodeNode, uri: str

@@ -1,4 +1,4 @@
-"""Main classes for the file bot."""
+"""Main classes for the module bot."""
 
 from __future__ import annotations
 
@@ -54,13 +54,13 @@ def get_cache_path(cache_root: Path, relative_path: Path) -> Path:
 
 
 class ModuleBot(AgentExecutorBot):
-    """A bot managing a module (file)."""
+    """A bot managing a module (module)."""
 
     @staticmethod
     def get_system_message(code_node: CodeNode) -> str:
         return SYSTEM_MESSAGE.format(
-            file_path=uri_to_path(code_node.uri),
-            file_summary=code_node.summary,
+            module_path=uri_to_path(code_node.uri),
+            module_summary=code_node.summary,
         )
 
     @root_validator(pre=True)

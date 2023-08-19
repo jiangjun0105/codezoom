@@ -49,12 +49,13 @@ def _ask_manager(
 def ask_bot(
     ask_to: URI = Field(description="URI of bot to whom you want to talk."),
     inputs: str = Field(description="Question or requests to send to the bot"),
-    ask_manager: Callable = Field(description="Function to ask the manager."),
-    ask_by: URI = Field(description="Which bot is asking"),
+    ask_manager: Callable = Field(description="[Set] Function to ask the manager."),
+    ask_by: URI = Field(description="[Set] Which bot is asking"),
 ) -> str:
-    """For asking a question to a function bot knowing the code of a specific function.
-    Consider using this method first before using `get_function_code` when the function code length > 10 lines.
-    Also remember include enough information in the question so that the bot can give you a good answer."""
+    """Use this to ask questions to other bots to whom you can talk to.
+    Consider using this method actively when you think the question is related to that bot.
+    Be careful not mistook the URI of the bot you want to talk to.
+    Also remember include enough context in the question so that the bot can give you a good answer."""
 
     return _ask_manager(
         ask_manager=ask_manager,
@@ -66,11 +67,15 @@ def ask_bot(
 
 
 def get_code(
-    uri: str = Field(description="URI of the function whose code will be returned."),
+    uri: str = Field(
+        description="URI of the code unit whose code will be returned."
+    ),
     ask_manager: Callable = Field(description="Function to ask the manager."),
     ask_by: URI = Field(description="Which bot is asking"),
 ) -> str:
-    """For getting the code of a specific function by providing the URI of the target function."""
+    """For getting the code of a specific code unit (package/module/function/class) by providing the URI of it.
+    Remember to provide the exact same URI of the code unit as you found using other tools.
+    """
     return _ask_manager(
         ask_manager=ask_manager,
         ask_by_func=get_code,
@@ -81,15 +86,14 @@ def get_code(
 
 def semantic_search(
     query: str = Field(
-        description="Functions having semantic similarity to this query will be returned, so please include enough semantic information in your query."
+        description="Code having semantic similarity to this query will be returned, so please include enough semantic information in your query."
     ),
     n: int = Field(default=5, description="Number of URIs to be returned."),
-    ask_manager: Callable = Field(description="Function to ask the manager."),
-    ask_by: URI = Field(description="Which bot is asking"),
+    ask_manager: Callable = Field(description="[Set] Function to ask the manager."),
+    ask_by: URI = Field(description="[Set] Which bot is asking"),
 ) -> str:
-    """For getting the name of related functions based on the semantic similarity of the function code and your input query.
+    """For getting the name of related code unit based on the semantic similarity of their code and your input query.
     Semantic similarity is the vector distance of embeddings, so please include enough semantic information in your query.
-    E.g. get_relevant_functions("Completions API test", "code")  # returns function code most relevant to "Completions API test"
     """
 
     return _ask_manager(
@@ -102,14 +106,15 @@ def semantic_search(
 
 
 def get_summaries(summaries: str) -> str:
-    """For getting the summaries of all functions in this file."""
+    """For getting the summaries of all direct children package/module/functions within the code managed by you."""
 
-    return f"""Below is the summary of code blocks in the file. Each block could be a package/module/function/class/statements.
+    return f"""Below is the summary of children code units. Each block could be a package/module/function/class/statements.
 URIs of the blocks are shown before colon which can be used to retrive code or find corresponding bot to talk to.
 
 {summaries}"""
 
 
+# Unused tools
 def get_directory_tree(
     path: str
     | Path = Field(
@@ -147,6 +152,7 @@ def get_directory_tree(
         return f"Error when running tree command: {e}"
 
 
+# Unused tools
 def get_file_content(
     path: str
     | Path = Field(
@@ -175,6 +181,7 @@ def get_file_content(
         return f"Error when reading file: {e}"
 
 
+# Unused tools
 def load_single_function(file_path: Path, function_name: str):
     """Load code of a specific function given the function location."""
     file_path = Path(file_path).expanduser()
@@ -191,6 +198,7 @@ def load_single_function(file_path: Path, function_name: str):
     return function_code
 
 
+# Unused tools
 def search_keyword(
     keyword: str = Field(description="The keyword to search for."),
     semantic_filer: str = Field(description="The semantic filter to use."),

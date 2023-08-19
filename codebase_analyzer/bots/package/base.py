@@ -21,7 +21,7 @@ from codebase_analyzer.tools.patch import patch_tool
 
 
 class PackageBot(AgentExecutorBot):
-    """A bot managing a package (file)."""
+    """A bot managing a package (package)."""
 
     @staticmethod
     def get_system_message(code_node: CodeNode) -> str:
@@ -51,7 +51,7 @@ class PackageBot(AgentExecutorBot):
                     ask_bot, ask_manager=ask_manager, ask_by=code_node.uri
                 )
             ),
-            # TODO: Safeguard for get_code in case getting all code from a module
+            # TODO: Safeguard for get_code in case getting all code from a package
             StructuredTool.from_function(
                 func=patch_tool(
                     get_code, ask_manager=ask_manager, ask_by=code_node.uri

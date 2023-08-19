@@ -311,10 +311,7 @@ async def apopulate_summary_and_embedding(
                 await condition.wait_for(lambda: ready or len(summaries) >= total)
                 if len(summaries) >= total:
                     break
-                uri = ready.pop()
-                if isinstance(uri, URI):
-                    print(f"None uri poped from ready: {uri}")
-                node = uri2node[uri]
+                node = uri2node[ready.pop()]
             await process_node(node)
             logger.info(f"Completed {len(summaries)}/{total}.")
 
