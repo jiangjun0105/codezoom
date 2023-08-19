@@ -7,29 +7,16 @@ from typing import Any
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from langchain.docstore.document import Document
-from langchain.llms import OpenAI
+from langchain.llms import OpenAIChat
 from langchain.schema import BaseOutputParser
 from loguru import logger
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, Field, root_validator, validator
 
-from codebase_analyzer.bots.base import Bot
 from codebase_analyzer.bots.callbacks import BotStreamingStdOutCallbackHandler
+from codebase_analyzer.bots.executor import Bot
 from codebase_analyzer.bots.function.prompts import DOC_PROMPT, PROMPT
+from codebase_analyzer.parser.deftree import CodeNode
 from codebase_analyzer.tools.base import load_single_function
-
-function_llm = OpenAI(
-    temperature=0,
-    streaming=True,
-    callbacks=[BotStreamingStdOutCallbackHandler(color="blue")],
-)
-
-FUNCTION_CHAIN = load_qa_with_sources_chain(
-    llm=function_llm,
-    chain_type="stuff",
-    prompt=PROMPT,
-    document_prompt=DOC_PROMPT,
-    document_variable_name="function_code",
-)
 
 
 class FunctionOutputParser(BaseOutputParser):
@@ -49,57 +36,40 @@ class FunctionBot(Bot):
     """
 
     # For now maybe just assign the value directly but if later the bot has memory, we need rethink.
-    chain: Chain = FUNCTION_CHAIN
-    file_path: Path
-    function_name: str
-    function_code: list[Document] | None = None
+    llm_model: str = Field(..., description="gpt-3.5-turbo-0613 or gpt-4-0613")
+    code_node: CodeNode = Field(...)
+    chain: Chain
 
-    @classmethod
-    def from_str_code(
-        cls, file_path: Path, function_name: str, function_code: str
-    ) -> FunctionBot:
-        if not function_code:
-            raise ValueError("Function code is empty.")
+    @root_validator(pre=True)
+    def init_chain(cls, values: dict) -> dict:
+        llm_model = values.get("llm_model")
+        function_llm = OpenAIChat(
+            model=llm_model,
+            temperature=0,
+            streaming=True,
+            callbacks=[BotStreamingStdOutCallbackHandler(color="blue")],
+        )
+        values["chain"] = load_qa_with_sources_chain(
+            llm=function_llm,
+            chain_type="stuff",
+            prompt=PROMPT,
+            document_prompt=DOC_PROMPT,
+            document_variable_name="function_code",
+        )
+        return values
 
-        logger.info("Initialize function bot using provided code.")
-        return cls(
-            file_path=file_path,
-            function_name=function_name,
-            function_code=function_code,
-        )
-
-    @classmethod
-    def from_file(cls, file_path: Path, function_name: str) -> FunctionBot:
-        logger.info(
-            f"Initialize function bot by reading {function_name} file {file_path}."
-        )
-        function_code = load_single_function(
-            file_path=file_path, function_name=function_name
-        )
-        return cls(
-            file_path=file_path,
-            function_name=function_name,
-            function_code=function_code,
-        )
-
-    @validator("function_code", pre=True)
-    def set_function_code(cls, function_code: str) -> list[Document]:
+    @property
+    def function_code_document(self) -> list[Document]:
         return [
             Document(
-                page_content=function_code,
-                metadata={"function_length": len(function_code)},
+                page_content=self.code_node.code,
+                metadata={"function_length": self.code_node.code_length},
             )
         ]
 
-    def return_function_code(self) -> str:
-        if self.function_code is not None:
-            return self.function_code[0].page_content
-        else:
-            raise ValueError("Function code is not provided.")
-
-    def ask(self, question: str) -> Any:
+    def ask(self, inputs: str) -> Any:
         response = self.chain(
-            {"input_documents": self.function_code, "question": question},
+            {"input_documents": self.function_code_document, "question": inputs},
             return_only_outputs=True,
         )["output_text"]
         return f"Function bot: {response}"

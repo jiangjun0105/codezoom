@@ -5,16 +5,16 @@ from pathlib import Path
 from typing import Any
 
 import click
+from loguru import logger
 
-from codebase_analyzer.bots.file.base import FileBot
-from codebase_analyzer.managers.function import FunctionBotManager
+from codebase_analyzer.bots.manager import BotManager
 
 
 def calculate_path_hash(path: Path | str) -> str:
     """Calculate the hash256 of the given path."""
 
     # Resolve the absolute path and check if it exists
-    path = Path(path).resolve()
+    path = Path(path).expanduser().resolve()
     return hashlib.sha256(str(path).encode()).hexdigest()
 
 
@@ -34,31 +34,38 @@ def interaction_loop(master_bot: Any) -> None:
         master_bot.ask(inputs=query)
 
 
-def main(repo_root: Path, file_path: Path, cache_root: Path | None = None) -> None:
+def _path(path: Path | str, check_exist: bool = False, create: bool = False) -> Path:
+    p = Path(path).expanduser().resolve()
+    if check_exist and not p.exists():
+        raise ValueError(f"{p=} does not exist.")
+    if create and not p.exists():
+        p.mkdir(parents=True)
+    logger.info(f"{str(p)=}")
+    return p
+
+
+def main(
+    repo_root: Path, entry_point: Path, cache_root: Path | None = None, **kwargs: Any
+) -> None:
     """Ichigen Coder - A cluster of coding bots
     Codebase Analyzer module
     """
     cache_root = cache_root or get_cache_root(repo_root)
-    file_path = Path(file_path).expanduser()
+    cache_root = _path(cache_root, create=True)
+    repo_root = _path(repo_root, check_exist=True)
+    entry_point = _path(entry_point, check_exist=True)
 
-    # FIXME after supporting multiple files
-    file_relative_path = file_path
-    if file_path.is_absolute():
-        file_relative_path = file_path.relative_to(repo_root)
-
-    # Singleton managers
-    manager = FunctionBotManager()
-
-    # FIXME: For now we use the file bot as master bot
-    file_bot = FileBot.from_cache(
+    # Singleton manager
+    manager = BotManager.from_repo(
         repo_root=repo_root,
         cache_root=cache_root,
-        file_relative_path=file_relative_path,
-        get_bot_func=manager.get_bot,
+        entry_point=entry_point,
+        **kwargs,
     )
-    interaction_loop(file_bot)
-    file_bot.save_cache()
-    manager.save_cache()
+
+    # TODO: We may want a separate master bot to have more flexibility
+    # TODO: Currently if the root_bot only have one child, the performance is bad.
+    interaction_loop(master_bot=manager.root_bot)
 
 
 @click.command()
@@ -70,12 +77,12 @@ def main(repo_root: Path, file_path: Path, cache_root: Path | None = None) -> No
     help="Path to the root of the repository to analyze.",
 )
 @click.option(
-    "--file-path",
-    "-f",
+    "--entry-point",
+    "-e",
     type=Path,
     required=True,
-    help="Relative or absoluate path to the file in the repository to analyze. "
-    "Will become Optional after supporting multiple files.",
+    # TODO: Detect the entry_point automatically
+    help="Relative or absoluate path to the entry_point file in the repository. ",
 )
 @click.option(
     "--cache-root",
@@ -83,10 +90,20 @@ def main(repo_root: Path, file_path: Path, cache_root: Path | None = None) -> No
     type=Path,
     help="Path to the root cache repo. Will cacluate based on sha256 of repo root if not assigned",
 )
-def cli(repo_root: Path, file_path: Path, cache_root: Path) -> None:
+def cli(repo_root: Path, entry_point: Path, cache_root: Path) -> None:
     """CLI: wrapper for the main function for easy testing."""
-    main(repo_root=repo_root, cache_root=cache_root, file_path=file_path)
+    main(repo_root=repo_root, cache_root=cache_root, entry_point=entry_point)
 
 
 if __name__ == "__main__":
     cli()
+
+    ## TODO: Make the following a test
+    # repo_root = Path("/Users/jun/Projects/Auto-GPT/").resolve()
+    # entry_point = Path("/Users/jun/Projects/Auto-GPT/autogpt/app/cli.py").resolve()
+    # cache_root = Path("/Users/jun/Projects/ichigen-coder/shared_cache/Auto-GPT").resolve()
+    # main(
+    #     repo_root=repo_root,
+    #     entry_point=entry_point,
+    #     cache_root=cache_root,
+    # )

@@ -12,12 +12,15 @@ from tqdm import tqdm
 from codebase_analyzer.tools.context import CodeLengthUnit, get_code_length
 
 SYSTEM_TEMPLATE = (
-    "Your task is to analyze the provided code and provide a clear, concise, and accurate summary of its purpose, functionality, and key operations. "
-    "Your goal is to help someone who cannot see the code to understand its main function and how it works quickly."
+    "Your task is to generate a summary for the given code or descriptions of code/module/package following huamn's instructions."
+    "If provided some code, please analyze the code and generate a clear, concise, and accurate summary of its purpose, functionality, and key operations. "
+    "If provided some desriptions of a package/module, please generate the summary by keeping the most important functionalities and operations. "
+    "Some reference might be provieded to help you understand the code better. Please take them into consideration if provided."
+    "Your goal is to help someone who cannot see the original info to understand its main function and how it works quickly."
 )
 
 # FIXME: the length restriction is not working well for 3.5. Should I use gpt-4?
-HUMAN_TEMPLATE = """Summarize the following code using less than {want_tokens} tokens:
+HUMAN_TEMPLATE = """Summarize the target code/descriptions using less than {want_tokens} tokens.
 
 {code}
 """
@@ -36,11 +39,12 @@ DEBUG_LOG = """
 * Actual used: {got_tokens} tokens
 """
 
-# TODO: Rethink the design of the bot. Use manager to manage the chain.
-llm: ChatOpenAI = ChatOpenAI(temperature=0, model="gpt-3.5-turbo-0613")
-
 
 class SummaryBot(BaseModel):
+    """A bot that summarizes code."""
+
+    # TODO: Use config to manage this bot's llm_model.
+    llm_model: str = "gpt-3.5-turbo"
     ratio: float = 15
     min_tokens: int = 20
     max_tokens: int = 100
@@ -51,6 +55,8 @@ class SummaryBot(BaseModel):
         system = SystemMessagePromptTemplate.from_template(SYSTEM_TEMPLATE)
         human = HumanMessagePromptTemplate.from_template(HUMAN_TEMPLATE)
         chat_prompt = ChatPromptTemplate.from_messages([system, human])
+        llm_model = values.get("llm_model", "gpt-3.5-turbo")
+        llm = ChatOpenAI(temperature=0, model=llm_model)
         values["chain"] = LLMChain(llm=llm, prompt=chat_prompt)
         return values
 

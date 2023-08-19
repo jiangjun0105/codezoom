@@ -12,6 +12,11 @@ class CodeLengthUnit(str, Enum):
     TOKEN = "token"
 
 
+def length_in_token(code: str) -> int:
+    """For getting the length of the code in token."""
+    return len(tokenize(code))
+
+
 def get_code_length(code: str, unit: CodeLengthUnit = CodeLengthUnit.TOKEN) -> int:
     """For getting the length of the code."""
     if unit == CodeLengthUnit.CHAR:

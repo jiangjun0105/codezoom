@@ -2162,6 +2162,16 @@ files = [
 tests = ["pytest"]
 
 [[package]]
+name = "pycg"
+version = "0.0.7"
+description = "PyCG - Practical Python Call Graphs"
+optional = false
+python-versions = ">=3.4"
+files = [
+    {file = "PyCG-0.0.7.tar.gz", hash = "sha256:b580e6a7038feea0447e6818ea6c41582d9330267b40e7e8c123a065e654cda6"},
+]
+
+[[package]]
 name = "pycparser"
 version = "2.21"
 description = "C parser in Python"
@@ -3372,4 +3382,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "f2d15750e2b41c8c20c811e00ab54f8e5d6d116a6e63d436d3799e3538ea74e6"
+content-hash = "1323dd6fae6bc5ff3f5290f47655893f9240d07ba074de21822c5519917ab9ed"
