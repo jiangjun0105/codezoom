@@ -36,7 +36,9 @@ def generate_merge_fasten_graph(
     if not entry_point.is_relative_to(repo_root):
         raise ValueError(f"{entry_point=} is not inside {repo_root=}.")
 
-    fasten = extract_call_info(entry_point=entry_point, output_path=output_path)
+    fasten = extract_call_info(
+        entry_point=entry_point, repo_root=repo_root, output_path=output_path
+    )
 
     # Merge call graph
     for call in fasten.graph.internalCalls:

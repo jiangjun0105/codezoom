@@ -12,8 +12,8 @@ LOG_FILE_PATH = Path(__file__).parent.parent / ".logs"
 # Remove default sink which print to stdout and stderr
 loguru.logger.remove()
 
-# Let it print to a file and clean up logs older than 3 days
+# Let it print to a file and clean up logs older than 1 day
 # FIXME: The retention is not working
-logger = loguru.logger.add(str(LOG_FILE_PATH / "{time}.log"), retention="3 days")
+logger = loguru.logger.add(str(LOG_FILE_PATH / "{time}.log"), retention="1 day")
 
 load_dotenv()

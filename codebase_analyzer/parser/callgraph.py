@@ -90,7 +90,9 @@ class FastenGraph(BaseModel):
         extra = "allow"
 
 
-def extract_fasten_graph(entry_point: Path, output_path: Path) -> dict:
+def extract_fasten_graph(
+    entry_point: Path, repo_root: Path, output_path: Path
+) -> dict:
     """Extracts call graph in FastenGraph format for a given entry point.
     NOTE:
         * Can only extract for a single entry point.
@@ -99,7 +101,16 @@ def extract_fasten_graph(entry_point: Path, output_path: Path) -> dict:
     # TODO: Handle multiple entry points.
     try:
         subprocess.run(
-            ["pycg", "--fasten", "-o", output_path, entry_point], check=True
+            [
+                "pycg",
+                "--fasten",
+                "--output",
+                str(output_path),
+                "--package",
+                str(repo_root),
+                str(entry_point),
+            ],
+            check=True,
         )
     except Exception as e:
         logger.error(
@@ -141,9 +152,13 @@ def extract_extra_info(graph: FastenGraph) -> FastenGraph:
     return graph
 
 
-def extract_call_info(entry_point: Path, output_path: Path) -> FastenGraph:
+def extract_call_info(
+    entry_point: Path, output_path: Path, repo_root: Path
+) -> FastenGraph:
     """Extracts call graph for a given entry point."""
-    graph = extract_fasten_graph(entry_point, output_path)
+    graph = extract_fasten_graph(
+        entry_point=entry_point, output_path=output_path, repo_root=repo_root
+    )
     graph = extract_extra_info(graph=graph)
     return graph
 
