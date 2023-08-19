@@ -116,6 +116,7 @@ class BotManager(BaseModel):
                 entry_point=entry_point,
                 uri_prefix=uri_prefix,
             )
+            logger.info(f"Saving codeinfo to {cache_root}/codeinfo.json.")
             code_info.to_disk(output_path=cache_root / "codeinfo.json")
 
         return cls(

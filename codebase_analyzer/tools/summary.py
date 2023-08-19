@@ -39,11 +39,12 @@ DEBUG_LOG = """
 * Actual used: {got_tokens} tokens
 """
 
-# TODO: Rethink the design of the bot. Use manager to manage the chain.
-llm: ChatOpenAI = ChatOpenAI(temperature=0, model="gpt-3.5-turbo-0613")
-
 
 class SummaryBot(BaseModel):
+    """A bot that summarizes code."""
+
+    # TODO: Use config to manage this bot's llm_model.
+    llm_model: str = "gpt-3.5-turbo"
     ratio: float = 15
     min_tokens: int = 20
     max_tokens: int = 100
@@ -54,6 +55,8 @@ class SummaryBot(BaseModel):
         system = SystemMessagePromptTemplate.from_template(SYSTEM_TEMPLATE)
         human = HumanMessagePromptTemplate.from_template(HUMAN_TEMPLATE)
         chat_prompt = ChatPromptTemplate.from_messages([system, human])
+        llm_model = values.get("llm_model", "gpt-3.5-turbo")
+        llm = ChatOpenAI(temperature=0, model=llm_model)
         values["chain"] = LLMChain(llm=llm, prompt=chat_prompt)
         return values
 

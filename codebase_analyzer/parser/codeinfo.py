@@ -36,8 +36,9 @@ REFERENCES
 ====
 Summary of functions called by the above code:
 
+-------------------
 URI (type): Summary
------------------------
+-------------------
 {summaries}
 """
 
@@ -53,8 +54,9 @@ REFERENCES
 ====
 The summaries of its superclasses:
 
+-------------------
 URI (type): Summary
------------------------
+-------------------
 {summaries}
 """
 
@@ -64,8 +66,9 @@ CONTENTS TO SUMMARIZE
 =====
 This is a {type} containing the following parts in it:
 
+-------------------
 URI (type): Summary
------------------------
+-------------------
 {summaries}
 """
 
@@ -85,7 +88,7 @@ def _join_summaries(
 
 
 def _function_summary_input(node: CodeNode, uri2node: dict[URI, CodeNode]) -> str:
-    summaries = _join_summaries(uris=node.calls, uri2node=uri2node, before="  * ")
+    summaries = _join_summaries(uris=node.calls, uri2node=uri2node, before="")
     return _FUNCTION_SUMMARY_PROMPT.format(code=node.code, summaries=summaries)
 
 
@@ -99,9 +102,7 @@ def _class_summary_input(node: CodeNode, uri2node: dict[URI, CodeNode]) -> str:
             )
             comment = f"NOTE: Code is omitted here. Summary for it: {uri2node[child_uri].summary}"
             child_ast.body = [ast.Expr(value=ast.Str(s=comment))]
-    summaries = _join_summaries(
-        uris=node.superclasses, uri2node=uri2node, before="  * "
-    )
+    summaries = _join_summaries(uris=node.superclasses, uri2node=uri2node, before="")
     return _CLASS_SUMMARY_PROMPT.format(
         code=ast.unparse(ast_node), summaries=summaries
     )
@@ -130,7 +131,7 @@ def _embedding_input(
 ) -> None:
     """Simplify code of Modules and Classes in case length exceedes 8k token limit."""
     # Concatenate summary for packages.
-    if not node.code:
+    if node.code is None:
         assert node.type == NodeType.PACKAGE
         return _join_summaries(uris=node.children, uri2node=uri2node)
 
@@ -157,6 +158,7 @@ async def apopulate_summary(
     node.summary = await summary_bot.asummarize_code(
         code=_summary_input(node, uri2node=uri2node)
     )
+    # node.summary = f"Summary for {node.uri}"
 
 
 async def apopulate_embedding(
@@ -166,6 +168,7 @@ async def apopulate_embedding(
     node.embedding = await embeddings.aembed_query(
         _embedding_input(node, uri2node=uri2node)
     )
+    # node.embedding = [0.1, 0.2, 0.3]
 
 
 def _handle_error(
@@ -187,7 +190,7 @@ def _handle_error(
         )
     failures[node] += 1
     if failures[node] < max_failures:
-        ready.add(node)
+        ready.add(node.uri)
     else:
         logger.exception(
             f"Node {node} failed {failures[node]} times. Abort as we cannot "
@@ -205,12 +208,13 @@ def _update_states(
     """Update states after a node is processed successfully.
     Will update `ready`, `summaries` and `waiting` inplace."""
     summaries.append(node.summary)
-    for upstream_uri in [node.parent] + node.called_by + node.subclasses:
+    for upstream_uri in set([node.parent] + node.called_by + node.subclasses):
         if upstream_uri is None:
             continue
-        waiting[upstream_uri] -= 1
-        assert waiting[upstream_uri] >= 0
-        if waiting[upstream_uri] == 0:
+        # NOTE: Using discard instead of remove because the node.uri is not
+        # included in the list for recursive calls to prevent dead locks.
+        waiting[upstream_uri].discard(node.uri)
+        if len(waiting[upstream_uri]) == 0:
             ready.add(upstream_uri)
 
 
@@ -222,8 +226,12 @@ def _check_state(
 ) -> None:
     """Recursively counts how many children a node has and build connections
     from children to parents."""
+
     downstream = set(node.children + node.superclasses + node.calls)
-    waiting[node.uri] += len(downstream)
+
+    # NOTE: For preventing dead lock of recursive calls.
+    downstream.discard(node.uri)
+    waiting[node.uri].update(downstream)
     if not downstream:
         ready.add(node.uri)
 
@@ -238,7 +246,7 @@ def _check_state(
 
 
 def check_state(root: CodeNode, uri2node: dict[URI, CodeNode]) -> tuple[dict, dict]:
-    waiting: dict[URI, int] = defaultdict(int)
+    waiting: dict[URI, int] = defaultdict(set)
     ready: set[URI] = set()
 
     _check_state(node=root, uri2node=uri2node, waiting=waiting, ready=ready)
@@ -303,7 +311,10 @@ async def apopulate_summary_and_embedding(
                 await condition.wait_for(lambda: ready or len(summaries) >= total)
                 if len(summaries) >= total:
                     break
-                node = uri2node[ready.pop()]
+                uri = ready.pop()
+                if isinstance(uri, URI):
+                    print(f"None uri poped from ready: {uri}")
+                node = uri2node[uri]
             await process_node(node)
             logger.info(f"Completed {len(summaries)}/{total}.")
 

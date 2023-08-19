@@ -23,7 +23,8 @@ def _idx_to_node(
 ) -> CodeNode:
     """Converts index to CodeNode."""
     uri = index2uri[idx]
-    return uri2node[uri]
+    # FIXME: Handle function in function.
+    return uri2node.get(uri, None)
 
 
 def generate_merge_fasten_graph(
@@ -44,6 +45,11 @@ def generate_merge_fasten_graph(
     for call in fasten.graph.internalCalls:
         caller_node = _idx_to_node(uri2node, call.caller, fasten.index2uri)
         callee_node = _idx_to_node(uri2node, call.callee, fasten.index2uri)
+        if caller_node is None or callee_node is None:
+            logger.warning(
+                f"Cannot find {caller_node=} or {callee_node=} in the codeinfo."
+            )
+            continue
         caller_node.calls.append(callee_node.uri)
         callee_node.called_by.append(caller_node.uri)
 

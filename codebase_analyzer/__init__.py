@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 LOG_FILE_PATH = Path(__file__).parent.parent / ".logs"
 
 # Remove default sink which print to stdout and stderr
-loguru.logger.remove()
+# loguru.logger.remove()
 
 # Let it print to a file and clean up logs older than 1 day
 # FIXME: The retention is not working

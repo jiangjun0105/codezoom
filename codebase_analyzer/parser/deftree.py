@@ -205,6 +205,10 @@ class DefTreeExtractor(ast.NodeVisitor):
         # The whole code is extracted here but will be processed again when
         # generating summaries.
         code = ast.unparse(node)
+        if code.startswith("@overload"):
+            # TODO: For now we skip overloads for avoiding duplicate nodes.
+            #       But we need a more reasonable way to handle overloads.
+            return
         lineno = None if type == NodeType.MODULE else node.lineno
         code_node = CodeNode(
             uri=uri or uri_from_ast(node=node, parent=parent, type=type),
@@ -220,7 +224,9 @@ class DefTreeExtractor(ast.NodeVisitor):
         parent.children.append(code_node.uri)
         if code_node.uri in self.uri2node:
             # TODO: Change to warning in production?
-            raise ValueError(f"{code_node.uri} already exists.")
+            print(f"{code_node.uri} already exists: {self.uri2node[code_node.uri]}.")
+            # code_node.uri += f"_{code_node.lineno}"
+            # raise ValueError(f"{code_node.uri} already exists.")
         self.uri2node[code_node.uri] = code_node
         return code_node
 
