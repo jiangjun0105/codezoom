@@ -31,8 +31,9 @@ cp .env.example .env
 
 1. For asking questions again Auto-GPT repo, first check out the repo to local. Assuming checked it out at `../Auto-GPT` path.
 ```bash
-python ./codebase_analyzer/main.py --repo-root ../Auto-GPT/ --entry-point ../Auto-GPT/autogpt/app/cli.py --cache-root ./shared_cache/Auto-GPT/
+poetry run python ./codebase_analyzer/main.py --repo-root ../Auto-GPT/ --entry-point ../Auto-GPT/autogpt/app/cli.py --cache-root ./shared_cache/Auto-GPT/
 ```
+Where `./shared_cache/Auto-GPT/` has the cache I generated for Auto-GPT at [release v0.4.7](https://github.com/Significant-Gravitas/Auto-GPT/tree/release-v0.4.7)
 
 ## Sample questions
 ```

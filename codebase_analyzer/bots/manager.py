@@ -177,7 +177,9 @@ class BotManager(BaseModel):
     def semantic_search(self, ask_by: URI, query: str, n: int = 5) -> str:
         connected: list[CodeNode] = self._connected_nodes(uri=ask_by)
         uris = np.array([n.uri for n in connected])
-        embeddings = np.array([n.embedding for n in connected])
+        embeddings = np.array(
+            [n.embedding for n in connected if n.embedding is not None]
+        )
         indexes = search_by_embedding(embeddings=embeddings, query=query, n=n)
         got_nodes: list[CodeNode] = [self.nodes[u] for u in uris[indexes]]
 

@@ -63,6 +63,7 @@ def ask_bot(
         ask_by=ask_by,
         ask_to=ask_to,
         inputs=inputs,
+        on_error="Please check if you provided the correct URI. Check what URIs other functions returned.",
     )
 
 
