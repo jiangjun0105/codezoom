@@ -104,9 +104,14 @@ class BotManager(BaseModel):
         uri_prefix: str = "",
     ) -> BotManager:
         """Create a BotManager from a repo root path."""
-        try:
-            code_info = CodeInfo.from_disk(input_path=_codeinfo_path(cache_root))
-        except FileNotFoundError or CacheInvalidError:
+        codeinfo_path = _codeinfo_path(cache_root)
+        if code_info := CodeInfo.from_disk(input_path=codeinfo_path):
+            # Assume that the code graph structure is complete but summary may not.
+            # code_info = update_codeinfo_summary(
+            #     code_info=code_info,
+            # )
+            logger.info(f"Loaded codeinfo from {codeinfo_path}.")
+        else:
             logger.info(
                 f"Cannot find valid cache for {repo_root}. Generating from scratch."
             )
@@ -116,7 +121,8 @@ class BotManager(BaseModel):
                 entry_point=entry_point,
                 uri_prefix=uri_prefix,
             )
-            logger.info(f"Saving codeinfo to {cache_root}/codeinfo.json.")
+
+            logger.info(f"Saving codeinfo to {codeinfo_path}.")
             code_info.to_disk(output_path=cache_root / "codeinfo.json")
 
         return cls(

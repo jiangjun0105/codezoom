@@ -15,6 +15,7 @@ def calculate_path_hash(path: Path | str) -> str:
 
     # Resolve the absolute path and check if it exists
     path = Path(path).expanduser().resolve()
+    logger.debug(f"For cache hash: {path=}")
     return hashlib.sha256(str(path).encode()).hexdigest()
 
 
@@ -96,14 +97,14 @@ def cli(repo_root: Path, entry_point: Path, cache_root: Path) -> None:
 
 
 if __name__ == "__main__":
-    cli()
+    # cli()
 
     ## TODO: Make the following a test
-    # repo_root = Path("/Users/jun/Projects/Auto-GPT/").resolve()
-    # entry_point = Path("/Users/jun/Projects/Auto-GPT/autogpt/app/cli.py").resolve()
+    repo_root = Path("/Users/jun/Projects/Auto-GPT/").resolve()
+    entry_point = Path("/Users/jun/Projects/Auto-GPT/autogpt/app/cli.py").resolve()
     # cache_root = Path("/Users/jun/Projects/ichigen-coder/shared_cache/Auto-GPT").resolve()
-    # main(
-    #     repo_root=repo_root,
-    #     entry_point=entry_point,
-    #     cache_root=cache_root,
-    # )
+    main(
+        repo_root=repo_root,
+        entry_point=entry_point,
+        # cache_root=cache_root,
+    )

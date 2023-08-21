@@ -130,10 +130,11 @@ def namespace_to_uri(namespace: str, file: Path | None = None) -> URI:
     Corner cases:
         * Some function namespace doesn't have () at the end.
         * __init__ is omitted but is needed to be consistent with CodeNode URI.
+        * Some namespaces don't have lineno and don't exist in code.
     """
-    if file and file.name == "__init__.py" and namespace.endswith("/"):
-        namespace = namespace.rstrip("/")
-        namespace = f"{namespace}.__init__/"
+    if file and file.name == "__init__.py":
+        left, right = namespace.rsplit("/", 1)
+        namespace = f"{left}.__init__/{right}"
     return namespace.rstrip("()")
 
 
@@ -142,13 +143,16 @@ def extract_extra_info(graph: FastenGraph) -> FastenGraph:
     # For now we only care about the internal modules' calls and inheritance.
     for _, module in graph.modules.internal.items():
         for index, namespace in module.namespaces.items():
-            uri = namespace_to_uri(namespace.namespace, file=module.sourceFile)
-            graph.index2uri[index] = uri
-            if not namespace.metadata.superClasses:
-                continue
-            for superclass in namespace.metadata.superClasses:
-                # FIXME: We assume superclass is not defined in __init__.py
-                graph.inheritance.append((uri, namespace_to_uri(superclass)))
+            if namespace.metadata.first is None:
+                graph.index2uri[index] = None
+            else:
+                uri = namespace_to_uri(namespace.namespace, file=module.sourceFile)
+                graph.index2uri[index] = uri
+                if not namespace.metadata.superClasses:
+                    continue
+                for superclass in namespace.metadata.superClasses:
+                    # FIXME: We assume superclass is not defined in __init__.py
+                    graph.inheritance.append((uri, namespace_to_uri(superclass)))
     return graph
 
 

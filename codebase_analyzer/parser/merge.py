@@ -21,7 +21,12 @@ def _idx_to_node(
     idx: Index,
     index2uri: dict[Index, URI],
 ) -> CodeNode:
-    """Converts index to CodeNode."""
+    """Converts index to CodeNode.
+
+    Corner cases:
+        * Code of Namespace doesn't exist
+        * Function in function or class method. Be careful there might be multiple layers for wrappers.
+    """
     uri = index2uri[idx]
     # FIXME: Handle function in function.
     return uri2node.get(uri, None)
@@ -46,8 +51,13 @@ def generate_merge_fasten_graph(
         caller_node = _idx_to_node(uri2node, call.caller, fasten.index2uri)
         callee_node = _idx_to_node(uri2node, call.callee, fasten.index2uri)
         if caller_node is None or callee_node is None:
+            indexes = [call.caller, call.callee]
+            nodes = [caller_node, callee_node]
+            uris = [fasten.index2uri[idx] for idx in indexes]
+            missing = [i for i, n in enumerate(nodes) if n is None]
+            report = [(uris[i], indexes[i]) for i in missing]
             logger.warning(
-                f"Cannot find {caller_node=} or {callee_node=} in the codeinfo."
+                f"Cannot registr call in the codeinfo. " f"{report} is missing."
             )
             continue
         caller_node.calls.append(callee_node.uri)
