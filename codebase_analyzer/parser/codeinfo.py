@@ -20,7 +20,7 @@ from codebase_analyzer.parser.deftree import (
 from codebase_analyzer.tools.context import get_code_length
 from codebase_analyzer.tools.summary import SummaryBot
 
-_FAKE_RUN = True
+_FAKE_RUN = False
 _EMBEDDING_INPUT_LIMIT = 8191
 _EMBEDDING_DIMENSION = 1536
 
@@ -153,10 +153,16 @@ def _embedding_input(
 
 
 async def apopulate_summary(
-    node: CodeNode, uri2node: dict[URI, CodeNode], summary_bot: SummaryBot
+    node: CodeNode,
+    uri2node: dict[URI, CodeNode],
+    summary_bot: SummaryBot,
+    update_existing: bool,
 ) -> None:
     logger.info(f"generate summary for {node.uri}")
-    if _FAKE_RUN:
+
+    if update_existing and node.summary is not None:
+        return
+    elif _FAKE_RUN:
         import random
 
         t = random.uniform(0.0, 3.0)
@@ -171,10 +177,15 @@ async def apopulate_summary(
 
 
 async def apopulate_embedding(
-    node: CodeNode, uri2node: dict[URI, CodeNode], embeddings: OpenAIEmbeddings
+    node: CodeNode,
+    uri2node: dict[URI, CodeNode],
+    embeddings: OpenAIEmbeddings,
+    update_existing: bool,
 ) -> None:
     logger.info(f"generate embedding for {node.uri}")
-    if _FAKE_RUN:
+    if update_existing and node.embedding is not None:
+        return
+    elif _FAKE_RUN:
         import random
 
         t = random.uniform(0.0, 3.0)
@@ -182,6 +193,7 @@ async def apopulate_embedding(
         if t >= 2.8:
             raise asyncio.TimeoutError("timeout")
         node.embedding = [0.1, 0.2, 0.3]
+
     else:
         node.embedding = await embeddings.aembed_query(
             _embedding_input(node, uri2node=uri2node)
@@ -283,6 +295,7 @@ async def apopulate_summary_and_embedding(
     worker_num: int = 20,
     timeout: int = 180,
     max_failures: int = 5,
+    update_existing: bool = False,
 ) -> None:
     """Populate summary and embedding for all nodes in the code tree."""
     summary_bot = SummaryBot()
@@ -299,10 +312,16 @@ async def apopulate_summary_and_embedding(
         try:
             await asyncio.gather(
                 apopulate_embedding(
-                    node=node, uri2node=uri2node, embeddings=embeddings
+                    node=node,
+                    uri2node=uri2node,
+                    embeddings=embeddings,
+                    update_existing=update_existing,
                 ),
                 apopulate_summary(
-                    node=node, uri2node=uri2node, summary_bot=summary_bot
+                    node=node,
+                    uri2node=uri2node,
+                    summary_bot=summary_bot,
+                    update_existing=update_existing,
                 ),
             )
         except Exception as e:
@@ -343,7 +362,9 @@ async def apopulate_summary_and_embedding(
     return done
 
 
-def check_summaries(nodes: dict[URI, CodeNode], block_size: int) -> None:
+def check_summaries(
+    nodes: dict[URI, CodeNode], block_size: int, done: dict[URI, int]
+) -> None:
     """Some sanity check on the generated code info to give insights to developers."""
     for n in nodes.values():
         if n.code is None:
@@ -360,9 +381,13 @@ def check_summaries(nodes: dict[URI, CodeNode], block_size: int) -> None:
     raw_code = "\n".join([n.code for n in nodes.values() if n.code is not None])
     logger.info(
         f"\n===== Code Info Summary =====\n"
-        f"Original code length: {len(raw_code)}\n"
         f"Extracted code nodes num: {len(nodes)}\n"
+        f"Original code length: {len(raw_code)}\n"
         f"Extracted summary length: {len(summary)}\n"
+        f"Compression ratio: {len(raw_code) / len(summary):.2f}\n"
+    )
+    logger.debug(
+        f"Nodes that runs more than once: {[(i, c) for i, c in done.items() if c !=1]}"
     )
 
 
@@ -370,8 +395,8 @@ def check_summaries(nodes: dict[URI, CodeNode], block_size: int) -> None:
 def generate_summary_embedding(
     codeinfo: CodeInfo,
     block_size: int = 1000,
-    create_new: bool = False,
-) -> pd.DataFrame:
+    update_existing: bool = False,
+) -> CodeInfo:
     """Extracts code info from a file.
 
     Args:
@@ -385,8 +410,10 @@ def generate_summary_embedding(
 
     done = asyncio.run(
         apopulate_summary_and_embedding(
-            root=codeinfo.root_node, uri2node=codeinfo.nodes
+            root=codeinfo.root_node,
+            uri2node=codeinfo.nodes,
+            update_existing=update_existing,
         )
     )
-    check_summaries(codeinfo.nodes, block_size=block_size)
-    return done
+    check_summaries(codeinfo.nodes, block_size=block_size, done=done)
+    return codeinfo

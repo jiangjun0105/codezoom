@@ -15,7 +15,10 @@ from codebase_analyzer.bots.function.base import FunctionBot
 from codebase_analyzer.bots.module.base import ModuleBot
 from codebase_analyzer.bots.package.base import PackageBot
 from codebase_analyzer.parser.callgraph import URI
-from codebase_analyzer.parser.codeinfo import _join_summaries
+from codebase_analyzer.parser.codeinfo import (
+    _join_summaries,
+    generate_summary_embedding,
+)
 from codebase_analyzer.parser.deftree import CodeInfo, CodeNode, NodeType
 from codebase_analyzer.parser.merge import (
     CacheInvalidError,
@@ -101,17 +104,13 @@ class BotManager(BaseModel):
         repo_root: Path,
         cache_root: Path,
         entry_point: Path,
+        update_cache: bool,
         uri_prefix: str = "",
     ) -> BotManager:
         """Create a BotManager from a repo root path."""
         codeinfo_path = _codeinfo_path(cache_root)
-        if code_info := CodeInfo.from_disk(input_path=codeinfo_path):
-            # Assume that the code graph structure is complete but summary may not.
-            # code_info = update_codeinfo_summary(
-            #     code_info=code_info,
-            # )
-            logger.info(f"Loaded codeinfo from {codeinfo_path}.")
-        else:
+        code_info = CodeInfo.from_disk(input_path=codeinfo_path)
+        if code_info is None:
             logger.info(
                 f"Cannot find valid cache for {repo_root}. Generating from scratch."
             )
@@ -123,7 +122,15 @@ class BotManager(BaseModel):
             )
 
             logger.info(f"Saving codeinfo to {codeinfo_path}.")
-            code_info.to_disk(output_path=cache_root / "codeinfo.json")
+            code_info.to_disk(output_path=codeinfo_path)
+        elif update_cache:
+            # Assume that the code graph structure is complete but summary may not.
+            code_info = generate_summary_embedding(
+                codeinfo=code_info,
+                update_existing=True,
+            )
+            logger.info(f"Updated the loaded codeinfo from {codeinfo_path}.")
+            code_info.to_disk(output_path=codeinfo_path)
 
         return cls(
             nodes=code_info.nodes,

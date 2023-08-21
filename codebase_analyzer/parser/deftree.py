@@ -389,6 +389,7 @@ class CodeInfo(BaseModel):
     @classmethod
     def from_disk(cls, input_path: Path) -> CodeInfo:
         if not input_path.exists():
+            logger.warning(f"{input_path} doesn't exist.")
             return None
         with open(input_path, "r") as f:
             cache = json.load(f)
