@@ -223,8 +223,12 @@ class DefTreeExtractor(ast.NodeVisitor):
 
         parent.children.append(code_node.uri)
         if code_node.uri in self.uri2node:
-            # TODO: Change to warning in production?
-            print(f"{code_node.uri} already exists: {self.uri2node[code_node.uri]}.")
+            logger.warning(
+                f"{code_node.uri} already exists: {self.uri2node[code_node.uri]}."
+            )
+            # Corner cases:
+            #   * Two functions with the same name in the same file
+            #   * class methods have same names, one is method one is property.
             # code_node.uri += f"_{code_node.lineno}"
             # raise ValueError(f"{code_node.uri} already exists.")
         self.uri2node[code_node.uri] = code_node
@@ -291,9 +295,6 @@ class CodeNode(BaseModel):
     )
     superclasses: list[URI] = Field(default_factory=list)
     subclasses: list[URI] = Field(default_factory=list)
-
-    # For allowing AST type for pydantic.
-    # Config = AllowArbitraryTypeConfig
 
     def __hash__(self):
         return id(self)
@@ -387,6 +388,9 @@ class CodeInfo(BaseModel):
 
     @classmethod
     def from_disk(cls, input_path: Path) -> CodeInfo:
+        if not input_path.exists():
+            logger.warning(f"{input_path} doesn't exist.")
+            return None
         with open(input_path, "r") as f:
             cache = json.load(f)
         return cls(**cache)

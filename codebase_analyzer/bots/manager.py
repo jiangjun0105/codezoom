@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Callable
 
 import numpy as np
-import pandas as pd
 from loguru import logger
 from pydantic import BaseModel, Field
 from singleton_decorator import singleton
@@ -15,7 +14,10 @@ from codebase_analyzer.bots.function.base import FunctionBot
 from codebase_analyzer.bots.module.base import ModuleBot
 from codebase_analyzer.bots.package.base import PackageBot
 from codebase_analyzer.parser.callgraph import URI
-from codebase_analyzer.parser.codeinfo import _join_summaries
+from codebase_analyzer.parser.codeinfo import (
+    _join_summaries,
+    generate_summary_embedding,
+)
 from codebase_analyzer.parser.deftree import CodeInfo, CodeNode, NodeType
 from codebase_analyzer.parser.merge import (
     CacheInvalidError,
@@ -58,7 +60,6 @@ class BotConfig(BaseModel):
     llm_model: str = Field(
         default="gpt-3.5-turbo", description="Which openai model to use."
     )
-    # TODO: Add tools to the config.
 
 
 # TODO: Make this configurable through a yaml file.
@@ -93,7 +94,7 @@ class BotManager(BaseModel):
     nodes: dict[str, CodeNode]
     root_uri: URI
     node_count: int
-    config: BotManagerConfig = Field(default_factory=BotManagerConfig)
+    config: BotManagerConfig
 
     @classmethod
     def from_repo(
@@ -101,12 +102,14 @@ class BotManager(BaseModel):
         repo_root: Path,
         cache_root: Path,
         entry_point: Path,
+        update_cache: bool,
+        config: dict,
         uri_prefix: str = "",
     ) -> BotManager:
         """Create a BotManager from a repo root path."""
-        try:
-            code_info = CodeInfo.from_disk(input_path=_codeinfo_path(cache_root))
-        except FileNotFoundError or CacheInvalidError:
+        codeinfo_path = _codeinfo_path(cache_root)
+        code_info = CodeInfo.from_disk(input_path=codeinfo_path)
+        if code_info is None:
             logger.info(
                 f"Cannot find valid cache for {repo_root}. Generating from scratch."
             )
@@ -116,13 +119,24 @@ class BotManager(BaseModel):
                 entry_point=entry_point,
                 uri_prefix=uri_prefix,
             )
-            logger.info(f"Saving codeinfo to {cache_root}/codeinfo.json.")
-            code_info.to_disk(output_path=cache_root / "codeinfo.json")
 
+            logger.info(f"Saving codeinfo to {codeinfo_path}.")
+            code_info.to_disk(output_path=codeinfo_path)
+        elif update_cache:
+            # Assume that the code graph structure is complete but summary may not.
+            code_info = generate_summary_embedding(
+                codeinfo=code_info,
+                update_existing=True,
+            )
+            logger.info(f"Updated the loaded codeinfo from {codeinfo_path}.")
+            code_info.to_disk(output_path=codeinfo_path)
+
+        logger.debug(f"Manager cofig: {config}")
         return cls(
             nodes=code_info.nodes,
             root_uri=code_info.metadata.root,
             node_count=code_info.metadata.count,
+            config=BotManagerConfig(**config),
         )
 
     def get_bot_by_uri(self, uri: URI) -> Bot:

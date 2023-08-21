@@ -26,12 +26,18 @@ If encountered any error run `poetry lock`.
 ```bash
 cp .env.example .env
 # Then add your key to .env file
+cp config.yaml.example config.yaml
+# Then adjust the config (Recommend gpt-4 for package)
 ```
 1. `poetry run python ./codebase_analyzer/main.py  --help` to check if it works.
 
 1. For asking questions again Auto-GPT repo, first check out the repo to local. Assuming checked it out at `../Auto-GPT` path.
 ```bash
-poetry run python ./codebase_analyzer/main.py --repo-root ../Auto-GPT/ --entry-point ../Auto-GPT/autogpt/app/cli.py --cache-root ./shared_cache/Auto-GPT/
+poetry run python ./codebase_analyzer/main.py \
+    --repo-root ../Auto-GPT/ \
+    --entry-point ../Auto-GPT/autogpt/app/cli.py \
+    --cache-root ./shared_cache/Auto-GPT/ \
+    --config-path ./config.yaml
 ```
 Where `./shared_cache/Auto-GPT/` has the cache I generated for Auto-GPT at [release v0.4.7](https://github.com/Significant-Gravitas/Auto-GPT/tree/release-v0.4.7)
 
