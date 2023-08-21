@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Callable
 
 import numpy as np
-import pandas as pd
 from loguru import logger
 from pydantic import BaseModel, Field
 from singleton_decorator import singleton
@@ -61,7 +60,6 @@ class BotConfig(BaseModel):
     llm_model: str = Field(
         default="gpt-3.5-turbo", description="Which openai model to use."
     )
-    # TODO: Add tools to the config.
 
 
 # TODO: Make this configurable through a yaml file.
@@ -96,7 +94,7 @@ class BotManager(BaseModel):
     nodes: dict[str, CodeNode]
     root_uri: URI
     node_count: int
-    config: BotManagerConfig = Field(default_factory=BotManagerConfig)
+    config: BotManagerConfig
 
     @classmethod
     def from_repo(
@@ -105,6 +103,7 @@ class BotManager(BaseModel):
         cache_root: Path,
         entry_point: Path,
         update_cache: bool,
+        config: dict,
         uri_prefix: str = "",
     ) -> BotManager:
         """Create a BotManager from a repo root path."""
@@ -132,10 +131,12 @@ class BotManager(BaseModel):
             logger.info(f"Updated the loaded codeinfo from {codeinfo_path}.")
             code_info.to_disk(output_path=codeinfo_path)
 
+        logger.debug(f"Manager cofig: {config}")
         return cls(
             nodes=code_info.nodes,
             root_uri=code_info.metadata.root,
             node_count=code_info.metadata.count,
+            config=BotManagerConfig(**config),
         )
 
     def get_bot_by_uri(self, uri: URI) -> Bot:

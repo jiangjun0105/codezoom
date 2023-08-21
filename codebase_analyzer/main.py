@@ -7,6 +7,7 @@ from typing import Any
 
 import click
 from loguru import logger
+from omegaconf import OmegaConf
 
 from codebase_analyzer.bots.manager import BotManager
 
@@ -65,6 +66,7 @@ def _path(
 def main(
     repo_root: Path,
     entry_point: Path,
+    config_path: Path,
     cache_root: Path | None = None,
     clean_cache: bool = False,
     update_cache: bool = False,
@@ -76,7 +78,11 @@ def main(
     cache_root = cache_root or get_cache_root(repo_root)
     cache_root = _path(cache_root, mkdir=True, clean=clean_cache)
     repo_root = _path(repo_root, check_exist=True)
+    config_path = _path(config_path, check_exist=True)
     entry_point = _path(entry_point, check_exist=True)
+
+    # TODO: Add schema validation for config
+    config = OmegaConf.load(config_path)
 
     # Singleton manager
     manager = BotManager.from_repo(
@@ -84,6 +90,7 @@ def main(
         cache_root=cache_root,
         entry_point=entry_point,
         update_cache=update_cache,
+        config=config.manager,
         **kwargs,
     )
 
@@ -115,6 +122,12 @@ def main(
     help="Path to the root cache repo. Will cacluate based on sha256 of repo root if not assigned",
 )
 @click.option(
+    "--config-path",
+    "-c",
+    type=Path,
+    help="Path to the config yaml file. See example at `/config.yaml.example`",
+)
+@click.option(
     "--clean-cache",
     "-u",
     type=bool,
@@ -132,6 +145,7 @@ def cli(
     repo_root: Path,
     entry_point: Path,
     cache_root: Path,
+    config_path: Path,
     clean_cache: bool,
     update_cache: bool,
 ) -> None:
@@ -140,6 +154,7 @@ def cli(
         repo_root=repo_root,
         cache_root=cache_root,
         entry_point=entry_point,
+        config_path=config_path,
         clean_cache=clean_cache,
         update_cache=update_cache,
     )

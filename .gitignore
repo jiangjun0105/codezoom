@@ -193,3 +193,4 @@ Temporary Items
 # Specific to this codebase
 try.ipynb
 .logs
+config.yaml
