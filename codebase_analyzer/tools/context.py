@@ -6,7 +6,7 @@ from enum import Enum
 from codebase_analyzer.tools.token import tokenize
 
 
-class CodeLengthUnit(str, Enum):
+class LengthUnit(str, Enum):
     CHAR = "char"
     LINE = "line"
     TOKEN = "token"
@@ -17,13 +17,13 @@ def length_in_token(code: str) -> int:
     return len(tokenize(code))
 
 
-def get_code_length(code: str, unit: CodeLengthUnit = CodeLengthUnit.TOKEN) -> int:
+def get_str_length(code: str, unit: LengthUnit = LengthUnit.TOKEN) -> int:
     """For getting the length of the code."""
-    if unit == CodeLengthUnit.CHAR:
+    if unit == LengthUnit.CHAR:
         return len(code)
-    elif unit == CodeLengthUnit.LINE:
+    elif unit == LengthUnit.LINE:
         return len(code.split("\n"))
-    elif unit == CodeLengthUnit.TOKEN:
+    elif unit == LengthUnit.TOKEN:
         return len(tokenize(code))
     else:
         raise ValueError(f"Unknown unit {unit}.")

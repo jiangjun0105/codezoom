@@ -17,7 +17,7 @@ from codebase_analyzer.parser.deftree import (
     should_split_class_child,
     uri_from_ast,
 )
-from codebase_analyzer.tools.context import get_code_length
+from codebase_analyzer.tools.context import get_str_length
 from codebase_analyzer.tools.summary import SummaryBot
 
 _FAKE_RUN = False
@@ -138,7 +138,7 @@ def _embedding_input(
 
     # Use raw code if short enough.
     if node.code and node.code_length <= limit:
-        assert node.code_length == get_code_length(node.code)  # For debugging
+        assert node.code_length == get_str_length(node.code)  # For debugging
         return node.code
 
     # Use concatenated summaries if code is too long.
@@ -369,7 +369,7 @@ def check_summaries(
     for n in nodes.values():
         if n.code is None:
             continue
-        length = get_code_length(n.code)
+        length = get_str_length(n.code)
         if length != n.code_length:
             logger.warning(
                 f"Code length {length} != {n.code_length} in CodeNode {n.uri}."
@@ -379,12 +379,14 @@ def check_summaries(
 
     summary = "\n".join([n.summary for n in nodes.values() if n.summary is not None])
     raw_code = "\n".join([n.code for n in nodes.values() if n.code is not None])
+    code_length = get_str_length(raw_code)
+    summary_length = get_str_length(summary)
     logger.info(
         f"\n===== Code Info Summary =====\n"
         f"Extracted code nodes num: {len(nodes)}\n"
-        f"Original code length: {len(raw_code)}\n"
-        f"Extracted summary length: {len(summary)}\n"
-        f"Compression ratio: {len(raw_code) / len(summary):.2f}\n"
+        f"Original code length: {code_length}\n"
+        f"Extracted summary length: {summary_length}\n"
+        f"Compression ratio: {code_length / summary_length:.2f}\n"
     )
     logger.debug(
         f"Nodes that runs more than once: {[(i, c) for i, c in done.items() if c !=1]}"
