@@ -50,7 +50,7 @@ def _path(
         p.mkdir(parents=True)
     if clean and p.exists():
         remove_files_in_folder(p)
-    logger.info(f"{str(p)=}")
+    logger.debug(f"{p=}")
     return p
 
 
@@ -110,13 +110,13 @@ def main(
 )
 @click.option(
     "--cache-root",
-    "-c",
+    "-cache",
     type=Path,
     help="Path to the root cache repo. Will cacluate based on sha256 of repo root if not assigned",
 )
 @click.option(
     "--config-path",
-    "-c",
+    "-config",
     type=Path,
     help="Path to the config yaml file. See example at `/config.yaml.example`",
 )
@@ -142,7 +142,7 @@ def cli(
     clean_cache: bool,
     update_cache: bool,
 ) -> None:
-    """CLI: wrapper for the main function for easy testing."""
+    """Codebase Analyzer CLI."""
     main(
         repo_root=repo_root,
         cache_root=cache_root,
