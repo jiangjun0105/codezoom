@@ -115,6 +115,24 @@ URIs of the blocks are shown before colon which can be used to retrive code or f
 {summaries}"""
 
 
+def switch_bot(
+    uri: URI = Field(description="URI of the bot to switch to."),
+    message: str = Field(
+        description="Message to be sent to the new bot to give it enough context about the user's question."
+    ),
+    ask_by: URI = Field(description="Which bot is asking"),
+    ask_manager: Callable = Field(description="[Set] Function to ask the manager."),
+) -> str:
+    """For switching to another bot to interact with human. The question will be passed to the new bot."""
+    return _ask_manager(
+        ask_manager=ask_manager,
+        ask_by_func=switch_bot,
+        uri=uri,
+        message=message,
+        ask_by=ask_by,
+    )
+
+
 # Unused tools
 def get_directory_tree(
     path: str

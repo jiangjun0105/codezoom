@@ -9,7 +9,7 @@ from loguru import logger
 from pydantic import BaseModel, root_validator
 from tqdm import tqdm
 
-from codebase_analyzer.tools.context import CodeLengthUnit, get_code_length
+from codebase_analyzer.tools.context import LengthUnit, get_str_length
 
 SYSTEM_TEMPLATE = (
     "Your task is to generate a summary for the given code or descriptions of code/module/package following huamn's instructions."
@@ -62,7 +62,7 @@ class SummaryBot(BaseModel):
 
     def summarize_code(self, code: str) -> str:
         """Summarize the code using LLM model."""
-        code_tokens = get_code_length(code, CodeLengthUnit.TOKEN)
+        code_tokens = get_str_length(code, LengthUnit.TOKEN)
         want_tokens = self.get_want_tokens(code_tokens)
         response = self.chain.run(want_tokens=want_tokens, code=code)
         self.report(
@@ -75,7 +75,7 @@ class SummaryBot(BaseModel):
 
     async def asummarize_code(self, code: str) -> str:
         """Async summarize the code using LLM model."""
-        code_tokens = get_code_length(code, CodeLengthUnit.TOKEN)
+        code_tokens = get_str_length(code, LengthUnit.TOKEN)
         want_tokens = self.get_want_tokens(code_tokens)
         response = await self.chain.arun(want_tokens=want_tokens, code=code)
         self.report(
@@ -96,7 +96,7 @@ class SummaryBot(BaseModel):
     def report(
         self, code: str, code_tokens: int, want_tokens: int, response: str
     ) -> None:
-        got_tokens = get_code_length(response, CodeLengthUnit.TOKEN)
+        got_tokens = get_str_length(response, LengthUnit.TOKEN)
         logger.debug(
             DEBUG_LOG.format(
                 code=code,

@@ -11,7 +11,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from codebase_analyzer.parser.callgraph import URI
-from codebase_analyzer.tools.context import get_code_length
+from codebase_analyzer.tools.context import get_str_length
 
 
 def ast_type(node: ast.AST) -> str:
@@ -146,7 +146,7 @@ class DefTreeExtractor(ast.NodeVisitor):
 
         if last and last.merged and last.code_length < self.block_size:
             last.code += f"\n{ast.unparse(node)}"
-            last.code_length = get_code_length(last.code)
+            last.code_length = get_str_length(last.code)
         else:
             self._add_code_node(
                 node=node,
@@ -166,7 +166,7 @@ class DefTreeExtractor(ast.NodeVisitor):
         self._add_code_node(
             node=node, parent=parent, level=level, type=NodeType.FUNCTION
         )
-        code_length = get_code_length(ast.unparse(node))
+        code_length = get_str_length(ast.unparse(node))
         if code_length > self.block_size:
             # TODO: Split the function into smaller functions.
             logger.warning(
@@ -215,7 +215,7 @@ class DefTreeExtractor(ast.NodeVisitor):
             merged=merged,
             code=code,
             lineno=lineno,
-            code_length=get_code_length(code),
+            code_length=get_str_length(code),
             level=level,
             parent=parent.uri,
             type=type,

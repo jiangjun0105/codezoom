@@ -6,13 +6,15 @@ from typing import Callable
 
 import numpy as np
 from loguru import logger
+from omegaconf import OmegaConf
 from pydantic import BaseModel, Field
-from singleton_decorator import singleton
 
 from codebase_analyzer.bots.executor import Bot
 from codebase_analyzer.bots.function.base import FunctionBot
 from codebase_analyzer.bots.module.base import ModuleBot
 from codebase_analyzer.bots.package.base import PackageBot
+from codebase_analyzer.bots.repo.base import RepoBot
+from codebase_analyzer.control.loop import LoopManager
 from codebase_analyzer.parser.callgraph import URI
 from codebase_analyzer.parser.codeinfo import (
     _join_summaries,
@@ -23,9 +25,15 @@ from codebase_analyzer.parser.merge import (
     CacheInvalidError,
     generate_codeinfo_from_repo,
 )
-from codebase_analyzer.tools.base import ask_bot, get_code, semantic_search
+from codebase_analyzer.tools.base import (
+    ask_bot,
+    get_code,
+    semantic_search,
+    switch_bot,
+)
 from codebase_analyzer.tools.embedding import search_by_embedding
 
+_REPO_BOT_URI = "[repo_bot]"
 _SUMMARY_SHEET = """You contains the following functions/modules/packages:
 
 URI (type): Summary
@@ -45,6 +53,7 @@ _SEMANTIC_SERACH = """URI, code_length (tokens)
 
 """
 
+# RepoBot is not included because it is not from CodeNode.
 BOT_TYPE_MAP = {
     NodeType.PACKAGE: PackageBot,
     NodeType.MODULE: ModuleBot,
@@ -67,6 +76,7 @@ class BotManagerConfig(BaseModel):
     function: BotConfig = Field(default_factory=BotConfig)
     module: BotConfig = Field(default_factory=BotConfig)
     package: BotConfig = Field(default_factory=BotConfig)
+    repo: BotConfig = Field(default_factory=BotConfig)
 
     def by_class(self, bot_cls: Callable) -> BotConfig:
         if bot_cls == FunctionBot:
@@ -75,6 +85,8 @@ class BotManagerConfig(BaseModel):
             return self.module
         if bot_cls == PackageBot:
             return self.package
+        if bot_cls == RepoBot:
+            return self.repo
         raise ValueError(f"Unknown bot class {bot_cls=}")
 
 
@@ -88,12 +100,19 @@ def _fasten_path(cache_root: Path, entry_point: Path) -> Path:
     return cache_root / f"{entry_point.stem}_fasten.json"
 
 
+def _overview_path(cache_root: Path) -> Path:
+    """Gets the path to the summary.csv file."""
+    return cache_root / "overview.csv"
+
+
 # @singleton
 class BotManager(BaseModel):
     bots: dict[URI, Bot] = Field(default_factory=dict)
     nodes: dict[str, CodeNode]
+    loop: LoopManager
     root_uri: URI
     node_count: int
+    cache_root: Path
     config: BotManagerConfig
 
     @classmethod
@@ -103,6 +122,7 @@ class BotManager(BaseModel):
         cache_root: Path,
         entry_point: Path,
         update_cache: bool,
+        loop: LoopManager,
         config: dict,
         uri_prefix: str = "",
     ) -> BotManager:
@@ -131,31 +151,50 @@ class BotManager(BaseModel):
             logger.info(f"Updated the loaded codeinfo from {codeinfo_path}.")
             code_info.to_disk(output_path=codeinfo_path)
 
-        logger.debug(f"Manager cofig: {config}")
+        logger.debug(f"BotManager config:\n{OmegaConf.to_yaml(config)}")
         return cls(
             nodes=code_info.nodes,
             root_uri=code_info.metadata.root,
             node_count=code_info.metadata.count,
+            cache_root=cache_root,
+            loop=loop,
             config=BotManagerConfig(**config),
         )
 
     def get_bot_by_uri(self, uri: URI) -> Bot:
+        if uri not in self.bots:
+            if uri == _REPO_BOT_URI:
+                self.bots[uri] = self.generate_repo_bot()
+            else:
+                self.bots[uri] = self.bot_from_code_node(uri=uri)
+        return self.bots[uri]
+
+    def generate_repo_bot(self) -> Bot:
+        return RepoBot(
+            llm_model=self.config.by_class(RepoBot).llm_model,
+            overview_path=_overview_path(self.cache_root),
+            uri=_REPO_BOT_URI,
+            summary_sheet="",
+            ask_manager=self.process_ask,
+        )
+
+    @property
+    def repo_bot(self) -> Bot:
+        """Get the bot managing the who repo."""
+        return self.get_bot_by_uri(uri=_REPO_BOT_URI)
+
+    @property
+    def root_bot(self) -> Bot:
+        """Get the root package bot."""
+        return self.get_bot_by_uri(uri=self.root_uri)
+
+    def bot_from_code_node(self, uri: URI) -> Bot:
+        """Generate a bot from a code node."""
         if uri not in self.nodes:
             # TODO: Later if allowing loading parts of the codebase, we need to
             # change this to warning.
             raise ValueError(f"Cannot find {uri} in the self.nodes.")
 
-        if uri not in self.bots:
-            self.bots[uri] = self.bot_from_code_node(uri=uri)
-        return self.bots[uri]
-
-    @property
-    def root_bot(self) -> Bot:
-        """Get the root bot."""
-        return self.get_bot_by_uri(uri=self.root_uri)
-
-    def bot_from_code_node(self, uri: URI) -> Bot:
-        """Generate a bot from a code node."""
         code_node = self.nodes[uri]
         bot_cls = BOT_TYPE_MAP[code_node.type]
         # TODO: Rethink if we should distinguish different types of nodes.
@@ -201,12 +240,24 @@ class BotManager(BaseModel):
             results="\n".join(f"{n.uri}, {n.code_length}" for n in got_nodes)
         )
 
+    def switch_bot(self, ask_by: URI, uri: URI, message: str) -> str:
+        """Switch to another bot."""
+        switch_to = self.get_bot_by_uri(uri=uri)
+        self.loop.switch_bot(switch_to=switch_to)
+        logger.critical(f"Switched bot from {ask_by} to {uri}.")
+        self.loop.pending[uri] = message
+        return f"User message successfully forwarded to bot {uri}."
+
     def process_ask(self, ask_type: str, ask_by: URI, **kwargs) -> str:
         """Process ask from a bot/tool. Having this function is mainly to solve
         the circular import problem. If calling corresponding function in tools
         directly, the imports are like:
 
-            Tools -> BotManager -> Bot -> Tools.
+            tools.base -> bots.manager -> bots.<type>.base -> tools.base
+
+        Current imports are like:
+
+            tools.base -> bots.manager -> bots.<type>.base
         """
         # TODO: Log this ask event
         if ask_type == ask_bot.__name__:
@@ -215,6 +266,8 @@ class BotManager(BaseModel):
             return self.get_code_by_uri(**kwargs)
         if ask_type == semantic_search.__name__:
             return self.semantic_search(ask_by=ask_by, **kwargs)
+        if ask_type == switch_bot.__name__:
+            return self.switch_bot(ask_by=ask_by, **kwargs)
         raise ValueError(f"Unknown ask type {ask_type=}.")
 
 

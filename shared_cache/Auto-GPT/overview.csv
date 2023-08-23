@@ -1,0 +1,75 @@
+uri		summary
+/		This package contains modules and packages for running benchmarks, ingesting data, testing functionalities, and managing AutoGPT and Git operations.
+/.github		Package containing various parts, including a package with no summary.
+/.github.ISSUE_TEMPLATE		Package with no summary.
+/.github.workflows		Package containing various parts, including a package with no summary.
+/.github.workflows.scripts		Package with no summary.
+/agbenchmark		Package containing modules for running benchmarks with specific agents and checking command-line arguments.
+/autogpt		This package contains modules for various functionalities such as JSON utilities, managing OpenAI models, running the AutoGPT server and client, setting up an AI system, handling chat sequences and memory operations, configuring the Auto-GPT application, processing HTML and text, managing and configuring plugins, handling workspace setup and file logging, handling AutoGPT agents, handling plugins, handling text-to-speech functionality, logging in Auto-GPT, generating custom prompts, and performing various commands including web browsing, system control, file operations, image generation, time retrieval, Git operations, web search, code execution, and decorators.
+/autogpt.agents		This package contains modules for AutoGPT agents, including initialization, command execution, and response processing.
+/autogpt.app		This package contains modules for setting up an AI system and its goals, running the AutoGPT system, interacting with the user, and managing the AI assistant's thoughts and actions. It includes functions for configuring the system, handling user feedback, running the main interaction loop, and printing/speaking the assistant's thoughts. Additionally, there is a module for creating and managing customizable spinners.
+/autogpt.commands		"This package contains modules for various functionalities:
+- `web_selenium`: Browsing websites using Selenium and BeautifulSoup, extracting hyperlinks, managing memory items, and validating URLs.
+- `system`: Controlling program's internal state and logging completion of tasks.
+- `file_operations_utils`: Parsing different file types, checking if a file is binary, and reading textual files.
+- `image_gen`: Generating images from text using different models and APIs.
+- `times`: Returning the current date and time.
+- `git_operations`: Performing Git operations, including cloning a GitHub repository.
+- `web_search`: Web search using DuckDuckGo and Google API.
+- `file_operations`: Performing various file operations, such as calculating checksums and listing files in a directory.
+- `execute_code`: Executing code and commands, including Python code and shell commands.
+- `decorators`: A decorator function for sanitizing path arguments in functions."
+/autogpt.config		A package with modules for Auto-GPT application settings, API key validation, prompt generator configuration, and AI configuration.
+/autogpt.core		This package contains modules for importing configurations, managing memory, running the AutoGPT server and client, managing workspaces, extending functionality with plugins, language model planning strategies, creating AI agents, managing abilities, and handling machine learning models and resources.
+/autogpt.core.ability		This package extends AI agent functionality with a command system and includes built-in abilities, file operations, and querying language models. It also manages abilities and provides code summary generation.
+/autogpt.core.ability.builtins		This package contains built-in abilities for AutoGPT, including creating new abilities, file operations, and querying language models.
+/autogpt.core.agent		This package contains modules for creating autonomous entities and building AI agents with specific functionalities. It includes classes for managing abilities, configurations, memory, planning, plugins, resources, and workspaces.
+/autogpt.core.configuration		A package with modules for importing configurations and defining base models and user options.
+/autogpt.core.memory		A package with modules for managing long-term memory, memory configuration, and message history.
+/autogpt.core.planning		This package contains modules for language model planning strategies in AutoGPT, including importing, defining configurations, and building prompts. It also includes modules for code analysis, file operations, web browsing, and performance evaluations. The main goal is to determine the next command and respond in JSON format. The package also includes classes and functions for planning and goal-setting using language model prompts, as well as system configuration and language model classification.
+/autogpt.core.planning.strategies		This package contains modules for importing, defining configurations, and building prompts for language model planning strategies in AutoGPT.
+/autogpt.core.plugin		A package with plugin system for extending Agent's functionality.
+/autogpt.core.resource		A package with modules for managing machine learning models, accessing OpenAI's API, and handling system configuration and resources.
+/autogpt.core.resource.model_providers		This package contains modules for importing model providers and embeddings, accessing OpenAI's API, and managing machine learning models and their providers.
+/autogpt.core.runner		This package includes modules for running the v2 agent server and client, a web app server API, client utilities, and command line functionality for AutoGPT.
+/autogpt.core.runner.cli_app		A package with modules for running AutoGPT from the command line, including CLI functionality and agent logging.
+/autogpt.core.runner.cli_web_app		Package containing a web app server API with task handling, interaction steps, and agent bootstrapping.
+/autogpt.core.runner.cli_web_app.server		Package containing a web app server API with task handling, interaction steps, and agent bootstrapping.
+/autogpt.core.runner.client_lib		This package contains modules for logging, click commands, parsing, utilities, and settings in a client application.
+/autogpt.core.workspace		This package includes modules for workspace management in an AutoGPT system, providing methods for managing workspaces and loading agent settings.
+/autogpt.js		Package with no summary.
+/autogpt.json_utils		Package containing modules for JSON utilities and schema validation.
+/autogpt.llm		A package with modules for managing OpenAI models, including chat, text generation, and embedding tasks. It provides functions for completions, metering API calls, and generating function specifications.
+/autogpt.llm.providers		A package with modules for managing OpenAI models, including chat, text generation, and embedding tasks. It provides functions for completions, metering API calls, and generating function specifications.
+/autogpt.llm.utils		A package with modules for counting tokens and generating chatbot responses.
+/autogpt.logs		This package contains modules for log formatting, handling, and logging in Auto-GPT.
+/autogpt.memory		A package with modules for chat sequences and memory operations.
+/autogpt.memory.vector		A package for managing memories and performing memory operations, including memory providers, memory items, and utility functions.
+/autogpt.memory.vector.providers		A package with modules for storing memories, managing data, and performing memory operations.
+/autogpt.models		A package with modules for handling plugins, command parameters, and command functionality in Auto-GPT.
+/autogpt.plugins		This package contains modules for managing and configuring plugins in a program. It includes functions for loading plugins, inspecting zipfiles, writing JSON files, fetching plugin manifests, creating directories, initializing plugins, and scanning directories for plugins.
+/autogpt.processing		A package with modules for HTML and text processing. HTML module extracts hyperlinks. Text module processes text data and generates summaries.
+/autogpt.prompts		Package containing modules for generating custom prompts and setting up configurations for autogpt.
+/autogpt.speech		A package with modules for text-to-speech functionality using different voice engines, including MacOS TTS, StreamElements API, GTTS, and custom voices with elevenlabs.io API. It provides functions for setting up configuration, playing text, and converting text to speech.
+/autogpt.url_utils		A package with URL parsing, validation, and manipulation functions.
+/autogpt.workspace		A package with workspace setup and file logging for AutoGPT agent.
+/scripts		Package with modules for checking requirements and installing plugin dependencies.
+/tests		This package contains modules and packages for testing different functionalities of the codebase, including AI configuration, web search, token counting, utility functions, file operations, workspace functionality, URL validation, prompt generation, API management, commands, logs, configuration, git commands, spinner functionality, and JSON parsing. It also includes modules for testing AutoGPT functionalities, challenges, and VCR filtering.
+/tests.challenges		This package contains various modules and packages for testing challenges, including memory challenges, basic abilities, information retrieval, and Kubernetes deployment. It also includes modules for handling challenges, debugging code, and managing challenge scores.
+/tests.challenges.basic_abilities		A package with test modules for file writing and website browsing.
+/tests.challenges.challenge_decorator		A package with modules for handling challenges, creating challenges, and managing challenge scores.
+/tests.challenges.debug_code		A package with debugging code and functions for finding numbers.
+/tests.challenges.debug_code.data		A package with modules for finding numbers that add up to a target value and testing the function.
+/tests.challenges.information_retrieval		Package containing modules for testing information retrieval challenges.
+/tests.challenges.kubernetes		A package with a Kubernetes deployment challenge and test function.
+/tests.challenges.memory		A package with modules for memory challenges, generating instructions, and checking beliefs.
+/tests.challenges.utils		A package with functions for file operations, data handling, and dictionary manipulation.
+/tests.integration		A package with modules for testing AutoGPT functionalities, including unit testing, code execution, memory testing, agent creation, and web browsing.
+/tests.integration.memory		A package with modules for testing memory items and operations, including JSON file memory testing and memory vector operations.
+/tests.mocks		A package with mock commands and test functions.
+/tests.unit		This package contains various modules and packages for testing different functionalities of the codebase. It includes modules for testing AI configuration, web search, token counting, utility functions, file operations, workspace functionality, URL validation, prompt generation, API management, commands, logs, configuration, git commands, spinner functionality, and JSON parsing. Each module includes test functions and fixtures to ensure the correct behavior of the corresponding functionality.
+/tests.unit.data		A package with AutoGPTGuanaco plugin for Auto-GPT, enhancing chat conversation handling.
+/tests.unit.data.test_plugins		A package with AutoGPTGuanaco plugin for Auto-GPT, enhancing chat conversation handling.
+/tests.unit.data.test_plugins.auto_gpt_guanaco		A package with AutoGPTGuanaco plugin for Auto-GPT, enhancing chat conversation handling with various methods and functionalities.
+/tests.unit.models		A package with a module for testing OpenAI models.
+/tests.vcr		A package with modules for VCR filtering and OpenAI request patching.
