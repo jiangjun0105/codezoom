@@ -10,6 +10,7 @@ from loguru import logger
 from omegaconf import OmegaConf
 
 from codebase_analyzer.bots.manager import BotManager
+from codebase_analyzer.control.loop import LoopManager
 
 
 def calculate_path_hash(path: Path | str) -> str:
@@ -25,16 +26,6 @@ def get_cache_root(repo_root: Path) -> Path:
     """Gets the cache root path for the given repo path."""
     # TODO: Make the cache root configurable
     return Path(__file__).parent.parent / ".cache" / calculate_path_hash(repo_root)
-
-
-def interaction_loop(master_bot: Any) -> None:
-    """Main loop for interacting wiht the codebase analyzer."""
-
-    while True:
-        query = input("\nEnter a query or type 'exit' to quit: ")
-        if query.lower() == "exit":
-            break
-        master_bot.ask(inputs=query)
 
 
 def remove_files_in_folder(p: Path) -> None:
@@ -85,18 +76,20 @@ def main(
     config = OmegaConf.load(config_path)
 
     # Singleton manager
-    manager = BotManager.from_repo(
+    loop_manager = LoopManager()
+    bot_manager = BotManager.from_repo(
         repo_root=repo_root,
         cache_root=cache_root,
         entry_point=entry_point,
         update_cache=update_cache,
+        loop=loop_manager,
         config=config.manager,
         **kwargs,
     )
 
     # TODO: We may want a separate master bot to have more flexibility
     # TODO: Currently if the root_bot only have one child, the performance is bad.
-    interaction_loop(master_bot=manager.root_bot)
+    loop_manager.interaction_loop(bot_manager.repo_bot)
 
 
 @click.command()
@@ -160,16 +153,18 @@ def cli(
     )
 
 
+## TODO: Make the following a test
+# repo_root = Path("/Users/jun/Projects/Auto-GPT/").resolve()
+# entry_point = Path("/Users/jun/Projects/Auto-GPT/autogpt/app/cli.py").resolve()
+# cache_root = Path("/Users/jun/Projects/ichigen-coder/shared_cache/Auto-GPT").resolve()
+# config_path = Path("/Users/jun/Projects/ichigen-coder/config.yaml").resolve()
+# main(
+#     repo_root=repo_root,
+#     entry_point=entry_point,
+#     cache_root=cache_root,
+#     update_cache=False,
+#     config_path=config_path,
+# )
+
 if __name__ == "__main__":
     cli()
-
-    ## TODO: Make the following a test
-    # repo_root = Path("/Users/jun/Projects/Auto-GPT/").resolve()
-    # entry_point = Path("/Users/jun/Projects/Auto-GPT/autogpt/app/cli.py").resolve()
-    # # cache_root = Path("/Users/jun/Projects/ichigen-coder/shared_cache/Auto-GPT").resolve()
-    # main(
-    #     repo_root=repo_root,
-    #     entry_point=entry_point,
-    #     # cache_root=cache_root,
-    #     update_cache=True,
-    # )
