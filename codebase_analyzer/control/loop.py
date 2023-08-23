@@ -37,7 +37,7 @@ class LoopManager(BaseModel):
                 continue
             self.active_bot.ask(inputs=query)
             # The above call might cause some pending questions if switching bots
-            if question := self.pending[self.active_bot.uri]:
+            if question := self.pending.get(self.active_bot.uri, None):
                 logger.info(f"Found Pending {question=}")
                 self.active_bot.ask(inputs=question)
 
