@@ -4,20 +4,31 @@ import json
 import igraph as ig
 import leidenalg
 import numpy as np
+import seaborn as sns
 
 from concurrent.futures import ProcessPoolExecutor
 
+def merge_graphs(graphs: list[ig.Graph]):
+    graphs = [g for g in graphs.__dict__.values() if type(g) == ig.Graph]
+    assert len(graphs) > 0
+    if len(graphs) == 1:
+        return graphs[0]
+    else:
+        g_union = ig.Graph.union(graphs[0], graphs[1])
+        for gi in range(1, len(graphs) - 1):
+            g_union = ig.Graph.union(g_union, graphs[gi+1])
+    return g_union
 
-def calculate_embedding_consine_similarity(pair):
+def calculate_embedding_consine_similarity(pair: tuple[CodeNode, CodeNode]):
     s, e = pair
     return np.dot(e.embedding, s.embedding) / (np.linalg.norm(e.embedding) * np.linalg.norm(s.embedding))
 
-def z_score_normalization(arr):
+def z_score_normalization(arr: list):
     mean = np.mean(arr)
     std_dev = np.std(arr)
     return (arr - mean) / std_dev
 
-def filter_positive_weights(pairs, weights):
+def filter_positive_weights(pairs: list, weights: list):
     positive_pairs = []
     positive_weights = []
     
@@ -29,7 +40,7 @@ def filter_positive_weights(pairs, weights):
     return positive_pairs, positive_weights
 
 class Graph4Leiden:
-    def __init__(self, code_info):
+    def __init__(self, code_info: CodeInfo):
         self.nodes = code_info.nodes
         self.metadata = code_info.metadata
         self.vertices = list(self.nodes.keys())
@@ -72,16 +83,26 @@ if __name__ == '__main__':
     path = Path(path).expanduser().resolve()
 
     code_info = CodeInfo.from_disk(input_path=path)
-    g = Graph4Leiden(code_info)
+    gs = Graph4Leiden(code_info)
     
     # import time
     # start_time = time.time()
     
-    g.get_graph(layer=['calls', 'children', 'subclasses','embedding'])
+    gs.get_graph(layer=['calls', 'children', 'subclasses'], directed=False)
     
     # end_time = time.time()
     # time_difference = end_time - start_time
     # print(f"Time taken: {time_difference} seconds.")
     
-    membership = g.get_community()
+    membership = gs.get_community()
     print(membership)
+    
+    # merge and plot
+    g_union = merge_graphs(gs)
+    print(len(g_union.es))
+    
+    num_communities = max(membership) + 1
+    palette = sns.husl_palette(num_communities)
+    colors = [palette[i] for i in membership]
+
+    ig.plot(g_union, "community.pdf", vertex_color= colors, vertex_size = 5)
