@@ -215,6 +215,9 @@ def _handle_error(
     also makes the whole code tree fail. Later we might want to finish the sub
     tree we can finish and make the user can resume from a wip tree."""
     if type(error) is asyncio.TimeoutError:
+        # TODO: This error is currently mainly caused by the wait_for timeout
+        # which is different with the api call timeout. Need to distinguish the
+        # two types of timeout.
         logger.error(
             f"Processing node {node.uri} timed out after {timeout}s, will retry."
         )
@@ -293,7 +296,7 @@ async def apopulate_summary_and_embedding(
     root: CodeNode,
     uri2node: dict[URI, CodeNode],
     worker_num: int = 20,
-    timeout: int = 180,
+    timeout: int = 5,
     max_failures: int = 5,
     update_existing: bool = False,
 ) -> None:
@@ -349,7 +352,16 @@ async def apopulate_summary_and_embedding(
     async def worker():
         while True:
             async with condition:
-                await condition.wait_for(lambda: ready or len(done) >= total)
+                try:
+                    await asyncio.wait_for(
+                        condition.wait_for(lambda: ready or len(done) >= total),
+                        timeout=timeout,
+                    )
+                except asyncio.TimeoutError:
+                    logger.error(
+                        f"Waiting for ready nodes timed out after {timeout}s."
+                    )
+                    break
                 if len(done) >= total:
                     break
                 node = uri2node[ready.pop()]
@@ -359,6 +371,9 @@ async def apopulate_summary_and_embedding(
 
     workers = [asyncio.create_task(worker()) for _ in range(worker_num)]
     await asyncio.gather(*workers)
+    # TODO: If timeout, check if there are any nodes that are not processed.
+    # And generate a report for the reason why they are not processed.
+    # Some typical cases are circular dependencies and missing of some nodes.
     return done
 
 
