@@ -41,6 +41,10 @@ poetry run python ./codebase_analyzer/main.py \
 ```
 Where `./shared_cache/Auto-GPT/` has the cache I generated for Auto-GPT at [release v0.4.7](https://github.com/Significant-Gravitas/Auto-GPT/tree/release-v0.4.7)
 
+## Run using Docker
+```bash
+docker run --rm -it -v ./.env:/app/.env -v ./config.yaml:/app/config.yaml -v ~/Projects/Auto-GPT/:/app/Auto-GPT/ codebase_analyzer:0.0.3
+```
 ## Sample questions
 ```
 q1 = "Which url does the ChatBot send request to after a user ask question to it?"

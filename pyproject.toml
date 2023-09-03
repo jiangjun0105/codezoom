@@ -28,6 +28,9 @@ authors = ["Jun Jiang <jiangjun0105@gmail.com>"]
 readme = "README.md"
 packages = [{include = "codebase_analyzer"}]
 
+[tool.poetry.scripts]
+codebase_analyzer = "codebase_analyzer.main:cli"
+
 [tool.poetry.dependencies]
 python = ">=3.10,<4.0"
 langchain = ">=0.0.253"
