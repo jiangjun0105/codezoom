@@ -25,6 +25,10 @@ _EMBEDDING_INPUT_LIMIT = 8191
 _EMBEDDING_DIMENSION = 1536
 
 # TODO: Add language type info.
+# TODO: Use markdown format for the summary.
+# TODO: Add class name to the class methods.
+# TODO: Improve summary by extracting main processes
+#       https://chat.openai.com/share/ad94df47-540e-4c67-9b6d-b42b61a82b86
 _FUNCTION_SUMMARY_PROMPT = """
 =====
 CODE TO SUMMARIZE

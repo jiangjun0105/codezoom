@@ -154,9 +154,9 @@ def cli(
 
 
 ## TODO: Make the following a test
-# repo_root = Path("/Users/jun/Projects/Auto-GPT/").resolve()
-# entry_point = Path("/Users/jun/Projects/Auto-GPT/autogpt/app/cli.py").resolve()
-# cache_root = Path("/Users/jun/Projects/ichigen-coder/shared_cache/Auto-GPT").resolve()
+# repo_root = Path("/Users/jun/Projects/ChatGPT/src/only_v1").resolve()
+# entry_point = Path("/Users/jun/Projects//ChatGPT/src/only_v1/V1.py").resolve()
+# cache_root = Path("/Users/jun/Projects/ichigen-coder/shared_cache/ChatGPT_V1/").resolve()
 # config_path = Path("/Users/jun/Projects/ichigen-coder/config.yaml").resolve()
 # main(
 #     repo_root=repo_root,

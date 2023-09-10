@@ -191,6 +191,6 @@ Temporary Items
 .vscode/
 
 # Specific to this codebase
-try.ipynb
+.local
 .logs
 config.yaml
