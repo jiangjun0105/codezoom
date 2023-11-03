@@ -6,7 +6,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from codebase_analyzer.bots.executor import Bot
-from codebase_analyzer.parser.callgraph import URI
+from codebase_analyzer.parser.uri import URI
 
 
 class LoopManager(BaseModel):

@@ -4,9 +4,10 @@ from pathlib import Path
 
 from loguru import logger
 
-from codebase_analyzer.parser.callgraph import URI, Index, extract_call_info
+from codebase_analyzer.parser.callgraph import Index, extract_call_info
 from codebase_analyzer.parser.codeinfo import generate_summary_embedding
 from codebase_analyzer.parser.deftree import CodeInfo, CodeNode, generate_def_tree
+from codebase_analyzer.parser.uri import URI
 
 
 class CacheInvalidError(Exception):

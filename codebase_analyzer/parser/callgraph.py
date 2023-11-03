@@ -9,8 +9,9 @@ from typing import NewType
 from loguru import logger
 from pydantic import BaseModel, Field, root_validator, validator
 
+from codebase_analyzer.parser.uri import URI
+
 Index = NewType("Index", str)
-URI = NewType("URI", str)
 
 
 class InvalidNamespaceError(Exception):

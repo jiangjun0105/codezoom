@@ -9,7 +9,6 @@ import pandas as pd
 from langchain.embeddings import OpenAIEmbeddings
 from loguru import logger
 
-from codebase_analyzer.parser.callgraph import URI
 from codebase_analyzer.parser.deftree import (
     CodeInfo,
     CodeNode,
@@ -17,6 +16,7 @@ from codebase_analyzer.parser.deftree import (
     should_split_class_child,
     uri_from_ast,
 )
+from codebase_analyzer.parser.uri import URI, uri_stem
 from codebase_analyzer.tools.context import get_str_length
 from codebase_analyzer.tools.summary import SummaryBot
 
@@ -78,16 +78,12 @@ URI (type): Summary
 """
 
 
-def _uri_stem(uri: URI) -> str:
-    return uri.split("/.")[-1]
-
-
 def _join_summaries(
     uris: list[URI], uri2node: dict[URI, CodeNode], before=""
 ) -> str:
     summaries = []
     for n in [uri2node[u] for u in uris]:
-        stem = _uri_stem(n.uri)
+        stem = uri_stem(n.uri)
         summaries.append(f"{before}{stem} ({n.type}): {n.summary}")
     return "\n".join(summaries) or "No summary found."
 
@@ -240,7 +236,7 @@ def _handle_error(
             node.embedding = [0.0] * _EMBEDDING_DIMENSION
 
 
-def _update_states(
+def update_state(
     node: CodeNode,
     ready: set[URI],
     done: dict[URI, int],
@@ -342,7 +338,7 @@ async def apopulate_summary_and_embedding(
                 done=done,
             )
         else:
-            _update_states(
+            update_state(
                 node=node,
                 ready=ready,
                 done=done,

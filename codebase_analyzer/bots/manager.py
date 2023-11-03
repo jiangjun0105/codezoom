@@ -15,7 +15,6 @@ from codebase_analyzer.bots.module.base import ModuleBot
 from codebase_analyzer.bots.package.base import PackageBot
 from codebase_analyzer.bots.repo.base import RepoBot
 from codebase_analyzer.control.loop import LoopManager
-from codebase_analyzer.parser.callgraph import URI
 from codebase_analyzer.parser.codeinfo import (
     _join_summaries,
     generate_summary_embedding,
@@ -25,6 +24,7 @@ from codebase_analyzer.parser.merge import (
     CacheInvalidError,
     generate_codeinfo_from_repo,
 )
+from codebase_analyzer.parser.uri import URI
 from codebase_analyzer.tools.base import (
     ask_bot,
     get_code,

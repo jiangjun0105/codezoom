@@ -19,8 +19,8 @@ from pydantic import BaseModel, Field, root_validator, validator
 from codebase_analyzer.bots.callbacks import BotStreamingStdOutCallbackHandler
 from codebase_analyzer.bots.executor import AgentExecutorBot, Bot
 from codebase_analyzer.bots.repo.prompts import SYSTEM_MESSAGE
-from codebase_analyzer.parser.callgraph import URI
 from codebase_analyzer.parser.deftree import CodeNode
+from codebase_analyzer.parser.uri import URI
 from codebase_analyzer.tools.base import switch_bot
 from codebase_analyzer.tools.patch import patch_tool
 

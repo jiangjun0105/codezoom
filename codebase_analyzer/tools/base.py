@@ -27,7 +27,7 @@ from typing import Any, Callable
 from loguru import logger
 from pydantic import Field
 
-from codebase_analyzer.parser.callgraph import URI
+from codebase_analyzer.parser.uri import URI
 
 
 def _ask_manager(

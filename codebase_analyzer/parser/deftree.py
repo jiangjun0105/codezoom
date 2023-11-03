@@ -10,7 +10,7 @@ import pandas as pd
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from codebase_analyzer.parser.callgraph import URI
+from codebase_analyzer.parser.uri import URI
 from codebase_analyzer.tools.context import get_str_length
 
 
