@@ -6,33 +6,33 @@ from pathlib import Path
 import pandas as pd
 from loguru import logger
 
+from codebase_analyzer.flowchart.datamodel import Process
 
-def add_lineno_to_process(processes, index_to_lineno, code: list[str] = None):
+
+def add_lineno_to_process(
+    processes: list[Process], index_to_lineno, code: list[str] = None
+):
     for process in processes:
-        index = process.get("index")
+        index = process.index
 
         if index and index in index_to_lineno:
             linenos = index_to_lineno[index]
-            process["code_lineno"] = linenos
+            process.code_lineno = linenos
 
-        if code and process.get("code_lineno"):
+        if code and process.code_lineno:
             my_code = []
-            for lineno in process["code_lineno"]:
+            for lineno in process.code_lineno:
                 if lineno >= len(code):
                     logger.warning(
                         f"Line number {lineno} is out of range of the code {len(code)}."
                     )
                 my_code.append(code[lineno])
-            process["code"] = "\n".join(my_code)
+            process.code = "\n".join(my_code)
 
-        add_lineno_to_process(
-            process.get("subprocesses", []), index_to_lineno, code=code
-        )
+        add_lineno_to_process(process.subprocesses, index_to_lineno, code=code)
 
 
-def add_code_lineno_to_json(json_file: str, csv_file: str, code: str) -> None:
-    with open(json_file, "r") as f:
-        json_data = json.load(f)
+def add_code_lineno(process: Process, csv_file: str, code: str) -> None:
 
     code = code.split("\n")
     df = pd.read_csv(csv_file)
@@ -43,7 +43,5 @@ def add_code_lineno_to_json(json_file: str, csv_file: str, code: str) -> None:
         df.groupby("process_index")["code_lineno"].apply(list).to_dict()
     )
 
-    add_lineno_to_process(json_data["subprocesses"], index_to_lineno, code=code)
-
-    with open(json_file, "w") as f:
-        json.dump(json_data, f, indent=4)
+    add_lineno_to_process(process.subprocesses, index_to_lineno, code=code)
+    return process

@@ -1,6 +1,7 @@
-"""Test cases for the check_indexes function"""
-
-from codebase_analyzer.flowchart.check_index import check_indexes
+"""Test cases for the check_process_indexes function"""
+# %%
+from codebase_analyzer.flowchart.check_index import check_process_indexes
+from codebase_analyzer.flowchart.datamodel import Process
 
 # Define test cases JSON structures
 test_cases = [
@@ -27,7 +28,7 @@ test_cases = [
     # Non-Continuous Index at Subprocess Level
     {
         "name": "parent_process",
-        "index": "1",
+        "index": "0",
         "explanation": "This process has a non-continuous child index.",
         "subprocesses": [
             {
@@ -48,17 +49,17 @@ test_cases = [
     # Correct Structure
     {
         "name": "correct_structure_process",
-        "index": "1",
+        "index": "0",
         "explanation": "This process has a correct structure.",
         "subprocesses": [
             {
                 "name": "correct_child_process",
-                "index": "1.1",
+                "index": "1",
                 "explanation": "This child process has a correct index.",
                 "subprocesses": [
                     {
                         "name": "correct_subchild_process",
-                        "index": "1.1.1",
+                        "index": "1.1",
                         "explanation": "This subchild process has a correct index.",
                         "subprocesses": [],
                     }
@@ -69,21 +70,8 @@ test_cases = [
 ]
 
 # Function to run test cases
-def run_test_cases(test_cases):
-    test_results = {}
-    for i, test_case in enumerate(test_cases, 1):
-        # Check the indexes of each test case
-        if "index" in test_case:
-            errors = check_indexes([test_case])
-        else:
-            errors = check_indexes([test_case], parent_index="")
-        test_results[f"Test Case {i}"] = errors or "No errors detected."
-    return test_results
-
-
-# Run the test cases
-test_results = run_test_cases(test_cases)
-
-# Output the results
-for test_case, result in test_results.items():
-    print(f"{test_case}: {result}")
+for i, test_case in enumerate(test_cases, 1):
+    # Check the indexes of each test case
+    print(f"Running Test Case {i}...")
+    test_obj = Process.parse_obj(test_case)
+    check_process_indexes(test_obj)

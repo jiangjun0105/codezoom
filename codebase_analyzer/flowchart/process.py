@@ -350,7 +350,7 @@ def extract_purpose_process_from_file(file_path: Path) -> str:
         return purpose, process
 
 
-def parse_process_markdown(text):
+def parse_process_markdown(text) -> Process:
     """Parses the extracted process from markdown to a JSON format."""
 
     # Given:
@@ -362,33 +362,35 @@ def parse_process_markdown(text):
 
     pattern = re.compile(r"(\d+(?:\.\d+)*)\. \*\*(.+?)\*\*(?: \((.+?)\))?: (.+)")
     # TODO: add function name and explanation here.
-    root = {
-        "name": "root",
-        "explanation": "This is the root of the processes.",
-        "index": "0",
-        "subprocesses": [],
-    }
-    process_map = {"": root}
+    root = Process(
+        name="root",
+        explanation="This is the root of the processes.",
+        index="",
+        subprocesses=[],
+    )
+    process_map: dict[str, Process] = {root.index: root}
 
     for line in text.split("\n"):
         match = pattern.match(line.strip())
         if match:
             index, name, proc_pattern, explanation = match.groups()
-            process = {
-                "name": name,
-                "index": index,
-                "explanation": explanation,
-                "subprocesses": [],
-            }
+            # TODO: Remove proc_pattern
+            logger.info(f"Found process {index=}, {name=}, {proc_pattern=}")
+            process = Process(
+                name=name,
+                index=index,
+                explanation=explanation,
+                subprocesses=[],
+            )
             if proc_pattern:
-                process["pattern"] = proc_pattern
+                process.pattern = proc_pattern
 
             # Split the index and find the parent index
             index_parts = index.split(".")
             parent_index = ".".join(index_parts[:-1])
             parent = process_map.get(parent_index)
             if parent is not None:
-                parent["subprocesses"].append(process)
+                parent.subprocesses.append(process)
 
             process_map[index] = process
         else:
@@ -401,28 +403,25 @@ def parse_process_markdown(text):
 
 
 # TODO: CONSTANTS for file names
-def process_to_json(output_path: Path) -> str:
+def process_to_json(output_path: Path) -> Process:
     ## STEP1: Convert the process from MD to JSON
     process_file = output_path / "process.md"
-    purpose, process = extract_purpose_process_from_file(process_file)
-    json_dict = parse_process_markdown(process)
-    json_dict["name"] = output_path.name
-    json_dict["explanation"] = purpose
-    json_str = json.dumps(json_dict, indent=4)
-    output_file = output_path / "process.json"
-    with open(output_file, "w") as f:
-        f.write(json_str)
-    print(f"Saved process to {output_file}")
+    purpose, processes = extract_purpose_process_from_file(process_file)
+    process_obj = parse_process_markdown(processes)
+    process_obj.name = output_path.name
+    process_obj.explanation = purpose
+    print(f"Converted process markdown in {process_file} to process object.")
+    return process_obj
 
 
 # NO API CALL
-process_to_json(output_path=output_path)
+process_obj = process_to_json(output_path=output_path)
 from codebase_analyzer.flowchart.check_index import check_process_indexes
 
-process_json_file = output_path / "process.json"
-with open(process_json_file, "r") as f:
-    processes = json.load(f)
-    check_process_indexes(processes)
+# TODO: Fix the root index
+# check_process_indexes(process_obj)
+process_obj.to_file(output_path / "process.json")
+process = Process.from_file(output_path / "process.json")
 # %%
 # This works not bad for run_auto_gpt.
 CODE_PROCESS_PAIR = """Please associate the code of the target function with \
@@ -522,23 +521,29 @@ def show_process_lineno(code: str, output_path: Path | None = None) -> None:
 #     call_api=True,
 # )
 # %%
-from codebase_analyzer.flowchart.add_lineno import add_code_lineno_to_json
+from codebase_analyzer.flowchart.add_lineno import add_code_lineno
 from codebase_analyzer.flowchart.check_lineno import check_process_linenos
 
 # Call the main function
-add_code_lineno_to_json(
-    output_path / "process.json",
-    output_path / "lineno.csv",
+add_code_lineno(
+    process=process,
+    csv_file=output_path / "lineno.csv",
     code=nodes[target_uri].code,
 )
 
-check_process_linenos(output_path / "process.json")
+check_process_linenos(process=process)
 # %%
 
 
-process = Process.from_file(
-    process_json_file=output_path / "process.json",
-)
+def _check_save_load(process):
+    process.to_file(output_path / "process_check.json")
+    new_process = Process.from_file(
+        json_file=output_path / "process_check.json",
+    )
+    assert process == new_process
+
+
+_check_save_load(process)
 # %%
 from langchain.chains.openai_functions.base import create_openai_fn_chain
 
@@ -722,21 +727,32 @@ def process_pattern(
 #     call_api=True,
 # )
 
-# Path(output_path / "process1.json").write_text(process.json(indent=4))
+
 # %%
-import importlib
-
-import codebase_analyzer.flowchart.check_pattern
-
-importlib.reload(codebase_analyzer.flowchart.check_pattern)
 from codebase_analyzer.flowchart.check_pattern import check_process_pattern
 
+_check_save_load(process)
 check_process_pattern(process)
+process.to_file(output_path / "process.json")
+import importlib
 
+# %%
+import codebase_analyzer.flowchart.check_pattern
+
+importlib.reload(codebase_analyzer.flowchart.datamodel)
+from codebase_analyzer.flowchart.datamodel import Pattern, Process
+
+newprocess = Process(**process.dict())
+# newprocess.dict()
 # %%
 import codebase_analyzer.flowchart.node
 
 importlib.reload(codebase_analyzer.flowchart.node)
-from codebase_analyzer.flowchart.node import root_process_to_flowchart
+from codebase_analyzer.flowchart.node import (
+    root_process_to_flowchart,
+    visualize_nodes_and_save,
+)
 
 node = root_process_to_flowchart(process)
+visualize_nodes_and_save(node)
+# %%

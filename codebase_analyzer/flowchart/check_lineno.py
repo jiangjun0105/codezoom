@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from codebase_analyzer.flowchart.datamodel import Process
+
 
 def is_index_larger(index1: str, index2: str) -> bool:
     """Returns if index1 is larger than index2"""
@@ -34,65 +36,58 @@ def _is_gap_large(linenos: list[int], threshold: int) -> bool:
 
 
 def check_process_linenos_data(
-    root_process: dict,
+    root_process: Process,
     max_lineno_gap: int = 2,
 ) -> tuple[list[str], list[str]]:
     errors = []
     warnings = []
 
     def _check_process_linenos(
-        processes: list[dict],
+        processes: list[Process],
         prev_max: float = float("-inf"),
         prev_index: str = "",
     ):
         nonlocal errors, warnings
         for process in processes:
-            linenos = process.get("code_lineno", [])
-            index = process.get("index", "")
+            linenos = process.code_lineno
+            index = process.index
 
             if not linenos:
-                warnings.append(
-                    f"Warning: Missing lineno '{index} {process['name']}'"
-                )
+                warnings.append(f"Warning: Missing lineno '{index} {process.name}'")
                 continue
 
             if _is_not_incremental(linenos):
                 errors.append(
-                    f"Error: Non incremental lineno '{index} {process['name']}'."
+                    f"Error: Non incremental lineno '{index} {process.name}'."
                 )
 
             if _is_gap_large(linenos, max_lineno_gap):
-                warnings.append(
-                    f"Warning: Gap too large '{index} {process['name']}'"
-                )
+                warnings.append(f"Warning: Gap too large '{index} {process.name}'")
 
             current_min, current_max = get_min_max_lineno(linenos)
             if prev_index and is_index_larger(prev_index, index):
                 errors.append(
-                    f"Error: Non incremental index {prev_index} -> {index} {process['name']}."
+                    f"Error: Non incremental index {prev_index} -> {index} {process.name}."
                 )
 
             if current_min <= prev_max:
                 errors.append(
-                    f"Error: Overlap lineno with previous {prev_index} -> {index} {process['name']}'"
+                    f"Error: Overlap lineno with previous {prev_index} -> {index} {process.name}'"
                 )
 
             _check_process_linenos(
-                process.get("subprocesses", []),
+                process.subprocesses,
                 prev_max=max(current_max, prev_max),
                 prev_index=index,
             )
 
-    _check_process_linenos(root_process.get("subprocesses", []))
+    _check_process_linenos(root_process.subprocesses)
 
     return errors, warnings
 
 
 def check_process_linenos(
-    json_file: str, max_lineno_gap: int = 2
+    process: Process, max_lineno_gap: int = 2
 ) -> tuple[list[str], list[str]]:
     """Function to check the line numbers for each process in a JSON file"""
-    with open(json_file, "r") as f:
-        json_data = json.load(f)
-
-    return check_process_linenos_data(json_data, max_lineno_gap)
+    return check_process_linenos_data(process, max_lineno_gap)
