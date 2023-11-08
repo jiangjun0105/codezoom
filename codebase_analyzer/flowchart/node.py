@@ -107,8 +107,10 @@ class BaseFlowchartNode(BaseModel, ABC):
     color: ClassVar[str]
     shape: ClassVar[str]
     name: str
-    uuid: str
     label: str
+    uuid: str
+    # This is uuid for both parent chart and the chart's parent node
+    parent_uuid: str | None = None
     # NOTE: Any node can have a subchart after merging.
     # but after reorganizing, only IfNode and LoopNode will have subcharts
     subchart: Flowchart = None
@@ -255,21 +257,33 @@ def _log_conversion(process: Process, parent: BaseFlowchartNode) -> None:
     )
 
 
-def process_to_action_node(process: Process) -> ActionNode:
+def process_to_action_node(
+    process: Process, parent_node: BaseFlowchartNode
+) -> ActionNode:
     assert isinstance(process.pattern, ActionPattern)
-    node = ActionNode(name=process.name, label=process.pattern.body)
+    parent_uuid = parent_node.uuid if parent_node else None
+    node = ActionNode(
+        name=process.name, label=process.pattern.body, parent_uuid=parent_uuid
+    )
     _log_conversion(process, node)
     return node
 
 
-def process_to_exit_node(process: Process) -> ExitNode:
+def process_to_exit_node(
+    process: Process, parent_node: BaseFlowchartNode
+) -> ExitNode:
     assert isinstance(process.pattern, ExitPattern)
-    node = ExitNode(name=process.name, label=process.pattern.body)
+    parent_uuid = parent_node.uuid if parent_node else None
+    node = ExitNode(
+        name=process.name, label=process.pattern.body, parent_uuid=parent_uuid
+    )
     _log_conversion(process, node)
     return node
 
 
-def process_to_node_with_loop_chart(process: Process) -> ActionNode:
+def process_to_node_with_loop_chart(
+    process: Process, parent_node: BaseFlowchartNode
+) -> ActionNode:
     assert isinstance(process.pattern, LoopPattern)
 
     # Body node
@@ -292,19 +306,21 @@ def process_to_node_with_loop_chart(process: Process) -> ActionNode:
     decision.false = setup
 
     # Parent node of the chart
-    parent = ActionNode(
+    parent_uuid = parent_node.uuid if parent_node else None
+    node = ActionNode(
+        parent_uuid=parent_uuid,
         name=process.name,
         label=process.explanation,
         expand=len(process.subprocesses) > 0,
     )
 
     # Chart including setup, body, and decision nodes
-    parent.subchart = Flowchart.from_nodes(
-        parent=parent, type=FlowchartType.LOOP, start=setup
+    node.subchart = Flowchart.from_nodes(
+        parent=node, type=FlowchartType.LOOP, start=setup
     )
 
-    _log_conversion(process, parent)
-    return parent
+    _log_conversion(process, node)
+    return node
 
 
 def _still_has_elif(processes: list[Process]) -> bool:
@@ -317,12 +333,29 @@ def _only_has_else(processes: list[Process]) -> bool:
     return len(processes) == 1 and isinstance(processes[0].pattern, ElsePattern)
 
 
-def _create_node_with_if_chart(processes: list[Process]) -> ActionNode:
+def _create_node_with_if_chart(
+    processes: list[Process], parent_node: BaseFlowchartNode
+) -> ActionNode:
     # Could be if or elif pattern
     if_process = processes.pop()
+    parent_uuid = parent_node.uuid if parent_node else None
+
+    if_node = ActionNode(
+        name=if_process.name,
+        # TODO: improve the if_node.label to a summary of if_process + all
+        # sub/elif/else processes.
+        label=if_process.explanation,
+        parent_uuid=parent_uuid,
+        # Expand if there are subprocesses or if-elif-else groups
+        expand=len(if_process.subprocesses) > 0 or len(processes) > 0,
+    )
 
     # Create the subchart of if_node
-    true = ActionNode(name=f"{if_process.name}_true", label=if_process.pattern.true)
+    true = ActionNode(
+        name=f"{if_process.name}_true",
+        label=if_process.pattern.true,
+        parent_uuid=if_node.uuid,
+    )
     if if_process.subprocesses:
         true.subchart = processes_to_linear_chart(
             parent_process=if_process, parent_node=true
@@ -333,29 +366,27 @@ def _create_node_with_if_chart(processes: list[Process]) -> ActionNode:
         name=f"{if_process.name}_decision",
         label=if_process.pattern.decision,
         true=true,
+        parent_uuid=if_node.uuid,
     )
 
     if _still_has_elif(processes):
-        decision.false = _create_node_with_if_chart(processes)
+        decision.false = _create_node_with_if_chart(processes, parent_node=if_node)
     elif _only_has_else(processes):
         label = processes[-1].pattern.body
-        decision.false = ActionNode(name=f"{if_process.name}_false", label=label)
+        decision.false = ActionNode(
+            name=f"{if_process.name}_false",
+            label=label,
+            parent_uuid=if_node.uuid,
+        )
     elif if_process.pattern.false:
         decision.false = ActionNode(
             name=f"{if_process.name}_false",
             label=if_process.pattern.false,
+            parent_uuid=if_node.uuid,
         )
     else:
-        logger.warning("The if process doesn't have a false branch.")
+        logger.debug("The if process doesn't have a false branch.")
 
-    if_node = ActionNode(
-        name=if_process.name,
-        # TODO: improve the if_node.label to a summary of if_process + all
-        # sub/elif/else processes.
-        label=if_process.explanation,
-        # Expand if there are subprocesses or if-elif-else groups
-        expand=len(if_process.subprocesses) > 0 or len(processes) > 0,
-    )
     if_node.subchart = Flowchart.from_nodes(
         parent=if_node, type=FlowchartType.IF, start=decision
     )
@@ -363,7 +394,9 @@ def _create_node_with_if_chart(processes: list[Process]) -> ActionNode:
     return if_node
 
 
-def processes_to_node_with_if_chart(processes: list[Process]) -> ActionNode:
+def processes_to_node_with_if_chart(
+    processes: list[Process], parent_node: BaseFlowchartNode
+) -> ActionNode:
     """create an ActionNode with a subchart for the if-elif(-else) group."""
     assert isinstance(processes[0].pattern, IfPattern)
 
@@ -372,7 +405,7 @@ def processes_to_node_with_if_chart(processes: list[Process]) -> ActionNode:
         # TODO: Make this warning in production
         assert if_process.pattern.false is None
 
-    return _create_node_with_if_chart(list(reversed(processes)))
+    return _create_node_with_if_chart(list(reversed(processes)), parent_node)
 
 
 def _is_if_group(processes: list[Process]) -> bool:
@@ -389,23 +422,25 @@ def _is_if_group(processes: list[Process]) -> bool:
     return True
 
 
-def processes_to_node(processes: list[Process]) -> BaseFlowchartNode:
+def processes_to_node(
+    processes: list[Process], parent_node: BaseFlowchartNode
+) -> BaseFlowchartNode:
 
     if len(processes) == 1:
         process = processes[0]
         if isinstance(process.pattern, ActionPattern):
-            return process_to_action_node(process)
+            return process_to_action_node(process, parent_node)
         elif isinstance(process.pattern, ExitPattern):
-            return process_to_exit_node(process)
+            return process_to_exit_node(process, parent_node)
         elif isinstance(process.pattern, LoopPattern):
-            return process_to_node_with_loop_chart(process)
+            return process_to_node_with_loop_chart(process, parent_node)
         elif isinstance(process.pattern, IfPattern):
             # For If without elif or else, we will also treat it with the group
             # handler for consistency
-            return processes_to_node_with_if_chart(processes)
+            return processes_to_node_with_if_chart(processes, parent_node)
     elif _is_if_group(processes):
         # Single If as a group for consistency
-        return processes_to_node_with_if_chart(processes)
+        return processes_to_node_with_if_chart(processes, parent_node)
 
 
 def _is_last_if_or_elif(current: list[list[Process]]) -> bool:
@@ -417,7 +452,7 @@ def _is_elif_or_else(process: Process) -> bool:
 
 
 def processes_to_linear_chart(
-    parent_process: Process, parent_node: BaseFlowchartNode | None = None
+    parent_process: Process, parent_node: BaseFlowchartNode
 ) -> Flowchart:
     processes = parent_process.subprocesses
     if not processes:
@@ -439,7 +474,7 @@ def processes_to_linear_chart(
     nodes = []
     previous = None
     for group in groups:
-        node = processes_to_node(group)
+        node = processes_to_node(group, parent_node=parent_node)
         assert isinstance(
             node, (ExitNode, ActionNode)
         ), f"{node.name=} {type(node)=} Cannot be a parent node."
@@ -633,7 +668,12 @@ def visualize_nodes_and_save(
 
 if __name__ == "__main__":
     # Creating test cases for the conversion functions
-
+    dummy_parent_node = ActionNode(
+        name="DummyParentNode",
+        label="DummyParentNode",
+        expand=True,
+        uuid="DummyParentNode_uuid",
+    )
     test_action_process = Process(
         name="ActionProcess",
         explanation="This is an action process",
@@ -644,7 +684,9 @@ if __name__ == "__main__":
         explanation="This is an action process2",
         pattern=ActionPattern(body="Action Body2"),
     )
-    converted_action_node = process_to_action_node(test_action_process)
+    converted_action_node = process_to_action_node(
+        test_action_process, parent_node=dummy_parent_node
+    )
     visualize_nodes_and_save(converted_action_node)
     logger.info("======")
 
@@ -653,7 +695,9 @@ if __name__ == "__main__":
         explanation="This is an exit process",
         pattern=ExitPattern(body="Exit Body"),
     )
-    converted_exit_node = process_to_exit_node(test_exit_process)
+    converted_exit_node = process_to_exit_node(
+        test_exit_process, parent_node=dummy_parent_node
+    )
     visualize_nodes_and_save(converted_exit_node)
     logger.info("======")
 
@@ -663,7 +707,8 @@ if __name__ == "__main__":
         pattern=IfPattern(decision="If Decision", true="If True", false=None),
     )
     converted_if_node_no_else = processes_to_node_with_if_chart(
-        [test_if_process_no_else]
+        [test_if_process_no_else],
+        parent_node=dummy_parent_node,
     )
     visualize_nodes_and_save(converted_if_node_no_else)
     logger.info("======")
@@ -674,7 +719,8 @@ if __name__ == "__main__":
         pattern=IfPattern(decision="If Decision", true="If True", false="If False"),
     )
     converted_if_node_no_sub = processes_to_node_with_if_chart(
-        [test_if_process_no_sub]
+        [test_if_process_no_sub],
+        parent_node=dummy_parent_node,
     )
     visualize_nodes_and_save(converted_if_node_no_sub)
     logger.info("======")
@@ -688,7 +734,9 @@ if __name__ == "__main__":
             test_action_process2,
         ],
     )
-    converted_if_node = processes_to_node_with_if_chart([test_if_process])
+    converted_if_node = processes_to_node_with_if_chart(
+        [test_if_process], parent_node=dummy_parent_node
+    )
     visualize_nodes_and_save(converted_if_node)
     logger.info("======")
 
@@ -715,7 +763,8 @@ if __name__ == "__main__":
         ),
     ]
     converted_if_elif_else_node = processes_to_node_with_if_chart(
-        test_if_elif_else_processes
+        test_if_elif_else_processes,
+        parent_node=dummy_parent_node,
     )
     visualize_nodes_and_save(converted_if_elif_else_node)
     logger.info("======")
@@ -731,7 +780,9 @@ if __name__ == "__main__":
             test_action_process2,
         ],
     )
-    converted_loop_node = process_to_node_with_loop_chart(test_loop_process)
+    converted_loop_node = process_to_node_with_loop_chart(
+        test_loop_process, parent_node=dummy_parent_node
+    )
     visualize_nodes_and_save(converted_loop_node)
     logger.info("======")
 
