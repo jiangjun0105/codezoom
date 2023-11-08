@@ -1,12 +1,13 @@
 # %%
 from __future__ import annotations
 
+import copy
 import json
 from abc import ABC
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, ClassVar, NewType
+from typing import Any, Callable, ClassVar, NewType
 from uuid import uuid4
 
 import pygraphviz as pgv
@@ -20,7 +21,6 @@ from codebase_analyzer.flowchart.datamodel import (
     ExitPattern,
     IfPattern,
     LoopPattern,
-    Pattern,
     Process,
 )
 from codebase_analyzer.parser.uri import URI, uri_stem
@@ -28,6 +28,8 @@ from codebase_analyzer.parser.uri import URI, uri_stem
 REPO_ROOT = Path(__file__).parent.parent.parent
 CACHE_ROOT = REPO_ROOT / "shared_cache"
 LOCAL_ROOT = REPO_ROOT / ".local"
+
+_CHART_KEY = "chart"
 
 
 class FlowchartType(Enum):
@@ -90,24 +92,68 @@ class Flowchart(BaseModel):
             name=f"chart_{parent.name}", uuid=parent.uuid, type=type, start=start
         )
 
-    @classmethod
-    def from_file(cls, json_file: Path) -> Flowchart:
-        data = json_file.read_text()
-        return cls.parse_raw(data)
+    def to_flat_dict(self, nodes: dict[str, dict] | None = None) -> dict:
+        if nodes is None:
+            nodes = dict()
+        logger.debug(f"Flatten chart {self.uuid}")
+        chart = self.dict(exclude={"start"})
+        chart["start"] = self.start.uuid
+        chart["type"] = self.type.value  # Otherwise not JSON serializable
+        self.start.to_flat_dict(nodes)
+        return dict(chart=chart, nodes=nodes)
 
-    def to_file(self, json_file: Path, indent: int = 4) -> None:
-        json_file.write_text(self.json(indent=indent))
+    @classmethod
+    def from_flat_dict_by_chart(
+        cls,
+        nodes: dict[str, dict],
+        chart: dict[str, str],
+        done: dict[str, BaseFlowchartNode],
+    ) -> Flowchart:
+        if not chart:
+            return None
+        logger.debug(f"Reconstruct chart {chart['uuid']}")
+        start = BaseFlowchartNode.from_flat_dict_by_id(
+            nodes=nodes,
+            node_uuid=chart.pop("start", None),
+            done=done,
+        )
+        return cls(start=start, **chart)
+
+    @classmethod
+    def from_flat_dict(cls, data: dict) -> Flowchart:
+        data = copy.deepcopy(data)
+        nodes = data.get("nodes", dict())
+        chart = data.get("chart", dict())
+        done: dict[str, BaseFlowchartNode] = dict()
+        return cls.from_flat_dict_by_chart(nodes=nodes, chart=chart, done=done)
+
+    @classmethod
+    def from_file(cls, json_file: Path, check: bool = True) -> Flowchart:
+        data = json.loads(json_file.read_text())
+        chart = cls.from_flat_dict(data)
+        if check and any(e for e in chart.check().values()):
+            raise ValueError(f"Invalid flowchart {chart.name}")
+        return chart
+
+    def to_file(self, json_file: Path, indent: int = 4, check: bool = True) -> None:
+        if check and any(e for e in self.check().values()):
+            raise ValueError(f"Invalid flowchart {self.name}")
+        json_file.write_text(json.dumps(self.to_flat_dict(), indent=indent))
 
     def check(
-        self, expected_parent: str | None = None, checked: set[str] | None = None
-    ) -> None:
+        self,
+        expected_parent: str | None = None,
+        checked: dict[str, list[str]] | None = None,
+    ) -> dict[str, list[str]]:
         # For now we only require the chart.uuid == parent_node.uuid
         # We might also want to check if chart.name == cluster_{parent_node.name}
         if checked is None:
             checked = defaultdict(list)
         logger.debug(f"Validating flowchart {self.name}")
         if expected_parent and self.uuid != expected_parent:
-            checked[self.uuid].append(f"[Chart] {self.uuid=} != {expected_parent=}")
+            error = f"[Chart] {self.uuid=} != {expected_parent=}"
+            checked[self.uuid].append(error)
+            logger.error(error)
         logger.debug(f"\tChart uuid OK for chart {self.name}")
         self.start.check(expected_parent=self.uuid, checked=checked)
         return checked
@@ -168,9 +214,9 @@ class BaseFlowchartNode(BaseModel, ABC):
         checked: dict[str, list[str]] | None = None,
     ) -> None:
         if expected_parent and self.parent_uuid != expected_parent:
-            checked[self.uuid].append(
-                f"[Node] {self.name=} {self.parent_uuid=} != {expected_parent=}"
-            )
+            error = f"[Node] {self.name=} {self.parent_uuid=} != {expected_parent=}"
+            checked[self.uuid].append(error)
+            logger.error(error)
         logger.debug(f"\tNode parent_uuid OK for node {self.name}")
 
     def check(
@@ -182,7 +228,7 @@ class BaseFlowchartNode(BaseModel, ABC):
             checked = defaultdict(list)
 
         if self.uuid in checked:
-            return
+            return dict()
 
         logger.info(f"Checking node {self.name} with parent {expected_parent}")
         self.check_parent_uuid(expected_parent=expected_parent, checked=checked)
@@ -191,10 +237,87 @@ class BaseFlowchartNode(BaseModel, ABC):
             self.subchart.check(checked=checked, expected_parent=self.uuid)
         else:
             logger.debug(f"\tNo subchart for node {self.name}")
+        return checked
+
+    def to_flat_dict(
+        self, exclude: set | None = None, nodes: dict[str, dict] | None = None
+    ) -> dict:
+        logger.debug(f"Flatten node {self.uuid}")
+        if nodes is None:
+            nodes = dict()
+
+        if exclude is None:
+            exclude = set()
+
+        if self.uuid in nodes:
+            assert isinstance(self, LoopNode), f"Duplicate Non-LoopNode {self.uuid=}"
+            return dict()
+
+        # FIXME: Are we going to include class variables? e.g. shape, color
+        node = self.dict(exclude={"subchart", *exclude})
+        node["type"] = self.type
+        if self.subchart:
+            node["subchart"] = self.subchart.to_flat_dict(nodes)[_CHART_KEY]
+
+        nodes[self.uuid] = node
+        return nodes
+
+    @classmethod
+    def get_subclass(cls, class_name: str) -> Callable:
+        mapping = {
+            subcls.__name__: subcls
+            for subcls in [
+                StartNode,
+                ActionNode,
+                LoopNode,
+                DecisionNode,
+                ExitNode,
+                EndNode,
+            ]
+        }
+        if not (subclass := mapping.get(class_name, None)):
+            raise ValueError(f"Cannot find the node type {class_name}")
+        return subclass
+
+    @classmethod
+    def _pop_connected_attrs(cls, node_dict: dict[str, str]) -> dict[str, str]:
+        return dict()
+
+    @classmethod
+    def from_flat_dict_by_id(
+        cls,
+        nodes: dict[str, dict],
+        node_uuid: str,
+        done: dict[str, BaseFlowchartNode],
+    ) -> BaseFlowchartNode:
+        if not node_uuid:
+            return None
+
+        if node_uuid in done:
+            return done[node_uuid]
+
+        logger.debug(f"Reconstruct node {node_uuid}")
+        node_dict = nodes.get(node_uuid, None)
+        assert node_dict, f"Node {node_uuid} not found in nodes"
+        nodecls: BaseFlowchartNode = cls.get_subclass(node_dict.pop("type", None))
+
+        if subchart := node_dict.pop("subchart", None):
+            subchart = Flowchart.from_flat_dict_by_chart(nodes, subchart, done=done)
+        # DEBUG: We have to pop out the branches from node_dict, which is done
+        # in _pop_connected_attrs. But at the same time we don't want it
+        # to be called before node is added to done. We also need to add a class
+        # so that it can be linked.
+        connected = nodecls._pop_connected_attrs(node_dict)
+        node = nodecls(**node_dict, subchart=subchart)
+        done[node.uuid] = node
+        for attr, to_uuid in connected.items():
+            to_node = cls.from_flat_dict_by_id(nodes, to_uuid, done)
+            setattr(node, attr, to_node)
+        return node
 
 
-class BaseLinearNode(BaseFlowchartNode):
-    """Nodes that only have one in-edge and one out-edge."""
+class BaseOneOutNode(BaseFlowchartNode):
+    """Nodes that only have one out-edge."""
 
     next: BaseFlowchartNode | None = None
 
@@ -210,13 +333,39 @@ class BaseLinearNode(BaseFlowchartNode):
         expected_parent: str | None = None,
         checked: dict[str, list[str]] | None = None,
     ) -> None:
-        super().check(expected_parent=expected_parent, checked=checked)
+        if not super().check(expected_parent=expected_parent, checked=checked):
+            return checked
         if self.next is not None:
             self.next.check(expected_parent=expected_parent, checked=checked)
         return checked
 
+    def to_flat_dict(self, nodes: dict[str, dict] | None = None) -> dict:
+        # NOTE: Do not do nodes = xxx, only modify it in place!
+        # We need receive the converted nodes to check if the next node is
+        # Added or not before.
+        if nodes is None:
+            nodes = dict()
+        updated = super().to_flat_dict(exclude={"next"}, nodes=nodes)
+        if not updated:
+            logger.debug(f"Node {self.uuid} already added, skip")
+            return nodes
 
-class StartNode(BaseLinearNode):
+        node = nodes.get(self.uuid, None)
+        assert node, f"Node {self.uuid} not found in nodes"
+        if self.next:
+            node["next"] = self.next.uuid
+            nextnodes = self.next.to_flat_dict(nodes)
+            nodes.update(nextnodes)
+        return nodes
+
+    @classmethod
+    def _pop_connected_attrs(cls, node_dict: dict[str, str]) -> dict[str, str]:
+        if next_uuid := node_dict.pop("next", None):
+            return dict(next=next_uuid)
+        return dict()
+
+
+class StartNode(BaseOneOutNode):
     """The start of the flowchart."""
 
     shape: ClassVar[str] = "oval"
@@ -225,12 +374,12 @@ class StartNode(BaseLinearNode):
     label: str = "Start"
 
 
-class ActionNode(BaseLinearNode):
+class ActionNode(BaseOneOutNode):
     color: ClassVar[str] = "skyblue"
     shape: ClassVar[str] = "box"
 
 
-class LoopNode(BaseLinearNode):
+class LoopNode(BaseOneOutNode):
     """Node for start a new iteration of a loop."""
 
     shape: ClassVar[str] = "box"
@@ -258,11 +407,35 @@ class DecisionNode(BaseFlowchartNode):
         expected_parent: str | None = None,
         checked: dict[str, list[str]] | None = None,
     ) -> None:
-        super().check(expected_parent=expected_parent, checked=checked)
+        if not super().check(expected_parent=expected_parent, checked=checked):
+            return checked
         if self.true is not None:
             self.true.check(expected_parent=expected_parent, checked=checked)
         if self.false is not None:
             self.false.check(expected_parent=expected_parent, checked=checked)
+
+    def to_flat_dict(self, nodes: dict[str, dict] | None = None) -> dict:
+        updated = super().to_flat_dict(exclude={"true", "false"}, nodes=nodes)
+        if not updated:
+            logger.debug(f"Node {self.uuid} already added, skip")
+            return nodes
+
+        node = nodes.get(self.uuid, None)
+        assert node, f"Node {self.uuid} not found in nodes"
+        for key, branch in [("true", self.true), ("false", self.false)]:
+            if branch:
+                node[key] = branch.uuid
+                branodes = branch.to_flat_dict(nodes)
+                nodes.update(branodes)
+        return nodes
+
+    @classmethod
+    def _pop_connected_attrs(cls, node_dict: dict[str, str]) -> dict[str, str]:
+        connected = dict()
+        for attr in ["true", "false"]:
+            if next_uuid := node_dict.pop(attr, None):
+                connected[attr] = next_uuid
+        return dict(connected)
 
 
 class ExitNode(BaseFlowchartNode):
@@ -844,6 +1017,57 @@ if __name__ == "__main__":
 
     pass
 
+
+def dict_diff(d1, d2, path=""):
+    """Recursively compares two dictionaries.
+    Args:
+        d1 (dict): First dictionary.
+        d2 (dict): Second dictionary.
+        path (str): The current path to the value being compared.
+    """
+    for key in d1:
+        if key not in d2:
+            print(f"{path + str(key)}: Key removed from second dict")
+        else:
+            if isinstance(d1[key], dict) and isinstance(d2[key], dict):
+                path += key + "."
+                dict_diff(d1[key], d2[key], path)
+                path = path[: -len(key) - 1]  # Reset path to previous state
+            elif d1[key] != d2[key]:
+                print(f"{path + str(key)}: {d1[key]} -> {d2[key]}")
+
+    for key in d2:
+        if key not in d1:
+            print(f"{path + str(key)}: Key added in second dict")
+
+
+def test_save_load(test_node):
+    test_dict = test_node.to_flat_dict()
+    Path("test_dict.json").write_text(json.dumps(test_dict, indent=4))
+    test_node.to_file(Path("test.json"), indent=4)
+    load_node = Flowchart.from_flat_dict(test_dict)
+    load_dict = load_node.to_flat_dict()
+    load_node.to_file(Path("load.json"), indent=4)
+    print("******")
+    print("Save and load test results:")
+    try:
+        assert test_dict == load_dict
+    except AssertionError:
+        print("test_dict != load_dict")
+        dict_diff(test_dict, load_dict)
+    finally:
+        print("test_dict == load_dict")
+    try:
+        assert test_node == load_node
+    except AssertionError:
+        print("test_node != load_node")
+    except RecursionError:
+        print("Loop in the charts, cannot compare.")
+    finally:
+        print("test_node == load_node")
+    print("******")
+
+
 # %%
 output_path = Path(
     "/Users/jun/Projects/ichigen-coder/.local/flowcharts/autogpt/app/main/run_auto_gpt"
@@ -857,12 +1081,9 @@ visualize_nodes_and_save(
     ),
 )
 autogpt_chart.to_file(output_path / "flowchart_saved.json", indent=4)
-loaded = autogpt_chart.from_file(output_path / "flowchart_saved.json")
+# loaded = autogpt_chart.from_file(output_path / "flowchart_saved.json")
 autogpt_chart.to_file(output_path / "flowchart_loaded.json", indent=4)
 # assert loaded == autogpt_chart
 checked = autogpt_chart.check()
-for k, v in checked.items():
-    print(k)
-    for i in v:
-        print("\t", i)
+test_save_load(autogpt_chart)
 # %%
