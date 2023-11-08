@@ -98,6 +98,10 @@ class Flowchart(BaseModel):
     def to_file(self, json_file: Path, indent: int = 4) -> None:
         json_file.write_text(self.json(indent=indent))
 
+    def check(self) -> None:
+        logger.debug(f"Validating flowchart {self.name}")
+        self.start.check()
+
 
 class BaseFlowchartNode(BaseModel, ABC):
     color: ClassVar[str]
@@ -131,7 +135,7 @@ class BaseFlowchartNode(BaseModel, ABC):
         return values
 
     @validator("subchart")
-    def check_subchart(
+    def validate_subchart(
         cls, subchart: Flowchart, values: dict, **kwargs: dict
     ) -> Flowchart:
         if subchart is None:
@@ -146,17 +150,58 @@ class BaseFlowchartNode(BaseModel, ABC):
     def type(self) -> str:
         return self.__class__.__name__
 
+    def check_subchart(self) -> None:
+        logger.debug(
+            f"Validating node {self.name} with subchart {self.subchart is not None}"
+        )
+        if self.subchart:
+            # For now we only require the uuid to be the same, not also the name
+            if self.uuid != self.subchart.uuid:
+                raise ValueError(f"{self.uuid=} != {self.subchart.uuid=}")
+            logger.debug(f"UUID consistant for node {self.name}")
+            self.subchart.check()
 
-class ActionNode(BaseFlowchartNode):
-    color: ClassVar[str] = "skyblue"
-    shape: ClassVar[str] = "box"
+    def check(self) -> None:
+        raise NotImplementedError
+
+
+class BaseLinearNode(BaseFlowchartNode):
+    """Nodes that only have one in-edge and one out-edge."""
+
     next: BaseFlowchartNode | None = None
 
     def out_edge(self, graph: pgv.AGraph | None = None) -> Connection | None:
+        # NOTE: Do not check next because it might haven't been assigned yet.
         return Connection(node=self, label="", graph=graph)
 
     def out_edges(self, graph: pgv.AGraph | None = None) -> list[Connection]:
         return [self.out_edge(graph)]
+
+    def check(self) -> None:
+        self.check_subchart()
+        if self.next is not None:
+            self.next.check()
+
+
+class StartNode(BaseLinearNode):
+    """The start of the flowchart."""
+
+    shape: ClassVar[str] = "oval"
+    color: ClassVar[str] = "palegreen"
+    name: str = "flowchart_start"
+    label: str = "Start"
+
+
+class ActionNode(BaseLinearNode):
+    color: ClassVar[str] = "skyblue"
+    shape: ClassVar[str] = "box"
+
+
+class LoopNode(BaseLinearNode):
+    """Node for start a new iteration of a loop."""
+
+    shape: ClassVar[str] = "box"
+    color: ClassVar[str] = "cornflowerblue"
 
 
 class DecisionNode(BaseFlowchartNode):
@@ -175,19 +220,12 @@ class DecisionNode(BaseFlowchartNode):
     def out_edges(self, graph: pgv.AGraph | None = None) -> list[Connection]:
         return self.true_out_edges(graph) + self.false_out_edges(graph)
 
-
-class LoopNode(BaseFlowchartNode):
-    """Node for start a new iteration of a loop."""
-
-    shape: ClassVar[str] = "box"
-    color: ClassVar[str] = "cornflowerblue"
-    next: BaseFlowchartNode | None = None
-
-    def out_edge(self, graph: pgv.AGraph | None = None) -> Connection | None:
-        return Connection(node=self, label="", graph=graph)
-
-    def out_edges(self, graph: pgv.AGraph | None = None) -> list[Connection]:
-        return [self.out_edge(graph)]
+    def check(self) -> None:
+        self.check_subchart()
+        if self.true is not None:
+            self.true.check()
+        if self.false is not None:
+            self.false.check()
 
 
 class ExitNode(BaseFlowchartNode):
@@ -195,22 +233,6 @@ class ExitNode(BaseFlowchartNode):
 
     shape: ClassVar[str] = "oval"
     color: ClassVar[str] = "lavender"
-
-
-class StartNode(BaseFlowchartNode):
-    """The start of the flowchart."""
-
-    shape: ClassVar[str] = "oval"
-    color: ClassVar[str] = "palegreen"
-    name: str = "flowchart_start"
-    label: str = "Start"
-    next: BaseFlowchartNode
-
-    def out_edge(self, graph: pgv.AGraph | None = None) -> Connection | None:
-        return Connection(node=self, label="", graph=graph)
-
-    def out_edges(self, graph: pgv.AGraph | None = None) -> list[Connection]:
-        return [self.out_edge(graph)]
 
 
 class EndNode(BaseFlowchartNode):
