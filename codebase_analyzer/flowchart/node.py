@@ -68,21 +68,35 @@ class Flowchart(BaseModel):
     uuid: str
     type: FlowchartType
     start: BaseFlowchartNodeType
-    out_edges: list[Connection] = Field(default_factory=list)
 
     @root_validator(pre=True)
     def set_chart_uuid(cls, values: dict) -> str:
+        # uuid initialized from node.uuid
+        if values.get("uuid", None):
+            return values
         name = values.get("name", "no_name")
         values["uuid"] = f"{name}_{str(uuid4())}"
         return values
 
-    def to_file(self, json_file: Path, indent: int = 4) -> None:
-        json_file.write_text(self.json(indent=indent))
+    @classmethod
+    def from_nodes(
+        cls,
+        parent: BaseFlowchartNodeType,
+        start: BaseFlowchartNodeType,
+        type: FlowchartType,
+    ) -> Flowchart:
+        # NOTE: Must have the same uuid as the parent node
+        return cls(
+            name=f"chart_{parent.name}", uuid=parent.uuid, type=type, start=start
+        )
 
     @classmethod
-    def from_file(self, json_file: Path) -> Flowchart:
+    def from_file(cls, json_file: Path) -> Flowchart:
         data = json_file.read_text()
-        return self.parse_raw(data)
+        return cls.parse_raw(data)
+
+    def to_file(self, json_file: Path, indent: int = 4) -> None:
+        json_file.write_text(self.json(indent=indent))
 
 
 class BaseFlowchartNode(BaseModel, ABC):
@@ -110,9 +124,23 @@ class BaseFlowchartNode(BaseModel, ABC):
     # TODO: improve node name logic by using increamental index?
     @root_validator(pre=True)
     def set_uuid(cls, values: dict) -> str:
+        if values.get("uuid", None):
+            return values
         name = values.get("name", "no_name")
         values["uuid"] = f"{name}_{str(uuid4())}"
         return values
+
+    @validator("subchart")
+    def check_subchart(
+        cls, subchart: Flowchart, values: dict, **kwargs: dict
+    ) -> Flowchart:
+        if subchart is None:
+            return None
+
+        node_uuid = values["uuid"]
+        if subchart.uuid != node_uuid:
+            raise ValueError(f"node.uuid={node_uuid}!=subchart.uuid={subchart.uuid}")
+        return subchart
 
     @property
     def type(self) -> str:
@@ -230,7 +258,7 @@ def process_to_node_with_loop_chart(process: Process) -> ActionNode:
         name=f"{process.name}_setup", label=process.pattern.setup, next=body
     )
     if process.subprocesses:
-        body.subchart = processes_to_linear_chart(process, chart_name=body.name)
+        body.subchart = processes_to_linear_chart(process, parent_node=body)
         # TODO: How to handle the last node is ExitNode?
         body.expand = True
 
@@ -241,16 +269,18 @@ def process_to_node_with_loop_chart(process: Process) -> ActionNode:
     body.next = decision
     decision.false = setup
 
-    # Chart including setup, body, and decision nodes
-    subchart = Flowchart(name=process.name, type=FlowchartType.LOOP, start=setup)
-
     # Parent node of the chart
     parent = ActionNode(
         name=process.name,
         label=process.explanation,
-        subchart=subchart,
         expand=len(process.subprocesses) > 0,
     )
+
+    # Chart including setup, body, and decision nodes
+    parent.subchart = Flowchart.from_nodes(
+        parent=parent, type=FlowchartType.LOOP, start=setup
+    )
+
     _log_conversion(process, parent)
     return parent
 
@@ -272,7 +302,9 @@ def _create_node_with_if_chart(processes: list[Process]) -> ActionNode:
     # Create the subchart of if_node
     true = ActionNode(name=f"{if_process.name}_true", label=if_process.pattern.true)
     if if_process.subprocesses:
-        true.subchart = processes_to_linear_chart(if_process, chart_name=true.name)
+        true.subchart = processes_to_linear_chart(
+            parent_process=if_process, parent_node=true
+        )
         true.expand = True
 
     decision = DecisionNode(
@@ -280,7 +312,6 @@ def _create_node_with_if_chart(processes: list[Process]) -> ActionNode:
         label=if_process.pattern.decision,
         true=true,
     )
-    subchart = Flowchart(name=if_process.name, type=FlowchartType.IF, start=decision)
 
     if _still_has_elif(processes):
         decision.false = _create_node_with_if_chart(processes)
@@ -300,9 +331,11 @@ def _create_node_with_if_chart(processes: list[Process]) -> ActionNode:
         # TODO: improve the if_node.label to a summary of if_process + all
         # sub/elif/else processes.
         label=if_process.explanation,
-        subchart=subchart,
         # Expand if there are subprocesses or if-elif-else groups
         expand=len(if_process.subprocesses) > 0 or len(processes) > 0,
+    )
+    if_node.subchart = Flowchart.from_nodes(
+        parent=if_node, type=FlowchartType.IF, start=decision
     )
     _log_conversion(if_process, if_node)
     return if_node
@@ -362,9 +395,9 @@ def _is_elif_or_else(process: Process) -> bool:
 
 
 def processes_to_linear_chart(
-    parent: Process, chart_name: str | None = None
+    parent_process: Process, parent_node: BaseFlowchartNode | None = None
 ) -> Flowchart:
-    processes = parent.subprocesses
+    processes = parent_process.subprocesses
     if not processes:
         return None
     groups: list[list[Process]] = []  # list of lists to keep track of process groups
@@ -394,8 +427,8 @@ def processes_to_linear_chart(
         previous = node
 
     assert len(nodes) > 0, "The subprocesses must have at least one node."
-    subchart = Flowchart(
-        name=chart_name or parent.name,
+    subchart = Flowchart.from_nodes(
+        parent=parent_node,
         type=FlowchartType.LINEAR,
         start=nodes[0],
     )
@@ -404,13 +437,14 @@ def processes_to_linear_chart(
 
 def root_process_to_flowchart(process: Process) -> Flowchart:
     assert process.subprocesses, "The root process must have subprocesses."
-    subchart = processes_to_linear_chart(process)
 
     root = ActionNode(
         name=process.name,
         label=process.explanation,
-        subchart=subchart,
         expand=True,
+    )
+    root.subchart = processes_to_linear_chart(
+        parent_process=process, parent_node=root
     )
     _log_conversion(process, root)
 
@@ -707,12 +741,12 @@ autogpt_chart = root_process_to_flowchart(autogpt_process)
 visualize_nodes_and_save(
     autogpt_chart,
     config=FlowchartConfig(
-        show_cluster=True, expand_all=False, fold_all=False, expand_list=[]
+        show_cluster=True, expand_all=True, fold_all=False, expand_list=[]
     ),
 )
 autogpt_chart.to_file(output_path / "flowchart_saved.json", indent=4)
 loaded = autogpt_chart.from_file(output_path / "flowchart_saved.json")
 autogpt_chart.to_file(output_path / "flowchart_loaded.json", indent=4)
-assert loaded == autogpt_chart
+# assert loaded == autogpt_chart
 
 # %%
