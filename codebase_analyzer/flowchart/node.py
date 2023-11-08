@@ -1,14 +1,16 @@
 # %%
 from __future__ import annotations
 
+import json
+from abc import ABC
 from enum import Enum
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, NewType
 from uuid import uuid4
 
 import pygraphviz as pgv
 from loguru import logger
-from pydantic import BaseModel, Field, root_validator
+from pydantic import BaseModel, Field, root_validator, validator
 
 from codebase_analyzer.flowchart.datamodel import (
     ActionPattern,
@@ -26,11 +28,6 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 CACHE_ROOT = REPO_ROOT / "shared_cache"
 LOCAL_ROOT = REPO_ROOT / ".local"
 
-# Convert Process to Nodes
-# decide patterns of each node
-# Convert the node type to the decided pattern
-from abc import ABC
-
 
 class FlowchartType(Enum):
     IF: str = "IF"
@@ -38,48 +35,64 @@ class FlowchartType(Enum):
     LINEAR: str = "LINEAR"
 
 
-from typing import NewType
-
 NodeURI = NewType("NodeURI", URI)
-ChartURI = NewType("ChartURI", URI)
+
+# HACK: a temporary fix of circular type annotation BaseFlowchartNode
+# We probably will fix this by using NodeURI instead of Node Class.
+BaseFlowchartNodeType = NewType("BaseFlowchartNodeType", BaseModel)
 
 
 class Connection(BaseModel):
-    # TODO: Add check for valid connection
-    # TODO: need to fix the type annotation BaseFlowchartNode
-    node: Any
-    label: str = None
-    # NOTE: Must add in_edges after adding the subgraph to show clusters
+    node: BaseFlowchartNodeType
+    label: str = Field(default="")
+    # NOTE: Need `graph` to add edge to the outer level graph to show clusters
     # correctly. Otherwise the from_node in the edges will be added to the
-    # subgraph. Also, start node is unknown at this point.
-    graph: pgv.AGraph = None
+    # subgraph.
+    graph: pgv.AGraph = Field(default=None)
 
     class Config:
         arbitrary_types_allowed = True
 
 
+def serialize_flowchart_node(node: BaseFlowchartNodeType) -> dict:
+    if isinstance(node, BaseModel):
+        return node.dict()
+    else:
+        # Replace with custom logic as necessary
+        raise TypeError(f"Cannot serialize node type: {type(node)}")
+
+
 class Flowchart(BaseModel):
     name: str | None = Field(default=None)
-    # TODO: Make uuid_name same with Node's name?
-    uuid_name: str
+    # TODO: Make uuid same with Node's name?
+    uuid: str
     type: FlowchartType
-    start: Any
+    start: BaseFlowchartNodeType
     out_edges: list[Connection] = Field(default_factory=list)
 
     @root_validator(pre=True)
-    def set_chart_uuid_name(cls, values: dict) -> str:
+    def set_chart_uuid(cls, values: dict) -> str:
         name = values.get("name", "no_name")
-        values["uuid_name"] = f"{name}_{str(uuid4())}"
+        values["uuid"] = f"{name}_{str(uuid4())}"
         return values
+
+    def to_file(self, json_file: Path, indent: int = 4) -> None:
+        json_file.write_text(self.json(indent=indent))
+
+    @classmethod
+    def from_file(self, json_file: Path) -> Flowchart:
+        data = json_file.read_text()
+        return self.parse_raw(data)
 
 
 class BaseFlowchartNode(BaseModel, ABC):
+    color: ClassVar[str]
     shape: ClassVar[str]
     name: str
-    uuid_name: str
+    uuid: str
     label: str
-    # Any node can have a subchart but after reorganizing, only IfNode and
-    # LoopNode will have subcharts
+    # NOTE: Any node can have a subchart after merging.
+    # but after reorganizing, only IfNode and LoopNode will have subcharts
     subchart: Flowchart = None
     expand: bool = False
 
@@ -89,12 +102,16 @@ class BaseFlowchartNode(BaseModel, ABC):
         return dict(
             label=self.label,
             shape=self.shape,
+            style="filled",
+            fontname="Arial",
+            fillcolor=self.color,
         )
 
+    # TODO: improve node name logic by using increamental index?
     @root_validator(pre=True)
-    def set_uuid_name(cls, values: dict) -> str:
+    def set_uuid(cls, values: dict) -> str:
         name = values.get("name", "no_name")
-        values["uuid_name"] = f"{name}_{str(uuid4())}"
+        values["uuid"] = f"{name}_{str(uuid4())}"
         return values
 
     @property
@@ -103,6 +120,7 @@ class BaseFlowchartNode(BaseModel, ABC):
 
 
 class ActionNode(BaseFlowchartNode):
+    color: ClassVar[str] = "skyblue"
     shape: ClassVar[str] = "box"
     next: BaseFlowchartNode | None = None
 
@@ -115,24 +133,26 @@ class ActionNode(BaseFlowchartNode):
 
 class DecisionNode(BaseFlowchartNode):
     shape: ClassVar[str] = "diamond"
+    color: ClassVar[str] = "orange"
 
     true: BaseFlowchartNode | None = None
     false: BaseFlowchartNode | None = None
 
-    def true_out_edge(self, graph: pgv.AGraph | None = None) -> Connection | None:
-        return Connection(node=self, label="Yes", graph=graph)
+    def true_out_edges(self, graph: pgv.AGraph | None = None) -> list[Connection]:
+        return [Connection(node=self, label="Yes", graph=graph)]
 
-    def false_out_edge(self, graph: pgv.AGraph | None = None) -> Connection | None:
-        return Connection(node=self, label="No", graph=graph)
+    def false_out_edges(self, graph: pgv.AGraph | None = None) -> list[Connection]:
+        return [Connection(node=self, label="No", graph=graph)]
 
     def out_edges(self, graph: pgv.AGraph | None = None) -> list[Connection]:
-        return [self.true_out_edge(graph), self.false_out_edge(graph)]
+        return self.true_out_edges(graph) + self.false_out_edges(graph)
 
 
 class LoopNode(BaseFlowchartNode):
     """Node for start a new iteration of a loop."""
 
-    shape: ClassVar[str] = "oval"
+    shape: ClassVar[str] = "box"
+    color: ClassVar[str] = "cornflowerblue"
     next: BaseFlowchartNode | None = None
 
     def out_edge(self, graph: pgv.AGraph | None = None) -> Connection | None:
@@ -146,19 +166,14 @@ class ExitNode(BaseFlowchartNode):
     """Exits from the middle of the flowchart."""
 
     shape: ClassVar[str] = "oval"
-
-    # @property
-    # def node_attrs(self) -> dict[str, str]:
-    #     return dict(
-    #         label="",
-    #         shape=self.shape,
-    #     )
+    color: ClassVar[str] = "lavender"
 
 
 class StartNode(BaseFlowchartNode):
     """The start of the flowchart."""
 
     shape: ClassVar[str] = "oval"
+    color: ClassVar[str] = "palegreen"
     name: str = "flowchart_start"
     label: str = "Start"
     next: BaseFlowchartNode
@@ -174,6 +189,7 @@ class EndNode(BaseFlowchartNode):
     """The end of the flowchart."""
 
     shape: ClassVar[str] = "oval"
+    color: ClassVar[str] = "brown2"
     name: str = "flowchart_end"
     label: str = "End"
 
@@ -227,8 +243,6 @@ def process_to_node_with_loop_chart(process: Process) -> ActionNode:
 
     # Chart including setup, body, and decision nodes
     subchart = Flowchart(name=process.name, type=FlowchartType.LOOP, start=setup)
-    # TODO subchart.out_edges seems not necessary
-    # subchart.out_edges.append(decision.true_out_edge)
 
     # Parent node of the chart
     parent = ActionNode(
@@ -266,10 +280,7 @@ def _create_node_with_if_chart(processes: list[Process]) -> ActionNode:
         label=if_process.pattern.decision,
         true=true,
     )
-    # TODO: Rethink when remove nesting structure.
-    subchart = Flowchart(type=FlowchartType.IF, start=decision)
-    # subchart.out_edges.append(true.out_edge)
-    # TODO: improve the if_node.label to a summary of if_process + all left processes.
+    subchart = Flowchart(name=if_process.name, type=FlowchartType.IF, start=decision)
 
     if _still_has_elif(processes):
         decision.false = _create_node_with_if_chart(processes)
@@ -284,11 +295,10 @@ def _create_node_with_if_chart(processes: list[Process]) -> ActionNode:
     else:
         logger.warning("The if process doesn't have a false branch.")
 
-    # if decision.false:
-    #     subchart.out_edges.append(decision.false.out_edge)
-
     if_node = ActionNode(
         name=if_process.name,
+        # TODO: improve the if_node.label to a summary of if_process + all
+        # sub/elif/else processes.
         label=if_process.explanation,
         subchart=subchart,
         # Expand if there are subprocesses or if-elif-else groups
@@ -324,7 +334,7 @@ def _is_if_group(processes: list[Process]) -> bool:
     return True
 
 
-def process_to_node(processes: list[Process]) -> BaseFlowchartNode:
+def processes_to_node(processes: list[Process]) -> BaseFlowchartNode:
 
     if len(processes) == 1:
         process = processes[0]
@@ -333,12 +343,13 @@ def process_to_node(processes: list[Process]) -> BaseFlowchartNode:
         elif isinstance(process.pattern, ExitPattern):
             return process_to_exit_node(process)
         elif isinstance(process.pattern, LoopPattern):
-            return process_to_node_with_loop_chart(process)  # Placeholder for now
-        # For If without elif or else, we will also treat it with the group handler for consistency
+            return process_to_node_with_loop_chart(process)
         elif isinstance(process.pattern, IfPattern):
+            # For If without elif or else, we will also treat it with the group
+            # handler for consistency
             return processes_to_node_with_if_chart(processes)
-            # Single If as a group for consistency
     elif _is_if_group(processes):
+        # Single If as a group for consistency
         return processes_to_node_with_if_chart(processes)
 
 
@@ -351,9 +362,9 @@ def _is_elif_or_else(process: Process) -> bool:
 
 
 def processes_to_linear_chart(
-    parent_process: Process, chart_name: str | None = None
+    parent: Process, chart_name: str | None = None
 ) -> Flowchart:
-    processes = parent_process.subprocesses
+    processes = parent.subprocesses
     if not processes:
         return None
     groups: list[list[Process]] = []  # list of lists to keep track of process groups
@@ -373,11 +384,10 @@ def processes_to_linear_chart(
     nodes = []
     previous = None
     for group in groups:
-        node = process_to_node(group)
-        # All nodes at parent level should be ActionNode.
+        node = processes_to_node(group)
         assert isinstance(
             node, (ExitNode, ActionNode)
-        ), f"{type(node)} is not ActionNode."
+        ), f"{node.name=} {type(node)=} Cannot be a parent node."
         nodes.append(node)
         if previous is not None:
             previous.next = node
@@ -385,14 +395,14 @@ def processes_to_linear_chart(
 
     assert len(nodes) > 0, "The subprocesses must have at least one node."
     subchart = Flowchart(
-        name=chart_name or parent_process.name,
+        name=chart_name or parent.name,
         type=FlowchartType.LINEAR,
         start=nodes[0],
     )
     return subchart
 
 
-def root_process_to_flowchart(process: Process) -> ActionNode:
+def root_process_to_flowchart(process: Process) -> Flowchart:
     assert process.subprocesses, "The root process must have subprocesses."
     subchart = processes_to_linear_chart(process)
 
@@ -414,7 +424,7 @@ def root_process_to_flowchart(process: Process) -> ActionNode:
 
 
 def _add_in_edges(
-    current_graph: pgv.AGraph, to_node: str, in_edges: list[Connection]
+    to_node_graph: pgv.AGraph, to_node: str, in_edges: list[Connection]
 ) -> None:
     if in_edges:
         assert isinstance(in_edges, list)
@@ -422,21 +432,22 @@ def _add_in_edges(
             if edge is None:
                 continue
             assert isinstance(edge, Connection)
-            # NOTE: We use this way to avoid duplicate edges when there is a
-            # loop. But this cannot avoid repeated traversal, so still need to
-            # think of a better way. It's mainly from the loop decision.false
-            # branch.
-            from_node = edge.node.uuid_name
+            from_node = edge.node.uuid
             node_edge = (from_node, to_node)
             graph = edge.graph
+            # NOTE: We use this way to avoid duplicate edges when there is a
+            # loop. It's only loop [decision.false] -> [loop setup], so no the
+            # edge.node and to_node are in the same graph.
+            # We need to be careful if there are connection causing loops between
+            # nodes in different graphs.
+            assert not to_node_graph.has_edge(node_edge)
             if not graph.has_edge(node_edge):
                 graph.add_edge(node_edge, label=edge.label)
             elif graph.get_edge(*node_edge).attr["label"] != edge.label:
                 logger.warning(
-                    f"""
-                    Edge {node_edge} already exists with label {graph.get_edge(node_edge).attr['label']}.
-                    Will overwrite with label {edge.label}.
-                               """
+                    f"Edge {node_edge} already exists with label "
+                    f"{graph.get_edge(node_edge).attr['label']}. "
+                    f"Will overwrite with label {edge.label}."
                 )
                 graph.add_edge(node_edge, label=edge.label)
             else:
@@ -451,6 +462,12 @@ class FlowchartConfig(BaseModel):
     expand_all: bool = False
     fold_all: bool = False  # Has higher priority than expand_all
     expand_list: list[str] = Field(default_factory=list)
+
+    @validator("expand_all")
+    def expand_all_logging(cls, v: bool) -> bool:
+        if v:
+            logger.info("Expand all nodes regardless other settings.")
+        return v
 
 
 def _is_expand(node: BaseFlowchartNode, config: FlowchartConfig) -> bool:
@@ -470,19 +487,18 @@ def node_to_graph(
     config: FlowchartConfig,
     in_edges: list[Connection] | None = None,
 ) -> None:
-    if graph is None:
-        graph = pgv.AGraph(name=node.uuid_name, directed=True, strict=False)
+    assert graph is not None
 
     if node is None:
         return in_edges
 
-    if graph.has_node(node.uuid_name):
-        _add_in_edges(graph, node.uuid_name, in_edges)
+    if graph.has_node(node.uuid):
+        # LoopDecision.false branch points to an existing LoopSetup node.
+        _add_in_edges(graph, node.uuid, in_edges)
         return []
 
     if _is_expand(node, config):
         # For now all nodes with subcharts are ActionNodes
-        # TODO: Use logic block
         assert isinstance(node, ActionNode)
         out_edges = flowchart_to_graph(
             node.subchart, graph, in_edges=in_edges, config=config
@@ -493,19 +509,16 @@ def node_to_graph(
             )
         return out_edges
 
-    # TODO: improve node name logic
-    graph.add_node(node.uuid_name, **node.node_attrs)
-    logger.debug(
-        f"Adding node\n\t{node.uuid_name=}\n\t{node.label=}\n\t{graph.name=}."
-    )
-    _add_in_edges(graph, node.uuid_name, in_edges)
+    graph.add_node(node.uuid, **node.node_attrs)
+    logger.debug(f"Adding node\n\t{node.uuid=}\n\t{node.label=}\n\t{graph.name=}.")
+    _add_in_edges(graph, node.uuid, in_edges)
 
     if isinstance(node, DecisionNode):
         true_out = node_to_graph(
-            node.true, graph, in_edges=[node.true_out_edge(graph)], config=config
+            node.true, graph, in_edges=node.true_out_edges(graph), config=config
         )
         false_out = node_to_graph(
-            node.false, graph, in_edges=[node.false_out_edge(graph)], config=config
+            node.false, graph, in_edges=node.false_out_edges(graph), config=config
         )
         out_edges = true_out + false_out
     elif isinstance(node, (ActionNode, StartNode)):
@@ -513,7 +526,6 @@ def node_to_graph(
             node.next, graph, in_edges=node.out_edges(graph), config=config
         )
     elif isinstance(node, LoopNode):
-        # TODO: Maybe we can do something to avoid the repeated traversal
         out_edges = node_to_graph(
             node.next, graph, in_edges=node.out_edges(graph), config=config
         )
@@ -531,15 +543,14 @@ def flowchart_to_graph(
     in_edges: list[Connection] | None = None,
 ) -> pgv.AGraph:
     subgraph_name = (
-        f"cluster_{flowchart.uuid_name}"
-        if config.show_cluster
-        else flowchart.uuid_name
+        f"cluster_{flowchart.uuid}" if config.show_cluster else flowchart.uuid
     )
-    with graph.subgraph(name=subgraph_name) as subgraph:
+    with graph.subgraph(
+        name=subgraph_name, label=flowchart.name, labeljust="l"
+    ) as subgraph:
         out_edges = node_to_graph(
             flowchart.start, graph=subgraph, config=config, in_edges=in_edges
         )
-    # _add_in_edges(graph, flowchart.start.uuid_name, in_edges)
     for e in out_edges:
         e.graph = graph
     return out_edges
@@ -550,9 +561,9 @@ def visualize_nodes_and_save(
 ) -> pgv.AGraph:
     if config is None:
         config = FlowchartConfig(
-            show_cluster=True, expand_all=True, fold_all=False, expand_list=[]
+            show_cluster=False, expand_all=False, fold_all=False, expand_list=[]
         )
-    graph = pgv.AGraph(name=input.name, strict=False, directed=True)
+    graph = pgv.AGraph(name=input.name, strict=False, directed=True, rankdir="TB")
     if isinstance(input, Flowchart):
         flowchart_to_graph(input, graph=graph, config=config)
     elif isinstance(input, BaseFlowchartNode):
@@ -674,10 +685,7 @@ if __name__ == "__main__":
         test_if_process_no_else,
         *test_if_elif_else_processes,
         test_loop_process,
-        # test_exit_process,
     ]
-    # converted_nodes = processes_to_linear_chart(all_test_processes)
-    # logger.info("======")
 
     parent_process = Process(
         name="ParentProcess",
@@ -696,4 +704,15 @@ output_path = Path(
 )
 autogpt_process = Process.from_file(output_path / "process_saved.json")
 autogpt_chart = root_process_to_flowchart(autogpt_process)
-visualize_nodes_and_save(autogpt_chart)
+visualize_nodes_and_save(
+    autogpt_chart,
+    config=FlowchartConfig(
+        show_cluster=True, expand_all=False, fold_all=False, expand_list=[]
+    ),
+)
+autogpt_chart.to_file(output_path / "flowchart_saved.json", indent=4)
+loaded = autogpt_chart.from_file(output_path / "flowchart_saved.json")
+autogpt_chart.to_file(output_path / "flowchart_loaded.json", indent=4)
+assert loaded == autogpt_chart
+
+# %%
