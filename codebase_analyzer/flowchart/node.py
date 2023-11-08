@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from abc import ABC
+from collections import defaultdict
 from enum import Enum
 from pathlib import Path
 from typing import Any, ClassVar, NewType
@@ -63,8 +64,7 @@ def serialize_flowchart_node(node: BaseFlowchartNodeType) -> dict:
 
 
 class Flowchart(BaseModel):
-    name: str | None = Field(default=None)
-    # TODO: Make uuid same with Node's name?
+    name: str
     uuid: str
     type: FlowchartType
     start: BaseFlowchartNodeType
@@ -98,9 +98,19 @@ class Flowchart(BaseModel):
     def to_file(self, json_file: Path, indent: int = 4) -> None:
         json_file.write_text(self.json(indent=indent))
 
-    def check(self) -> None:
+    def check(
+        self, expected_parent: str | None = None, checked: set[str] | None = None
+    ) -> None:
+        # For now we only require the chart.uuid == parent_node.uuid
+        # We might also want to check if chart.name == cluster_{parent_node.name}
+        if checked is None:
+            checked = defaultdict(list)
         logger.debug(f"Validating flowchart {self.name}")
-        self.start.check()
+        if expected_parent and self.uuid != expected_parent:
+            checked[self.uuid].append(f"[Chart] {self.uuid=} != {expected_parent=}")
+        logger.debug(f"\tChart uuid OK for chart {self.name}")
+        self.start.check(expected_parent=self.uuid, checked=checked)
+        return checked
 
 
 class BaseFlowchartNode(BaseModel, ABC):
@@ -113,7 +123,7 @@ class BaseFlowchartNode(BaseModel, ABC):
     parent_uuid: str | None = None
     # NOTE: Any node can have a subchart after merging.
     # but after reorganizing, only IfNode and LoopNode will have subcharts
-    subchart: Flowchart = None
+    subchart: Flowchart = Field(default=None)
     expand: bool = False
 
     @property
@@ -152,19 +162,35 @@ class BaseFlowchartNode(BaseModel, ABC):
     def type(self) -> str:
         return self.__class__.__name__
 
-    def check_subchart(self) -> None:
-        logger.debug(
-            f"Validating node {self.name} with subchart {self.subchart is not None}"
-        )
-        if self.subchart:
-            # For now we only require the uuid to be the same, not also the name
-            if self.uuid != self.subchart.uuid:
-                raise ValueError(f"{self.uuid=} != {self.subchart.uuid=}")
-            logger.debug(f"UUID consistant for node {self.name}")
-            self.subchart.check()
+    def check_parent_uuid(
+        self,
+        expected_parent: str | None = None,
+        checked: dict[str, list[str]] | None = None,
+    ) -> None:
+        if expected_parent and self.parent_uuid != expected_parent:
+            checked[self.uuid].append(
+                f"[Node] {self.name=} {self.parent_uuid=} != {expected_parent=}"
+            )
+        logger.debug(f"\tNode parent_uuid OK for node {self.name}")
 
-    def check(self) -> None:
-        raise NotImplementedError
+    def check(
+        self,
+        expected_parent: str | None = None,
+        checked: dict[str, list[str]] | None = None,
+    ) -> None:
+        if checked is None:
+            checked = defaultdict(list)
+
+        if self.uuid in checked:
+            return
+
+        logger.info(f"Checking node {self.name} with parent {expected_parent}")
+        self.check_parent_uuid(expected_parent=expected_parent, checked=checked)
+
+        if self.subchart:
+            self.subchart.check(checked=checked, expected_parent=self.uuid)
+        else:
+            logger.debug(f"\tNo subchart for node {self.name}")
 
 
 class BaseLinearNode(BaseFlowchartNode):
@@ -179,10 +205,15 @@ class BaseLinearNode(BaseFlowchartNode):
     def out_edges(self, graph: pgv.AGraph | None = None) -> list[Connection]:
         return [self.out_edge(graph)]
 
-    def check(self) -> None:
-        self.check_subchart()
+    def check(
+        self,
+        expected_parent: str | None = None,
+        checked: dict[str, list[str]] | None = None,
+    ) -> None:
+        super().check(expected_parent=expected_parent, checked=checked)
         if self.next is not None:
-            self.next.check()
+            self.next.check(expected_parent=expected_parent, checked=checked)
+        return checked
 
 
 class StartNode(BaseLinearNode):
@@ -222,12 +253,16 @@ class DecisionNode(BaseFlowchartNode):
     def out_edges(self, graph: pgv.AGraph | None = None) -> list[Connection]:
         return self.true_out_edges(graph) + self.false_out_edges(graph)
 
-    def check(self) -> None:
-        self.check_subchart()
+    def check(
+        self,
+        expected_parent: str | None = None,
+        checked: dict[str, list[str]] | None = None,
+    ) -> None:
+        super().check(expected_parent=expected_parent, checked=checked)
         if self.true is not None:
-            self.true.check()
+            self.true.check(expected_parent=expected_parent, checked=checked)
         if self.false is not None:
-            self.false.check()
+            self.false.check(expected_parent=expected_parent, checked=checked)
 
 
 class ExitNode(BaseFlowchartNode):
@@ -489,29 +524,33 @@ def processes_to_linear_chart(
         type=FlowchartType.LINEAR,
         start=nodes[0],
     )
+    _log_conversion(parent_process, parent_node)
     return subchart
 
 
 def root_process_to_flowchart(process: Process) -> Flowchart:
     assert process.subprocesses, "The root process must have subprocesses."
-
-    root = ActionNode(
+    root_uuid = f"root_{process.name}_{uuid4()}"
+    end = ExitNode(name="flowchart_end", label="End", parent_uuid=root_uuid)
+    body = ActionNode(
         name=process.name,
         label=process.explanation,
         expand=True,
+        next=end,
+        parent_uuid=root_uuid,
     )
-    root.subchart = processes_to_linear_chart(
-        parent_process=process, parent_node=root
+    body.subchart = processes_to_linear_chart(
+        parent_process=process, parent_node=body
     )
-    _log_conversion(process, root)
+    start = StartNode(name="flowchart_start", next=body, parent_uuid=root_uuid)
 
-    start = StartNode(next=root)
-    end = EndNode()
-    root.next = end
-    chart = Flowchart(
-        name=f"{process.name}_root", type=FlowchartType.LINEAR, start=start
+    root_chart = Flowchart(
+        name=f"root_{process.name}",
+        type=FlowchartType.LINEAR,
+        start=start,
+        uuid=root_uuid,
     )
-    return chart
+    return root_chart
 
 
 def _add_in_edges(
@@ -821,5 +860,9 @@ autogpt_chart.to_file(output_path / "flowchart_saved.json", indent=4)
 loaded = autogpt_chart.from_file(output_path / "flowchart_saved.json")
 autogpt_chart.to_file(output_path / "flowchart_loaded.json", indent=4)
 # assert loaded == autogpt_chart
-
+checked = autogpt_chart.check()
+for k, v in checked.items():
+    print(k)
+    for i in v:
+        print("\t", i)
 # %%
