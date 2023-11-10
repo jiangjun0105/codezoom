@@ -779,9 +779,11 @@ def _is_expand(node: BaseFlowchartNode, config: FlowchartConfig) -> bool:
     if node.subchart is None:
         # TODO: Mabye we can add further expand logic here
         return False
-    if config.expand_all or node.expand or (node.name in config.expand_list):
+    if config.expand_all:
         return True
-    return False
+    if node.uuid in config.expand_list:
+        node.expand = True
+    return node.expand
 
 
 def node_to_graph(
@@ -859,8 +861,13 @@ def flowchart_to_graph(
     return out_edges
 
 
-def visualize_nodes_and_save(
-    input: Flowchart | BaseFlowchartNode, config: FlowchartConfig | None = None
+def flowchart_node_to_dot_graph(
+    input: Flowchart | BaseFlowchartNode,
+    config: FlowchartConfig | None = None,
+    save_png: bool = True,
+    save_dot: bool = True,
+    output_path: Path | None = None,
+    suffix: str = "",
 ) -> pgv.AGraph:
     if config is None:
         config = FlowchartConfig(
@@ -873,8 +880,14 @@ def visualize_nodes_and_save(
         node_to_graph(input, graph=graph, config=config)
     else:
         raise ValueError(f"Cannot visualize {type(input)}")
-    graph.draw(Path(__file__).parent / f"test/{input.name}.png", prog="dot")
-    graph.write(Path(__file__).parent / f"test/{input.name}.dot")
+
+    if output_path is None:
+        output_path = Path(__file__).parent / "dot_graphs"
+        output_path.mkdir(parents=True, exist_ok=True)
+    if save_png:
+        graph.draw(output_path / f"{input.name}{suffix}.png", prog="dot")
+    if save_dot:
+        graph.write(output_path / f"{input.name}{suffix}.dot")
     return graph
 
 
@@ -899,7 +912,7 @@ if __name__ == "__main__":
     converted_action_node = process_to_action_node(
         test_action_process, parent_node=dummy_parent_node
     )
-    visualize_nodes_and_save(converted_action_node)
+    flowchart_node_to_dot_graph(converted_action_node)
     logger.info("======")
 
     test_exit_process = Process(
@@ -910,7 +923,7 @@ if __name__ == "__main__":
     converted_exit_node = process_to_exit_node(
         test_exit_process, parent_node=dummy_parent_node
     )
-    visualize_nodes_and_save(converted_exit_node)
+    flowchart_node_to_dot_graph(converted_exit_node)
     logger.info("======")
 
     test_if_process_no_else = Process(
@@ -922,7 +935,7 @@ if __name__ == "__main__":
         [test_if_process_no_else],
         parent_node=dummy_parent_node,
     )
-    visualize_nodes_and_save(converted_if_node_no_else)
+    flowchart_node_to_dot_graph(converted_if_node_no_else)
     logger.info("======")
 
     test_if_process_no_sub = Process(
@@ -934,7 +947,7 @@ if __name__ == "__main__":
         [test_if_process_no_sub],
         parent_node=dummy_parent_node,
     )
-    visualize_nodes_and_save(converted_if_node_no_sub)
+    flowchart_node_to_dot_graph(converted_if_node_no_sub)
     logger.info("======")
 
     test_if_process = Process(
@@ -949,7 +962,7 @@ if __name__ == "__main__":
     converted_if_node = processes_to_node_with_if_chart(
         [test_if_process], parent_node=dummy_parent_node
     )
-    visualize_nodes_and_save(converted_if_node)
+    flowchart_node_to_dot_graph(converted_if_node)
     logger.info("======")
 
     test_if_elif_else_processes = [
@@ -978,7 +991,7 @@ if __name__ == "__main__":
         test_if_elif_else_processes,
         parent_node=dummy_parent_node,
     )
-    visualize_nodes_and_save(converted_if_elif_else_node)
+    flowchart_node_to_dot_graph(converted_if_elif_else_node)
     logger.info("======")
 
     test_loop_process = Process(
@@ -995,7 +1008,7 @@ if __name__ == "__main__":
     converted_loop_node = process_to_node_with_loop_chart(
         test_loop_process, parent_node=dummy_parent_node
     )
-    visualize_nodes_and_save(converted_loop_node)
+    flowchart_node_to_dot_graph(converted_loop_node)
     logger.info("======")
 
     all_test_processes = [
@@ -1012,7 +1025,7 @@ if __name__ == "__main__":
         subprocesses=all_test_processes,
     )
     converted_flowchart = root_process_to_flowchart(parent_process)
-    visualize_nodes_and_save(converted_flowchart)
+    flowchart_node_to_dot_graph(converted_flowchart)
     logger.info("======")
 
     pass
@@ -1072,18 +1085,56 @@ def test_save_load(test_node):
 output_path = Path(
     "/Users/jun/Projects/ichigen-coder/.local/flowcharts/autogpt/app/main/run_auto_gpt"
 )
-autogpt_process = Process.from_file(output_path / "process_saved.json")
-autogpt_chart = root_process_to_flowchart(autogpt_process)
-visualize_nodes_and_save(
+# autogpt_process = Process.from_file(output_path / "process_saved.json")
+# autogpt_chart = root_process_to_flowchart(autogpt_process)
+test_path = Path(__file__).parent / "dot_graphs"
+# converted_flowchart.to_file(test_path / "flowchart_test.json", indent=4)
+# %%
+autogpt_chart = Flowchart.from_file(output_path / "flowchart_saved.json")
+# autogpt_chart = Flowchart.from_file(test_path/ "flowchart_test.json")
+dotgraph = flowchart_node_to_dot_graph(
     autogpt_chart,
     config=FlowchartConfig(
-        show_cluster=True, expand_all=True, fold_all=False, expand_list=[]
+        show_cluster=False, expand_all=False, fold_all=False, expand_list=[]
     ),
+    save_png=True,
+    save_dot=True,
+    # output_path=output_path,
 )
-autogpt_chart.to_file(output_path / "flowchart_saved.json", indent=4)
-# loaded = autogpt_chart.from_file(output_path / "flowchart_saved.json")
-autogpt_chart.to_file(output_path / "flowchart_loaded.json", indent=4)
+dotgraph1 = flowchart_node_to_dot_graph(
+    autogpt_chart,
+    config=FlowchartConfig(
+        show_cluster=False,
+        expand_all=False,
+        fold_all=False,
+        expand_list=[
+            "ParentProcess_67b36ebe-65c4-4293-9f9a-4edaecdd8263",
+        ],
+    ),
+    save_png=True,
+    save_dot=True,
+    # output_path=output_path,
+    suffix="_1",
+)
+dotgraph2 = flowchart_node_to_dot_graph(
+    autogpt_chart,
+    config=FlowchartConfig(
+        show_cluster=False,
+        expand_all=False,
+        fold_all=False,
+        expand_list=[
+            "IfProcess_with_elif_else_438f0930-25b0-40f7-9ac8-58ae095a5c2d",
+        ],
+    ),
+    save_png=True,
+    save_dot=True,
+    suffix="_2"
+    # output_path=output_path,
+)
+autogpt_chart.to_file(Path(__file__).parent / "flowchart_changed.json", indent=4)
 # assert loaded == autogpt_chart
-checked = autogpt_chart.check()
-test_save_load(autogpt_chart)
+# test_save_load(autogpt_chart)
 # %%
+# %%timeit
+# f = Flowchart.from_file(output_path / "flowchart_saved.json")
+# g = flowchart_node_to_dot_graph(f, config=FlowchartConfig(expand_all=True), save_dot=True, save_png=False)
