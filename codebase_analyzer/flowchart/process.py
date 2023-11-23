@@ -1,12 +1,8 @@
 # %%
 from __future__ import annotations
 
-import json
-from collections import defaultdict
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
-from typing import ClassVar
 
 import pandas as pd
 from langchain.chains import LLMChain
@@ -43,6 +39,8 @@ LOCAL_ROOT = REPO_ROOT / ".local"
 OVERALL_SYSTEM = """
 You are an expert in analyzing the process logics of programming languages.
 """
+# 1. You need to omit/simplify the unimportant processes or implementation details \
+# and extract the major logics,
 
 # TODO: We need a more robust way to ensure GPT follows the rule that subprocesses of if/elif/loop are in child-level.
 GENERATE_PROCESS_INSTRUCTIONS = """
@@ -54,8 +52,6 @@ Several Notes:
 1. Every process should has an index in format `x.y.z`. Ensure the indexes follow the rules:
     * Continuous: `x`'s next index must be `x+1`, also `x.y`'s next must be `x.y+1`.
     * Hierarchical: `x.y.z`'s children must be `x.y.z.1`, `x.y.z.2`, etc.
-1. You need to omit/simplify the unimportant processes or implementation details \
-and extract the major logics,
 1. Put the processes in  branches of if/else or inside loop to a child-level with more indentations, e.g:
     ```python
     if condition:
@@ -69,6 +65,8 @@ and extract the major logics,
         1.1 **true_process**: true_process
     2. **else**: else:
         2.2 **false_process**: false_process
+
+1. Ensure the hierarchy of the process matches the hierarchy of the code, i.e. the processes under if/else/loop should be sub-processes of the if/else/loop process.
 """
 
 GENERATE_PROCESS_EXAMPLE_INPUT = """
@@ -221,7 +219,7 @@ def generate_by_chain(
     )
     chain = LLMChain(
         llm=ChatOpenAI(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             temperature=0,
             streaming=True,
             verbose=True,
@@ -241,7 +239,7 @@ def generate_by_chain(
         outputs = chain(inputs=inputs)
     else:
         outputs = inputs.copy()
-        outputs[chain.output_key] = "Fake response of gpt-4"
+        outputs[chain.output_key] = "Fake response of gpt-3.5-turbo"
 
     if output_path is not None:
         output_path.write_text(outputs[chain.output_key])
@@ -264,65 +262,13 @@ def code_to_process(
     return outputs
 
 
-code_info = CodeInfo.from_disk(input_path=CACHE_ROOT / "Auto-GPT/codeinfo.json")
-nodes = code_info.nodes
-output_dir = (LOCAL_ROOT / "flowcharts").absolute()
-debug_uri = "/autogpt.logs.logger/Logger.debug"
-main_uri = "/autogpt.app.main/run_auto_gpt"
-update_uri = "/autogpt.app.main/update_user"
-loop_uri = "/autogpt.app.main/run_interaction_loop"
-
-target_uri = main_uri
-output_path = _output_path(target_uri, output_dir=output_dir)
-print(output_path)
-# code_to_process(
-#     target_uri=target_uri,
-#     nodes=nodes,
-#     call_api=True,
-#     output_path=output_path,
-# )
-if False:
-    c = """
-    # other code ommited ...
-
-    # Code to analyze from here
-    if not config.skip_news:
-        (motd, is_new_motd) = get_latest_bulletin()
-        if motd:
-            motd = markdown_to_ansi_style(motd)
-            for motd_line in motd.split('\n'):
-                logger.info(motd_line, 'NEWS:', Fore.GREEN)
-            if is_new_motd and (not config.chat_messages_enabled):
-                input(Fore.MAGENTA + Style.BRIGHT + 'NEWS: Bulletin was updated! Press Enter to continue...' + Style.RESET_ALL)
-        git_branch = get_current_git_branch()
-        if git_branch and git_branch != 'stable':
-            logger.typewriter_log('WARNING: ', Fore.RED, f'You are running on `{git_branch}` branch - this is not a supported branch.')
-        if sys.version_info < (3, 10):
-            logger.typewriter_log('WARNING: ', Fore.RED, 'You are running on an older version of Python. Some people have observed problems with certain parts of Auto-GPT with this version. Please consider upgrading to Python 3.10 or higher.')
-
-    # other code ommited ...
-"""
-    s = """
-* **`get_latest_bulletin` (function)**: This code retrieves the latest bulletin from a web source and checks if it is different from the current bulletin. If there is a new bulletin, it updates the current bulletin and returns the latest bulletin along with a flag indicating if it is new.
-* **`markdown_to_ansi_style` (function)**: This code converts markdown text to ANSI style text. It applies different styles to headings and bold text.
-* **`get_current_git_branch` (function)**: This code retrieves the current branch name in a Git repository.
-* **`typewriter_log` (class_method)**: The code defines a function called `typewriter_log` that logs a message with a specified title, content, and log level. It also has an option to speak the log message using a speech engine. The function first checks if the `speak_text` flag is set to true and if the configuration allows speaking mode. If so, it calls the `say_text` function from the `autogpt.speech` module to speak the log message. Then, it iterates over a list of chat plugins and calls their `report` method to report the log message. Next, it checks the type of the content and converts it to a string if it is a list. Finally, it logs the content using the `typing_logger` with the specified title, color, and log level.
-"""
-    outputs = generate_by_chain(
-        messages=MESSAGE_SET.process_messages,
-        inputs=dict(
-            code=c,
-            summaries=s,
-        ),
-        call_api=True,
-        output_key="process_output",
-        output_path=output_path / "process_test.md",
-    )
 # %%
 import re
 
 
-def ask_gpt(prompt: str, model: str = "gpt-4", call_api: bool = False) -> str:
+def ask_gpt(
+    prompt: str, model: str = "gpt-3.5-turbo", call_api: bool = False
+) -> str:
     print(prompt)
     llm = ChatOpenAI(
         model=model,
@@ -414,14 +360,6 @@ def process_to_json(output_path: Path) -> Process:
     return process_obj
 
 
-# NO API CALL
-process_obj = process_to_json(output_path=output_path)
-from codebase_analyzer.flowchart.check_index import check_process_indexes
-
-# TODO: Fix the root index
-# check_process_indexes(process_obj)
-process_obj.to_file(output_path / "process.json")
-process = Process.from_file(output_path / "process.json")
 # %%
 # This works not bad for run_auto_gpt.
 CODE_PROCESS_PAIR = """Please associate the code of the target function with \
@@ -486,7 +424,10 @@ code_lineno, process_index
 
 
 def process_lineno(
-    target_uri: str, output_path: Path | None = None, call_api: bool = False
+    nodes: dict[URI, CodeNode],
+    target_uri: str,
+    output_path: Path | None = None,
+    call_api: bool = False,
 ) -> str:
     ## STEP2: Find the process index of each line of code
     process_file = output_path / "process.md"
@@ -513,39 +454,24 @@ def show_process_lineno(code: str, output_path: Path | None = None) -> None:
     df["process_index"] = df["process_index"].str.strip().str.strip('"')
 
 
-# target_uri = loop_uri
-# output_path = _output_path(target_uri, output_dir=output_dir)
-# process_lineno(
-#     target_uri=target_uri,
-#     output_path=output_path,
-#     call_api=True,
-# )
+# _check_save_load(process)
+# %%
+from langchain.chains.openai_functions.base import create_openai_fn_chain
+
 # %%
 from codebase_analyzer.flowchart.add_lineno import add_code_lineno
 from codebase_analyzer.flowchart.check_lineno import check_process_linenos
 
-# Call the main function
-add_code_lineno(
-    process=process,
-    csv_file=output_path / "lineno.csv",
-    code=nodes[target_uri].code,
-)
-
-check_process_linenos(process=process)
 # %%
 
 
-def _check_save_load(process):
-    process.to_file(output_path / "process_check.json")
-    new_process = Process.from_file(
-        json_file=output_path / "process_check.json",
-    )
-    assert process == new_process
+# def _check_save_load(process, output_path: Path) -> None:
+#     process.to_file(output_path / "process_check.json")
+#     new_process = Process.from_file(
+#         json_file=output_path / "process_check.json",
+#     )
+#     assert process == new_process
 
-
-_check_save_load(process)
-# %%
-from langchain.chains.openai_functions.base import create_openai_fn_chain
 
 PROCESS_PATTERN_SYSTEM = """You are an expert in analyzing programming languages and \
 creating activity flowcharts from code. A long program are divided into multiple
@@ -650,7 +576,7 @@ chain = create_openai_fn_chain(
         ExitPattern,
     ],
     llm=ChatOpenAI(
-        model="gpt-4",
+        model="gpt-3.5-turbo",
         temperature=0,
         verbose=True,
         streaming=True,
@@ -721,38 +647,80 @@ def process_pattern(
         # break
 
 
-# process_pattern(
-#     process=process,
-#     output_path=output_path,
-#     call_api=True,
-# )
-
-
 # %%
 from codebase_analyzer.flowchart.check_pattern import check_process_pattern
 
-_check_save_load(process)
-check_process_pattern(process)
-process.to_file(output_path / "process.json")
-import importlib
+if __name__ == "__main__":
+    code_info = CodeInfo.from_disk(input_path=CACHE_ROOT / "Auto-GPT/codeinfo.json")
+    nodes = code_info.nodes
+    output_dir = (LOCAL_ROOT / "flowcharts").absolute()
 
-# %%
-import codebase_analyzer.flowchart.check_pattern
+    debug_uri = "/autogpt.logs.logger/Logger.debug"
+    main_uri = "/autogpt.app.main/run_auto_gpt"
+    update_uri = "/autogpt.app.main/update_user"
+    loop_uri = "/autogpt.app.main/run_interaction_loop"
 
-importlib.reload(codebase_analyzer.flowchart.datamodel)
-from codebase_analyzer.flowchart.datamodel import Pattern, Process
+    target_uri = loop_uri
+    # %%
+    output_path = _output_path(target_uri, output_dir=output_dir)
+    print(output_path)
 
-newprocess = Process(**process.dict())
-# newprocess.dict()
-# %%
-import codebase_analyzer.flowchart.node
+    #### TODO: To file, make it return object.
+    # code_to_process(
+    #     target_uri=target_uri,
+    #     nodes=nodes,
+    #     call_api=True,
+    #     output_path=output_path,
+    # )
 
-importlib.reload(codebase_analyzer.flowchart.node)
-from codebase_analyzer.flowchart.node import (
-    root_process_to_flowchart,
-    visualize_nodes_and_save,
-)
+    # %%
+    ### NO API CALL
+    process = process_to_json(output_path=output_path)
+    from codebase_analyzer.flowchart.check_index import check_process_indexes
 
-node = root_process_to_flowchart(process)
-visualize_nodes_and_save(node)
-# %%
+    ### TODO: Fix the root index
+    process.to_file(output_path / "process.json")
+    process_lineno(
+        nodes=nodes,
+        target_uri=target_uri,
+        output_path=output_path,
+        call_api=True,
+    )
+
+    add_code_lineno(
+        process=process,
+        csv_file=output_path / "lineno.csv",
+        code=nodes[target_uri].code,
+    )
+
+    check_process_linenos(process=process)
+
+    ### %%
+    process_pattern(
+        process=process,
+        output_path=output_path,
+        call_api=True,
+    )
+
+    check_process_pattern(process)
+    process.to_file(output_path / "process.json")
+
+    # %%
+    # import codebase_analyzer.flowchart.node
+    # import importlib
+    # importlib.reload(codebase_analyzer.flowchart.node)
+    from codebase_analyzer.flowchart.node import (
+        FlowchartConfig,
+        flowchart_node_to_dot_graph,
+        flowchart_to_element_json,
+        root_process_to_flowchart,
+    )
+
+    process = Process.from_file(output_path / "process.json")
+    flowchart = root_process_to_flowchart(process)
+    flowchart_node_to_dot_graph(
+        flowchart, config=FlowchartConfig(expand_all=True, show_cluster=True)
+    )
+    # db_path = Path("/Users/jun/Projects/display-flowchart/db.json")
+    # flowchart_to_element_json(flowchart=flowchart, output_path=db_path)
+    # %%

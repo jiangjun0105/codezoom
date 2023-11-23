@@ -12,3 +12,8 @@ URI = NewType("URI", str)
 def uri_stem(uri: URI) -> str:
     parts = re.split(r"[/.]", str(uri))
     return parts[-1]
+
+
+def uri_full_func_name(uri: URI) -> str:
+    parts = re.split(r"[/]", str(uri))
+    return parts[-1]

@@ -181,6 +181,8 @@ class BaseFlowchartNode(BaseModel, ABC):
             style="filled",
             fontname="Arial",
             fillcolor=self.color,
+            parent_uuid=self.parent_uuid,
+            type=self.type,
         )
 
     # TODO: improve node name logic by using increamental index?
@@ -1082,59 +1084,92 @@ def test_save_load(test_node):
 
 
 # %%
-output_path = Path(
-    "/Users/jun/Projects/ichigen-coder/.local/flowcharts/autogpt/app/main/run_auto_gpt"
-)
-# autogpt_process = Process.from_file(output_path / "process_saved.json")
-# autogpt_chart = root_process_to_flowchart(autogpt_process)
-test_path = Path(__file__).parent / "dot_graphs"
-# converted_flowchart.to_file(test_path / "flowchart_test.json", indent=4)
+
 # %%
-autogpt_chart = Flowchart.from_file(output_path / "flowchart_saved.json")
-# autogpt_chart = Flowchart.from_file(test_path/ "flowchart_test.json")
-dotgraph = flowchart_node_to_dot_graph(
-    autogpt_chart,
-    config=FlowchartConfig(
-        show_cluster=False, expand_all=False, fold_all=False, expand_list=[]
-    ),
-    save_png=True,
-    save_dot=True,
-    # output_path=output_path,
-)
-dotgraph1 = flowchart_node_to_dot_graph(
-    autogpt_chart,
-    config=FlowchartConfig(
-        show_cluster=False,
-        expand_all=False,
-        fold_all=False,
-        expand_list=[
-            "ParentProcess_67b36ebe-65c4-4293-9f9a-4edaecdd8263",
-        ],
-    ),
-    save_png=True,
-    save_dot=True,
-    # output_path=output_path,
-    suffix="_1",
-)
-dotgraph2 = flowchart_node_to_dot_graph(
-    autogpt_chart,
-    config=FlowchartConfig(
-        show_cluster=False,
-        expand_all=False,
-        fold_all=False,
-        expand_list=[
-            "IfProcess_with_elif_else_438f0930-25b0-40f7-9ac8-58ae095a5c2d",
-        ],
-    ),
-    save_png=True,
-    save_dot=True,
-    suffix="_2"
-    # output_path=output_path,
-)
-autogpt_chart.to_file(Path(__file__).parent / "flowchart_changed.json", indent=4)
-# assert loaded == autogpt_chart
-# test_save_load(autogpt_chart)
-# %%
-# %%timeit
-# f = Flowchart.from_file(output_path / "flowchart_saved.json")
-# g = flowchart_node_to_dot_graph(f, config=FlowchartConfig(expand_all=True), save_dot=True, save_png=False)
+def _edge_element(edge) -> dict:
+    return dict(
+        group="edges",
+        data=dict(
+            id=str(uuid4()),
+            source=edge[0],
+            target=edge[1],
+            label=edge.attr["label"],
+        ),
+    )
+
+
+def _dict_node_element(node: dict) -> dict:
+    return dict(
+        group="nodes",
+        data=dict(
+            id=node["uuid"],
+            label=node["label"],
+            parent=node["parent_uuid"],
+        ),
+        classes=node["type"],
+    )
+
+
+def _node_element(node) -> dict:
+    return dict(
+        group="nodes",
+        data=dict(
+            id=node.name,
+            label=node.attr["label"],
+            parent=node.attr["parent_uuid"],
+        ),
+        classes=node.attr["type"],
+    )
+
+
+def flowchart_to_element_json(
+    flowchart: Flowchart, output_path: Path | None = None
+) -> dict:
+    # if True:
+    elements = []
+    agraph = flowchart_node_to_dot_graph(
+        flowchart,
+        save_png=False,
+        save_dot=False,
+        config=FlowchartConfig(expand_all=True),
+    )
+    flat_dict = flowchart.to_flat_dict()
+    for node in agraph.nodes():
+        elements.append(_node_element(node))
+        parent = flat_dict["nodes"].get(node.attr["parent_uuid"], None)
+        if not parent:
+            print(f"no parent for node {node.name}")
+            continue
+        elements.append(_dict_node_element(parent))
+        print(f"add parent for node {node.name}")
+
+    for edge in agraph.edges():
+        elements.append(_edge_element(edge))
+
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(dict(flowchart=elements), indent=4))
+    # return elements
+
+
+if __name__ == "__main__":
+    output_path = Path(
+        "/Users/jun/Projects/ichigen-coder/.local/flowcharts/autogpt/app/main/run_auto_gpt"
+    )
+    # autogpt_process = Process.from_file(output_path / "process_saved.json")
+    # autogpt_chart = root_process_to_flowchart(autogpt_process)
+    # test_path = Path(__file__).parent / "dot_graphs"
+    # converted_flowchart.to_file(test_path / "flowchart_test.json", indent=4)
+    autogpt_chart = Flowchart.from_file(output_path / "flowchart_saved.json")
+    # flowchart = Flowchart.from_file(test_path / "flowchart_test.json")
+
+    flowchart_to_element_json(
+        autogpt_chart, Path("/Users/jun/Projects/display-flowchart/db.json")
+    )
+    # autogpt_chart.to_file(Path(__file__).parent / "flowchart_changed.json", indent=4)
+    # assert loaded == autogpt_chart
+    # test_save_load(autogpt_chart)
+    # %%
+    # %%timeit
+    # f = Flowchart.from_file(output_path / "flowchart_saved.json")
+    # g = flowchart_node_to_dot_graph(f, config=FlowchartConfig(expand_all=True), save_dot=True, save_png=False)

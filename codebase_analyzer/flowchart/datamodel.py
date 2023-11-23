@@ -45,7 +45,6 @@ class LoopPattern(Pattern):
         description="The label of setup node which prepares any variables, data structures, or conditions that are required before entering the loop body.",
     )
     body: str = Field(
-        default=None,
         description="The label of body node, which is the main part of the loop where the repeated actions take place.",
     )
     decision: str = Field(
