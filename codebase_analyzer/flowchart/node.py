@@ -374,6 +374,7 @@ class StartNode(BaseOneOutNode):
     color: ClassVar[str] = "palegreen"
     name: str = "flowchart_start"
     label: str = "Start"
+    inputs: Any = None
 
 
 class ActionNode(BaseOneOutNode):
@@ -382,13 +383,15 @@ class ActionNode(BaseOneOutNode):
 
 
 class LoopNode(BaseOneOutNode):
-    """Node for start a new iteration of a loop."""
+    """Node for fetching next element for the next iteration of a loop."""
 
     shape: ClassVar[str] = "box"
     color: ClassVar[str] = "cornflowerblue"
 
 
 class DecisionNode(BaseFlowchartNode):
+    """Node for checking if a condition is true or not."""
+
     shape: ClassVar[str] = "diamond"
     color: ClassVar[str] = "orange"
 
@@ -445,6 +448,7 @@ class ExitNode(BaseFlowchartNode):
 
     shape: ClassVar[str] = "oval"
     color: ClassVar[str] = "lavender"
+    returns: Any = None
 
 
 class EndNode(BaseFlowchartNode):
@@ -454,6 +458,7 @@ class EndNode(BaseFlowchartNode):
     color: ClassVar[str] = "brown2"
     name: str = "flowchart_end"
     label: str = "End"
+    returns: Any = None
 
 
 def _log_conversion(process: Process, parent: BaseFlowchartNode) -> None:

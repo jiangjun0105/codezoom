@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
 
@@ -82,13 +83,25 @@ from codebase_analyzer.flowchart.process import ask_gpt
 from codebase_analyzer.tools.context import get_str_length
 
 
-class CallNode(ActionNode):
+# RETHINK HOW SHOULD DEFINE CALLNODE
+class CallNode(BaseFlowchartNode):
     """A node that represents a function call."""
 
     color: ClassVar[str] = "azure"
-    shape: ClassVar[str] = "box"
     func_uri: URI
     # TODO: add inputs and return info
+
+
+class CallActionNode(CallNode, ActionNode):
+    """An action node which is a function call."""
+
+    pass
+
+
+class CallDecisionNode(CallNode, DecisionNode):
+    """An if node which is a function call."""
+
+    pass
 
 
 def _is_same_method_call(known_call: str, test_call: str) -> bool:
@@ -216,8 +229,157 @@ def connect_nodes(nodes: list[BaseFlowchartNode]) -> BaseFlowchartNode | None:
     return start
 
 
-def ast_control_to_chart_node(node: ast.AST) -> BaseFlowchartNode:
-    pass
+def ast_control_to_chart_node(node: ast.AST, **kwargs: Any) -> ActionNode:
+    """Converts an AST control flow node to a Flowchart node.
+
+    NOTE: kwargs are the same as ast_node_to_chart_node, it's not a good practice but
+    here every function's kwargs are the same so we used this way."""
+    match type(node):
+        # If group
+        case ast.If:
+            return ast_if_to_chart_node(node, **kwargs)
+        case ast.IfExp:
+            return ast_ifexp_to_chart_node(node, **kwargs)
+        case ast.Try:
+            return ast_try_to_chart_node(node, **kwargs)
+        # Loop group
+        case ast.For:
+            return ast_try_to_chart_node(node, **kwargs)
+        case ast.AsyncFor:
+            return ast_try_to_chart_node(node, **kwargs)
+        case ast.While:
+            return ast_try_to_chart_node(node, **kwargs)
+        # With group
+        case ast.With:
+            return ast_try_to_chart_node(node, **kwargs)
+        case ast.AsyncWith:
+            return ast_try_to_chart_node(node, **kwargs)
+        case ast.withitem:
+            return ast_withitem_to_chart_node(node, **kwargs)
+        case _:
+            raise ValueError(f"Node {node} is not a control flow node.")
+
+
+def _create_warpper_node(
+    name: str, label: str, start: BaseFlowchartNode, type: FlowchartType
+) -> ActionNode:
+    """Creates a wrapper node for a subchart. For now we only create ActionNode."""
+    wrapper = ActionNode(
+        name=name,
+        label=label,
+    )
+    wrapper.subchart = Flowchart.from_nodes(
+        parent=wrapper,
+        start=start,
+        type=type,
+    )
+    return wrapper
+
+
+def ast_if_to_chart_node(node: ast.If, **kwargs: Any) -> ActionNode:
+    """Converts an AST if node to a Flowchart node."""
+    assert isinstance(node, ast.If), f"Node {node} is not an if node."
+
+    logger.info(
+        f"Converting if node `{ast.unparse(node)[:10]}` to a Flowchart node."
+    )
+    test = ast_node_to_chart_node(node=node.test, **kwargs)
+    if isinstance(test, CallNode):
+        test = CallDecisionNode(**test.dict())
+    test.true = ast_nodes_to_chart(nodes=node.body, **kwargs)
+    test.false = ast_nodes_to_chart(nodes=node.orelse, **kwargs)
+    return _create_warpper_node(
+        # TODO: better name and label
+        name="if",
+        label=f"if {ast.unparse(node.test)}",
+        start=test,
+        type=FlowchartType.IF,
+    )
+
+
+def ast_ifexp_to_chart_node(node: ast.IfExp, **kwargs: Any) -> ActionNode:
+    """Converts an AST ifexp node to a Flowchart node.
+
+    The main difference between if and ifexp is that ifexp's body and orelse can
+    only hold a single node but if's are list of node."""
+
+    assert isinstance(node, ast.IfExp), f"Node {node} is not an ifexp node."
+    logger.info(
+        f"Converting ifexp node `{ast.unparse(node)[:10]}` to a Flowchart node."
+    )
+
+    test = ast_node_to_chart_node(node=node.test, **kwargs)
+    if isinstance(test, CallNode):
+        test = CallDecisionNode(**test.dict())
+    test.true = ast_node_to_chart_node(node=node.body, **kwargs)
+    test.false = ast_node_to_chart_node(node=node.orelse, **kwargs)
+    return _create_warpper_node(
+        # TODO: better name and label
+        name="if expr",
+        label=f"if {ast.unparse(node.test)}",
+        start=test,
+        type=FlowchartType.IF,
+    )
+
+
+def ast_try_to_chart_node(node: ast.Try, **kwargs: Any) -> BaseFlowchartNode:
+    """Converts an AST try node to a Flowchart node."""
+    assert isinstance(node, ast.Try), f"Node {node} is not a try node."
+    logger.info(
+        f"Converting try node `{ast.unparse(node)[:10]}` to a Flowchart node."
+    )
+
+
+def ast_for_to_chart_node(node: ast.For, **kwargs: Any) -> LoopNode:
+    """Converts an AST for node to a Flowchart node."""
+    assert isinstance(node, ast.For), f"Node {node} is not a for node."
+    logger.info(
+        f"Converting for node `{ast.unparse(node)[:10]}` to a Flowchart node."
+    )
+
+
+def ast_asyncfor_to_chart_node(node: ast.AsyncFor, **kwargs: Any) -> LoopNode:
+    """Converts an AST asyncfor node to a Flowchart node."""
+    assert isinstance(node, ast.AsyncFor), f"Node {node} is not an asyncfor node."
+    logger.info(
+        f"Converting asyncfor node `{ast.unparse(node)[:10]}` to a Flowchart node."
+    )
+
+
+def ast_while_to_chart_node(node: ast.While, **kwargs: Any) -> LoopNode:
+    """Converts an AST while node to a Flowchart node."""
+    assert isinstance(node, ast.While), f"Node {node} is not a while node."
+    logger.info(
+        f"Converting while node `{ast.unparse(node)[:10]}` to a Flowchart node."
+    )
+
+
+def ast_with_to_chart_node(node: ast.With, **kwargs: Any) -> BaseFlowchartNode:
+    """Converts an AST with node to a Flowchart node."""
+    assert isinstance(node, ast.With), f"Node {node} is not a with node."
+    logger.info(
+        f"Converting with node `{ast.unparse(node)[:10]}` to a Flowchart node."
+    )
+
+
+def ast_asyncwith_to_chart_node(
+    node: ast.AsyncWith, **kwargs: Any
+) -> BaseFlowchartNode:
+    """Converts an AST asyncwith node to a Flowchart node."""
+    assert isinstance(node, ast.AsyncWith), f"Node {node} is not an asyncwith node."
+    logger.info(
+        f"Converting asyncwith node `{ast.unparse(node)[:10]}` to a Flowchart node."
+    )
+
+
+def ast_withitem_to_chart_node(
+    node: ast.withitem, **kwargs: Any
+) -> BaseFlowchartNode:
+    """Converts an AST withitem node to a Flowchart node."""
+    assert isinstance(node, ast.withitem), f"Node {node} is not a withitem node."
+    logger.info(
+        f"Converting withitem node `{ast.unparse(node)[:10]}` to a Flowchart node."
+    )
 
 
 def simplify_node_inplace(
@@ -229,9 +391,20 @@ def simplify_node_inplace(
     pass
 
 
-def _ast_node_to_chart_nodes(
-    node: ast.AST,
+def ast_nodes_to_chart(
     *,
+    nodes: list[ast.AST],
+    node_calls: list[URI],
+    simplify_threshold: int = 50,
+    expand_threshold: int = 50,
+) -> ActionNode:
+    """Converts a list of AST nodes to a Flowchart node."""
+    logger.info(f"Converting {len(nodes)} nodes to a Flowchart node.")
+
+
+def _ast_node_to_chart_nodes(
+    *,
+    node: ast.AST,
     node_calls: list[URI],
     simplify_threshold: int = 50,
     expand_threshold: int = 50,
@@ -242,10 +415,15 @@ def _ast_node_to_chart_nodes(
     if not isinstance(node, ast.AST):
         raise ValueError(f"Node {node} is not an AST node.")
 
+    kwargs = dict(
+        node_calls=node_calls,
+        simplify_threshold=simplify_threshold,
+        expand_threshold=expand_threshold,
+    )
     if is_first_party_call(node, calls=node_calls):
-        return [ast_call_to_chart_node(node, node_calls)]
+        return [ast_call_to_chart_node(node=node, **kwargs)]
     if is_control_flow(node, threshold=expand_threshold):
-        return [ast_control_to_chart_node(node)]
+        return [ast_control_to_chart_node(node=node, **kwargs)]
 
     chart_nodes = []
     # NOTE: Be careful the order must match the execution order of a node.
@@ -256,7 +434,7 @@ def _ast_node_to_chart_nodes(
         # the function calls is enough. We can make this more robust by passing
         # only function calls on these lines or even further, see how pycg works
         # and connect the function calls to the ast nodes directly.
-        new_nodes = _ast_node_to_chart_nodes(child, node_calls=node_calls)
+        new_nodes = _ast_node_to_chart_nodes(node=child, **kwargs)
         chart_nodes.extend(new_nodes)
         if get_str_length(ast.unparse(child)) >= simplify_threshold:
             simplify_node_inplace(child, chart_nodes=new_nodes)
@@ -265,21 +443,22 @@ def _ast_node_to_chart_nodes(
 
 
 def ast_node_to_chart_node(
-    node: ast.AST,
     *,
+    node: ast.AST,
     node_calls: list[URI],
     simplify_threshold: int = 50,
     expand_threshold: int = 50,
-) -> BaseFlowchartNode:
+) -> ActionNode:
     """Converts an any type AST node to a Flowchart node."""
     chart_nodes = _ast_node_to_chart_nodes(
-        node,
+        node=node,
         node_calls=node_calls,
         simplify_threshold=simplify_threshold,
         expand_threshold=expand_threshold,
     )
     if not chart_nodes:
-        raise ValueError(f"Cannot convert {type(node)} to a Flowchart node.")
+        logger.debug(f"node {type(node)} was not converted to a Flowchart node.")
+        assert not should_expand(node, calls=node_calls)
 
     if len(chart_nodes) == 1:
         return chart_nodes[0]
@@ -291,23 +470,20 @@ def ast_node_to_chart_node(
     chart_nodes.append(
         ActionNode(
             name="glue",
-            label="this is to show logic other than call and control flow",
+            label=f"non-call and non-control in `{ast.unparse(node)[:10]}`",
         )
     )
-    wrapper = ActionNode(
+    return _create_warpper_node(
         # TODO: generate name and label using GPT
-        name=ast.unparse(node.func),
-        label=f"Wrapper for ast node {ast.unparse(node.func)}",
-    )
-    wrapper.subchart = Flowchart.from_nodes(
-        parent=wrapper,
+        name=ast.unparse(node),
+        label=f"Wrapper for ast node {ast.unparse(node)}",
         start=connect_nodes(chart_nodes),
         type=FlowchartType.LINEAR,
     )
-    return wrapper
 
 
 def ast_call_to_chart_node(
+    *,
     node: ast.Call,
     node_calls: list[URI],
     simplify_threshold: int = 50,
@@ -321,6 +497,11 @@ def ast_call_to_chart_node(
 
     # node_calls = nodes[target_uri].calls
     call_uri = call_func_info(node, node_calls)
+    kwargs = dict(
+        node_calls=node_calls,
+        simplify_threshold=simplify_threshold,
+        expand_threshold=expand_threshold,
+    )
 
     chart_nodes = []
     # NOTE: We do should_expand check here because we don't want to generate a
@@ -329,27 +510,13 @@ def ast_call_to_chart_node(
     # return as a clear interface.
     for arg in node.args:
         if should_expand(arg, calls=node_calls):
-            chart_nodes.append(
-                ast_node_to_chart_node(
-                    arg,
-                    node_calls=node_calls,
-                    simplify_threshold=simplify_threshold,
-                    expand_threshold=expand_threshold,
-                )
-            )
+            chart_nodes.append(ast_node_to_chart_node(node=arg, **kwargs))
 
     for keyword in node.keywords:
         if should_expand(keyword.value, calls=node_calls):
-            chart_nodes.append(
-                ast_node_to_chart_node(
-                    keyword.value,
-                    node_calls=node_calls,
-                    simplify_threshold=simplify_threshold,
-                    expand_threshold=expand_threshold,
-                )
-            )
+            chart_nodes.append(ast_node_to_chart_node(node=keyword.value, **kwargs))
 
-    call_node = CallNode(
+    call_node = CallActionNode(
         name=ast.unparse(node.func),
         func_uri=call_uri,
         # TODO: Generate label using GPT following `call xxx with xxx input and
@@ -389,20 +556,22 @@ real_func_calls = [
 ]
 
 test_func_code = """
-root_func(
-    1,
-    func_1(
-        func_1_1(),
-        e=3,
-    ),  # test function call arg
-    a=2,
-    c=func_2(
-        4,
-        g=1 if func_2_1() else 0,
-    ),  # test function call kwarg
-)
+if test_func():
+    root_func(
+        1,
+        func_1(
+            func_1_1(),
+            e=3,
+        ),  # test function call arg
+        a=2,
+        c=func_2(
+            4,
+            g=1 if func_2_1() else 0,
+        ),  # test function call kwarg
+    )
 """
 test_func_calls = [
+    "/autogpt.app.main/test_func",
     "/autogpt.app.main/root_func",
     "/autogpt.app.main/func_1",
     "/autogpt.app.main/func_2",
@@ -411,14 +580,14 @@ test_func_calls = [
     "",
 ]
 call_test_inputs = dict(
-    node=ast.parse(test_func_code).body[0].value,
+    node=ast.parse(test_func_code).body[0].body,
     node_calls=test_func_calls,
 )
 node_test_inputs = dict(
     node=ast.parse(test_func_code).body[0],
     node_calls=test_func_calls,
 )
-get = ast_call_to_chart_node(**call_test_inputs, expand_threshold=0)
+# get = ast_call_to_chart_node(**call_test_inputs, expand_threshold=0)
 get = ast_node_to_chart_node(**node_test_inputs, expand_threshold=0)
 flowchart_node_to_dot_graph(
     get, config=FlowchartConfig(expand_all=True, show_cluster=True)
