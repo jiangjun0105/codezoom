@@ -87,6 +87,26 @@ class Flowchart(BaseModel):
         start: BaseFlowchartNodeType,
         type: FlowchartType,
     ) -> Flowchart:
+        # TODO: Set all nodes' parent_uuid to parent.uuid
+        done = set()
+
+        def _set_parent_uuid(node: BaseFlowchartNodeType) -> None:
+            if not node or node.uuid in done:
+                return
+            node.parent_uuid = parent.uuid
+            done.add(node.uuid)
+            if isinstance(node, BaseOneOutNode):
+                _set_parent_uuid(node.next)
+            elif isinstance(node, DecisionNode):
+                _set_parent_uuid(node.true)
+                _set_parent_uuid(node.false)
+            elif isinstance(node, LoopNode):
+                _set_parent_uuid(node.next)
+
+        _set_parent_uuid(start)
+
+        if start.parent_uuid != parent.uuid:
+            raise ValueError(f"{start.parent_uuid=} != {parent.uuid=}")
         # NOTE: Must have the same uuid as the parent node
         return cls(
             name=f"chart_{parent.name}", uuid=parent.uuid, type=type, start=start
@@ -252,7 +272,9 @@ class BaseFlowchartNode(BaseModel, ABC):
             exclude = set()
 
         if self.uuid in nodes:
-            assert isinstance(self, LoopNode), f"Duplicate Non-LoopNode {self.uuid=}"
+            logger.warning(
+                f"Already processed {type(self)} {self.name=} {self.uuid=}"
+            )
             return dict()
 
         # FIXME: Are we going to include class variables? e.g. shape, color
@@ -382,6 +404,14 @@ class ActionNode(BaseOneOutNode):
     shape: ClassVar[str] = "box"
 
 
+class CallNode(ActionNode):
+    """A node that represents a function call."""
+
+    color: ClassVar[str] = "azure"
+    func_uri: URI
+    # TODO: add inputs and return info
+
+
 class LoopNode(BaseOneOutNode):
     """Node for fetching next element for the next iteration of a loop."""
 
@@ -444,15 +474,14 @@ class DecisionNode(BaseFlowchartNode):
 
 
 class ExitNode(BaseFlowchartNode):
-    """Exits from the middle of the flowchart."""
+    """Exits the program, e.g. sys.exit()."""
 
     shape: ClassVar[str] = "oval"
     color: ClassVar[str] = "lavender"
-    returns: Any = None
 
 
 class EndNode(BaseFlowchartNode):
-    """The end of the flowchart."""
+    """The end of the flowchart, e.g. return of a function."""
 
     shape: ClassVar[str] = "oval"
     color: ClassVar[str] = "brown2"
@@ -501,12 +530,28 @@ def process_to_node_with_loop_chart(
 ) -> ActionNode:
     assert isinstance(process.pattern, LoopPattern)
 
+    # Parent node of the chart
+    parent_uuid = parent_node.uuid if parent_node else None
+    node = ActionNode(
+        parent_uuid=parent_uuid,
+        name=process.name,
+        label=process.explanation,
+        expand=len(process.subprocesses) > 0,
+    )
+
     # Body node
-    body = ActionNode(name=f"{process.name}_body", label=process.pattern.body)
+    body = ActionNode(
+        name=f"{process.name}_body",
+        label=process.pattern.body,
+        parent_uuid=node.uuid,
+    )
 
     # Setup node
     setup = LoopNode(
-        name=f"{process.name}_setup", label=process.pattern.setup, next=body
+        name=f"{process.name}_setup",
+        label=process.pattern.setup,
+        next=body,
+        parent_uuid=node.uuid,
     )
     if process.subprocesses:
         body.subchart = processes_to_linear_chart(process, parent_node=body)
@@ -519,15 +564,6 @@ def process_to_node_with_loop_chart(
     )
     body.next = decision
     decision.false = setup
-
-    # Parent node of the chart
-    parent_uuid = parent_node.uuid if parent_node else None
-    node = ActionNode(
-        parent_uuid=parent_uuid,
-        name=process.name,
-        label=process.explanation,
-        expand=len(process.subprocesses) > 0,
-    )
 
     # Chart including setup, body, and decision nodes
     node.subchart = Flowchart.from_nodes(
@@ -811,6 +847,8 @@ def node_to_graph(
 
     if _is_expand(node, config):
         # For now all nodes with subcharts are ActionNodes
+        # TODO: We need to support DecisionNode to have subcharts and be
+        # expanded because it can have function calls.
         assert isinstance(node, ActionNode)
         out_edges = flowchart_to_graph(
             node.subchart, graph, in_edges=in_edges, config=config
