@@ -36,6 +36,9 @@ class FlowchartType(Enum):
     IF: str = "IF"
     LOOP: str = "LOOP"
     LINEAR: str = "LINEAR"
+    FUNCTION_DEF = "FUNCTION_DEF"
+    FUNCTION_CALL = "FUNCTION_CALL"
+    CLASS = "CLASS"
 
 
 NodeURI = NewType("NodeURI", URI)
@@ -80,20 +83,19 @@ class Flowchart(BaseModel):
         values["uuid"] = f"{name}_{str(uuid4())}"
         return values
 
-    @classmethod
-    def from_nodes(
-        cls,
-        parent: BaseFlowchartNodeType,
-        start: BaseFlowchartNodeType,
-        type: FlowchartType,
-    ) -> Flowchart:
-        # TODO: Set all nodes' parent_uuid to parent.uuid
+    @root_validator(pre=True)
+    def set_parent_uuid(cls, values: dict) -> str:
+        parent_uuid = values.get("uuid", None)
+        start = values.get("start", None)
+        if not parent_uuid or not start:
+            return values
+
         done = set()
 
         def _set_parent_uuid(node: BaseFlowchartNodeType) -> None:
             if not node or node.uuid in done:
                 return
-            node.parent_uuid = parent.uuid
+            node.parent_uuid = parent_uuid
             done.add(node.uuid)
             if isinstance(node, BaseOneOutNode):
                 _set_parent_uuid(node.next)
@@ -104,9 +106,15 @@ class Flowchart(BaseModel):
                 _set_parent_uuid(node.next)
 
         _set_parent_uuid(start)
+        return values
 
-        if start.parent_uuid != parent.uuid:
-            raise ValueError(f"{start.parent_uuid=} != {parent.uuid=}")
+    @classmethod
+    def from_nodes(
+        cls,
+        parent: BaseFlowchartNodeType,
+        start: BaseFlowchartNodeType,
+        type: FlowchartType,
+    ) -> Flowchart:
         # NOTE: Must have the same uuid as the parent node
         return cls(
             name=f"chart_{parent.name}", uuid=parent.uuid, type=type, start=start
@@ -182,6 +190,7 @@ class Flowchart(BaseModel):
 class BaseFlowchartNode(BaseModel, ABC):
     color: ClassVar[str]
     shape: ClassVar[str]
+    chart_type: ClassVar[FlowchartType] = FlowchartType.LINEAR
     name: str
     label: str
     uuid: str
@@ -339,6 +348,45 @@ class BaseFlowchartNode(BaseModel, ABC):
             setattr(node, attr, to_node)
         return node
 
+    @classmethod
+    def with_subchart(
+        cls,
+        chart_start: BaseFlowchartNode,
+        chart_type: FlowchartType | None = None,
+        **kwargs,
+    ) -> BaseFlowchartNode:
+        chart_type = chart_type or cls.chart_type
+        node = cls(**kwargs)
+        node.subchart = Flowchart.from_nodes(
+            parent=node, type=chart_type, start=chart_start
+        )
+        return node
+
+
+class FunctionNode(BaseFlowchartNode):
+    """Node for a function."""
+
+    shape: ClassVar[str] = "box"
+    color: ClassVar[str] = "cornflowerblue"
+    chart_type: ClassVar[FlowchartType] = FlowchartType.FUNCTION_DEF
+    func_uri: URI
+    start: BaseFlowchartNode
+    body: BaseFlowchartNode
+    end: BaseFlowchartNode
+
+    @property
+    def inputs(self) -> Any:
+        return self.start.inputs
+
+    @property
+    def returns(self) -> Any:
+        return self.end.returns
+
+    def get_process_chart(self, uuid: str) -> Flowchart:
+        copied = copy.deepcopy(self.body.subchart)
+        copied.uuid = uuid
+        return copied
+
 
 class BaseOneOutNode(BaseFlowchartNode):
     """Nodes that only have one out-edge."""
@@ -408,8 +456,16 @@ class CallNode(ActionNode):
     """A node that represents a function call."""
 
     color: ClassVar[str] = "azure"
+    chart_type: ClassVar[FlowchartType] = FlowchartType.FUNCTION_CALL
     func_uri: URI
     # TODO: add inputs and return info
+
+
+class ReturnNode(ActionNode):
+    """A node that represents a function return."""
+
+    color: ClassVar[str] = "greenyellow"
+    returns: Any
 
 
 class LoopNode(BaseOneOutNode):
@@ -849,11 +905,14 @@ def node_to_graph(
         # For now all nodes with subcharts are ActionNodes
         # TODO: We need to support DecisionNode to have subcharts and be
         # expanded because it can have function calls.
-        assert isinstance(node, ActionNode)
+        if not isinstance(node, (ActionNode, FunctionNode)):
+            logger.warning(
+                f"Node {node.name=} {type(node)} is not an ActionNode but has a subchart."
+            )
         out_edges = flowchart_to_graph(
             node.subchart, graph, in_edges=in_edges, config=config
         )
-        if node.next:
+        if isinstance(node, ActionNode) and node.next:
             out_edges = node_to_graph(
                 node.next, graph, in_edges=out_edges, config=config
             )
@@ -929,10 +988,15 @@ def flowchart_node_to_dot_graph(
     if output_path is None:
         output_path = Path(__file__).parent / "dot_graphs"
         output_path.mkdir(parents=True, exist_ok=True)
+
+    # FIXME: We need a better way to decide dump path.
+    uri_fn = input.name.split("/", 2)[1].replace(":", "_").replace(".", "/")
+    file_name = output_path / f"{uri_fn}{suffix}"
+    file_name.parent.mkdir(parents=True, exist_ok=True)
     if save_png:
-        graph.draw(output_path / f"{input.name}{suffix}.png", prog="dot")
+        graph.draw(file_name.with_suffix(".png"), prog="dot")
     if save_dot:
-        graph.write(output_path / f"{input.name}{suffix}.dot")
+        graph.write(file_name.with_suffix(".dot"))
     return graph
 
 

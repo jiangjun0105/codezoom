@@ -302,6 +302,16 @@ class CodeNode(BaseModel):
     def __eq__(self, other):
         return self is other
 
+    def __repr__(self):
+        # Customize how the embedding is shown
+        embedding_repr = (
+            "[...]"
+            if self.embedding is None
+            else str(self.embedding[:10])
+            + ("..." if len(self.embedding) > 10 else "")
+        )
+        return f"CodeNode(uri={self.uri!r}, type={self.type!r}, level={self.level!r}, summary={self.summary!r}, embedding={embedding_repr}, children={self.children!r}, parent={self.parent!r})"
+
     @classmethod
     def from_folder(
         cls,
