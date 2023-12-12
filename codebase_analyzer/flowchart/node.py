@@ -33,9 +33,7 @@ _CHART_KEY = "chart"
 
 
 class FlowchartType(Enum):
-    IF: str = "IF"
-    LOOP: str = "LOOP"
-    LINEAR: str = "LINEAR"
+    PROCESS: str = "PROCESS"
     FUNCTION_DEF = "FUNCTION_DEF"
     FUNCTION_CALL = "FUNCTION_CALL"
     CLASS = "CLASS"
@@ -166,6 +164,7 @@ class Flowchart(BaseModel):
     def to_file(self, json_file: Path, indent: int = 4, check: bool = True) -> None:
         if check and any(e for e in self.check().values()):
             raise ValueError(f"Invalid flowchart {self.name}")
+        json_file.parent.mkdir(parents=True, exist_ok=True)
         json_file.write_text(json.dumps(self.to_flat_dict(), indent=indent))
 
     def check(
@@ -190,7 +189,7 @@ class Flowchart(BaseModel):
 class BaseFlowchartNode(BaseModel, ABC):
     color: ClassVar[str]
     shape: ClassVar[str]
-    chart_type: ClassVar[FlowchartType] = FlowchartType.LINEAR
+    chart_type: ClassVar[FlowchartType] = FlowchartType.PROCESS
     name: str
     label: str
     uuid: str
@@ -215,13 +214,13 @@ class BaseFlowchartNode(BaseModel, ABC):
         )
 
     # TODO: improve node name logic by using increamental index?
-    @root_validator(pre=True)
-    def set_uuid(cls, values: dict) -> str:
-        if values.get("uuid", None):
-            return values
-        name = values.get("name", "no_name")
-        values["uuid"] = f"{name}_{str(uuid4())}"
-        return values
+    # @root_validator(pre=True)
+    # def set_uuid(cls, values: dict) -> str:
+    #     if values.get("uuid", None):
+    #         return values
+    #     name = values.get("name", "no_name")
+    #     values["uuid"] = f"{name}_{str(uuid4())}"
+    #     return values
 
     @validator("subchart")
     def validate_subchart(
@@ -383,6 +382,12 @@ class FunctionNode(BaseFlowchartNode):
         return self.end.returns
 
     def get_process_chart(self, uuid: str) -> Flowchart:
+        if not self.body.subchart:
+            logger.debug(
+                f"Function {self.name} body has no subchart."
+                "Should merge this function with the caller."
+            )
+            return None
         copied = copy.deepcopy(self.body.subchart)
         copied.uuid = uuid
         return copied
@@ -623,7 +628,7 @@ def process_to_node_with_loop_chart(
 
     # Chart including setup, body, and decision nodes
     node.subchart = Flowchart.from_nodes(
-        parent=node, type=FlowchartType.LOOP, start=setup
+        parent=node, type=FlowchartType.PROCESS, start=setup
     )
 
     _log_conversion(process, node)
@@ -793,7 +798,7 @@ def processes_to_linear_chart(
     assert len(nodes) > 0, "The subprocesses must have at least one node."
     subchart = Flowchart.from_nodes(
         parent=parent_node,
-        type=FlowchartType.LINEAR,
+        type=FlowchartType.PROCESS,
         start=nodes[0],
     )
     _log_conversion(parent_process, parent_node)
@@ -818,7 +823,7 @@ def root_process_to_flowchart(process: Process) -> Flowchart:
 
     root_chart = Flowchart(
         name=f"root_{process.name}",
-        type=FlowchartType.LINEAR,
+        type=FlowchartType.PROCESS,
         start=start,
         uuid=root_uuid,
     )
@@ -990,13 +995,18 @@ def flowchart_node_to_dot_graph(
         output_path.mkdir(parents=True, exist_ok=True)
 
     # FIXME: We need a better way to decide dump path.
-    uri_fn = input.name.split("/", 2)[1].replace(":", "_").replace(".", "/")
+    uri_fn = input.name
+    if input.name.startswith("/"):
+        uri_fn = input.name.split("/", 2)[1]
+    uri_fn = uri_fn.replace(":", "_").replace(".", "/")
     file_name = output_path / f"{uri_fn}{suffix}"
     file_name.parent.mkdir(parents=True, exist_ok=True)
     if save_png:
         graph.draw(file_name.with_suffix(".png"), prog="dot")
+        logger.info(f"Saved {file_name.with_suffix('.png')}")
     if save_dot:
         graph.write(file_name.with_suffix(".dot"))
+        logger.info
     return graph
 
 

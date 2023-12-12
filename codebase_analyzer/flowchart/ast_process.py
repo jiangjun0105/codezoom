@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from codebase_analyzer.flowchart.utils import _output_path
 from codebase_analyzer.parser.deftree import CodeInfo, CodeNode
-from codebase_analyzer.parser.uri import URI, uri_full_func_name, uri_stem
+from codebase_analyzer.parser.uri import URI, uri_full_func_name, uri_to_path
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 CACHE_ROOT = REPO_ROOT / "shared_cache"
@@ -219,14 +219,16 @@ class AstChartNodeConverter(BaseModel):
     def call_func_info(self, node: ast.Call, uri: URI) -> str:
         """Gets the semantic information of the inputs and returns of a call node.
         This is also for providing LLM more context information."""
-        call_uri = _get_first_party_call(node.func, known_calls=self.get_calls(uri))
-        if not call_uri:
+        called_uri = _get_first_party_call(
+            node.func, known_calls=self.get_calls(uri)
+        )
+        if not called_uri:
             return None
 
         # TODO: add input and return info to the function nodes. For now we use
         # summary for experimenting purpose.
-        # summary = nodes[call_uri].summary
-        return call_uri
+        # summary = nodes[called_uri].summary
+        return called_uri
 
     def get_calls(self, uri: URI) -> list[URI]:
         """Gets the calls of a function."""
@@ -262,7 +264,7 @@ class AstChartNodeConverter(BaseModel):
             case _:
                 raise ValueError(f"Node {node} is not a control flow node.")
 
-    def _create_warpper_node(
+    def _create_wrapper_node(
         self,
         name: str,
         label: str,
@@ -270,13 +272,8 @@ class AstChartNodeConverter(BaseModel):
         type: FlowchartType,  # parent_uuid: str
     ) -> ActionNode:
         """Creates a wrapper node for a subchart. For now we only create ActionNode."""
-        wrapper = ActionNode.with_subchart(
-            name=name,
-            label=label,
-            chart_start=start,
-            chart_type=type,
-        )
-        return wrapper
+        # NOTE: Abondoned for now. See if we need it later when using GPT.
+        pass
 
     def ast_if_to_chart_node(self, node: ast.If, uri: URI) -> ActionNode:
         """Converts an AST if node to a Flowchart node."""
@@ -289,6 +286,7 @@ class AstChartNodeConverter(BaseModel):
         if isinstance(test, CallNode):
             if_node = DecisionNode(
                 name=f"check_{test.name}",
+                uuid=self.node_name(node=node, uri=uri),
                 label=f"check returns of {test.name} is True",
             )
             # NOTE: We only separate the call node and the if node when calling functions.
@@ -296,17 +294,17 @@ class AstChartNodeConverter(BaseModel):
         else:
             if_node = DecisionNode(
                 name=f"check_{test.name}",
+                uuid=self.node_name(node=node, uri=uri),
                 label=f"check if {test.label} is True",
             )
         if_node.true = self.ast_nodes_to_chart_node(nodes=node.body, uri=uri)
         if_node.false = self.ast_nodes_to_chart_node(nodes=node.orelse, uri=uri)
-        return self._create_warpper_node(
+        return ActionNode.with_subchart(
             # TODO: better name and label
             name="if",
+            uuid=self.node_name(node=node, uri=uri),
             label=f"if {ast.unparse(node.test)}",
-            start=if_node,
-            type=FlowchartType.IF,
-            # parent_uuid=kwargs.get("parent_uuid")
+            chart_start=if_node,
         )
 
     def ast_ifexp_to_chart_node(self, node: ast.IfExp, uri: URI) -> ActionNode:
@@ -323,20 +321,25 @@ class AstChartNodeConverter(BaseModel):
         test = self.ast_node_to_chart_node(node=node.test, uri=uri)
         if isinstance(test, CallNode):
             if_node = DecisionNode(
+                uuid=self.node_name(node=node, uri=uri),
                 name=f"check_{test.name}",
                 label=f"check returns of {test.name} is True",
             )
             test.next = if_node
         else:
-            if_node = test
+            if_node = DecisionNode(
+                name=f"check_{test.name}",
+                uuid=self.node_name(node=node, uri=uri),
+                label=f"check if {test.label} is True",
+            )
         if_node.true = self.ast_node_to_chart_node(node=node.body, uri=uri)
         if_node.false = self.ast_node_to_chart_node(node=node.orelse, uri=uri)
-        return self._create_warpper_node(
+        return ActionNode.with_subchart(
             # TODO: better name and label
             name="if expr",
+            uuid=self.node_name(node=node, uri=uri),
             label=f"if {ast.unparse(node.test)}",
-            start=test,
-            type=FlowchartType.IF,
+            chart_start=if_node,
         )
 
     def ast_try_to_chart_node(self, node: ast.Try, uri: URI) -> BaseFlowchartNode:
@@ -409,7 +412,6 @@ class AstChartNodeConverter(BaseModel):
         *,
         nodes: list[ast.AST],
         uri: URI,
-        # parent_uuid: str,
     ) -> ActionNode:
         """Calls GPT to generate a linear flowchart of the input nodes.
         The inputs nodes shouldn't have any control or call logic in it."""
@@ -417,9 +419,9 @@ class AstChartNodeConverter(BaseModel):
         logger.debug(f"Converting simple code:\n{code}")
 
         return ActionNode(
-            name="non_call_non_control",
+            name=f"non_call_non_control_of_{len(nodes)}_nodes",
             label=f"`{code[:30]}`",
-            # parent_uuid=parent_uuid,
+            uuid=self.node_name(node=nodes[0], uri=uri),
         )
 
     def ast_nodes_to_chart_node(
@@ -459,11 +461,12 @@ class AstChartNodeConverter(BaseModel):
             return chart_nodes[0]
 
         # TODO: not just roots
-        wrapper = self._create_warpper_node(
-            name="root",
-            label="root",
-            start=connect_nodes(chart_nodes),
-            type=FlowchartType.LINEAR,
+        wrapper = ActionNode.with_subchart(
+            name=f"process_of_{len(nodes)}_nodes",
+            uuid=self.node_name(node=nodes[0], uri=uri),
+            # TODO: Use GPT to generate a better label.
+            label=f"Process of {len(nodes)} nodes",
+            chart_start=connect_nodes(chart_nodes),
         )
         return wrapper
 
@@ -531,6 +534,7 @@ class AstChartNodeConverter(BaseModel):
         chart_nodes.append(
             ActionNode(
                 name="glue",
+                uuid=self.node_name(node=node, uri=uri),
                 label=f"non-call and non-control in `{ast.unparse(node)[:10]}`",
             )
         )
@@ -538,13 +542,19 @@ class AstChartNodeConverter(BaseModel):
             # TODO: Actually get the evaluation results of the expression.
             logger.debug(f"Get evaluation of {ast.unparse(node)}")
 
-        return self._create_warpper_node(
+        return ActionNode.with_subchart(
             # TODO: generate name and label using GPT
             name=ast.unparse(node),
+            uuid=self.node_name(node=node, uri=uri),
             label=f"Wrapper for ast node {ast.unparse(node)}",
-            start=connect_nodes(chart_nodes),
-            type=FlowchartType.LINEAR,
+            chart_start=connect_nodes(chart_nodes),
         )
+
+    @property
+    def skipped_value(self) -> str:
+        """Returns a string to represent a function node is skipped due to
+        cannot be found in the code_nodes."""
+        return "skipped"
 
     def ast_call_to_chart_node(
         self,
@@ -554,57 +564,31 @@ class AstChartNodeConverter(BaseModel):
     ) -> CallNode | None:
         """Converts an AST call node to a Flowchart node."""
         assert isinstance(node, ast.Call), f"Node {node} is not a call node."
+
+        if uri not in self.code_nodes:
+            logger.warning(f"Call of {uri} is not in the code nodes. Skip it.")
+            self.func_nodes[uri] = self.skipped_value
+            return None
+
         logger.info(
             f"Converting call node {ast.unparse(node.func)}() to a Flowchart node."
         )
 
-        call_uri = self.call_func_info(node, uri=uri)
-        if not call_uri:
-            raise ValueError(f"Unknown call {ast.unparse(node.func)}.")
+        called_uri = self.call_func_info(node, uri=uri)
+        if not called_uri:
+            # NOTE: Theoriticaly this should not happen because we have checked the
+            # first party call in the should_expand function.
+            raise ValueError(f"Not a first party call {ast.unparse(node.func)}.")
 
-        if call_uri not in self.func_nodes:
-            # TODO: Function code will be parsed as a module, so we need to get
-            # the body[0]. Maybe we can have a nicer way to do it if we can fuse
-            # the code_info generation and this process.
-            func_ast = ast.parse(self.code_nodes[call_uri].code).body[0]
-            self.ast_funcdef_to_chart(node=func_ast, uri=call_uri)
-
-        func_node = self.func_nodes[call_uri]
-        if func_node is None:
-            logger.warning(
-                f"Call of {call_uri} has circular dependencies, create a dummy one."
-            )
-            # TODO: Do a simple parse to get the inputs and returns.
-            func_node = FunctionNode(
-                name=ast.unparse(node.func),
-                label=f"Call {ast.unparse(node.func)} with args",
-                func_uri=call_uri,
-                start=StartNode(name="dummy", inputs=[]),
-                body=ActionNode(name="dummy", label="", subchart=None),
-                end=EndNode(name="dummy", returns=[]),
-            )
-
-        # TODO: Make this look nicer.
-        call_uuid = f"{uri}_{uuid4()}"
-        call_node = CallNode(
-            name=ast.unparse(node.func),
-            func_uri=call_uri,
-            uuid=call_uuid,
-            # TODO: Generate label using GPT following `call xxx with xxx input and
-            # output xxx.` Here we might use the simplified code of the node, so
-            # need to add that logic to this function.
-            label=f"Call {ast.unparse(node.func)} with args",
-            # TODO: associate the input annotations with the ast call node's
-            # args to generate a summary of the actual input in this call,
-            # especially for args whose meaning is unknown. set it to
-            # call_node.inputs
-            inputs=func_node.inputs,
-            returns=func_node.returns,
-            subchart=func_node.get_process_chart(uuid=call_uuid),
-        )
-        assert call_node.subchart.uuid == call_node.uuid
+        if called_uri not in self.code_nodes:
+            # NOTE: This should not happen because we have checked the first party
+            # call in the should_expand function.
+            raise ValueError(f"Called URI {called_uri} is not in the code nodes.")
 
         chart_nodes = []
+        call_node = self.chart_funcdef_to_chart_call(
+            node=node, uri=uri, called_uri=called_uri
+        )
         # NOTE: We do should_expand check here because we don't want to generate a
         # single node for non-call nor control flow nodes. Also, we do not do the
         # check in the ast_node_to_chart_node function because we want a single type
@@ -622,22 +606,78 @@ class AstChartNodeConverter(BaseModel):
         if not chart_nodes:
             return call_node
 
+        # NOTE: Put the argument nodes before the call node.
         chart_nodes.append(call_node)
-        wrapper = self._create_warpper_node(
+
+        wrapper = ActionNode.with_subchart(
             # TODO: generate name and label using GPT
             name=ast.unparse(node.func),
+            uuid=self.node_name(node=node, uri=uri),
             label=f"generate args and call {ast.unparse(node.func)}",
-            start=connect_nodes(chart_nodes),
-            type=FlowchartType.LINEAR,
+            chart_start=connect_nodes(chart_nodes),
         )
         return wrapper
 
+    def chart_funcdef_to_chart_call(
+        self, node: ast.Call, uri: URI, called_uri: URI
+    ) -> CallNode:
+        """Creates a CallNode for a ast.Call node using a functiondef node as the template."""
+        # TODO: Function code will be parsed as a module, so we need to get
+        # the body[0]. Maybe we can have a nicer way to do it if we can fuse
+        # the code_info generation and this process.
+        func_ast = ast.parse(self.code_nodes[called_uri].code).body[0]
+        if called_uri not in self.func_nodes:
+            self.ast_funcdef_to_chart(node=func_ast, uri=called_uri)
+
+        func_node = self.func_nodes[called_uri]
+        call_uuid = self.node_name(node=node, uri=uri)
+
+        if func_node is None:
+            logger.warning(
+                f"Call of {called_uri} is in a circle of recursive calls. "
+                "Extract the inputs and returns without creating a chart node."
+            )
+            # TODO: Think of a better way to handle circular calls. It's the
+            # best to be able to keep the reference to the actual node generated later.
+            func_inputs = func_ast.args
+            func_returns = func_ast.returns
+            func_process = None
+        else:
+            func_inputs = func_node.inputs
+            func_returns = func_node.returns
+            func_process = func_node.get_process_chart(uuid=call_uuid)
+
+        # NOTE: When the called function is complex (has a subchart), create
+        # a call node wrapping the subchart.
+        call_node = CallNode(
+            name=ast.unparse(node.func),
+            func_uri=called_uri,
+            uuid=call_uuid,
+            # TODO: Generate label using GPT following `call xxx with xxx input and
+            # output xxx.` Here we might use the simplified code of the node, so
+            # need to add that logic to this function.
+            label=f"Call {ast.unparse(node.func)} with args",
+            # TODO: associate the input annotations with the ast call node's
+            # args to generate a summary of the actual input in this call,
+            # especially for args whose meaning is unknown. set it to
+            # call_node.inputs
+            inputs=func_inputs,
+            returns=func_returns,
+            subchart=func_process,
+        )
+        assert (call_node.subchart is None) or (
+            call_node.subchart.uuid == call_node.uuid
+        )
+        return call_node
+
     def node_name(
-        self, node: ast.AST, uri: URI, base_lineno: int = 0, note: str | None = None
+        self, node: ast.AST, uri: URI, base_lineno: int = 0, suffix: str = ""
     ) -> str:
-        """Gets node names in format of `/package.subpkg.module/function:lineno:note`."""
-        note = note or node.__class__.__name__
-        return f"{uri}:{node.lineno+base_lineno}:{note}"
+        """Gets node names in format of `/package.subpkg.module/function:lineno:suffix`."""
+        note = f"{node.__class__.__name__}{suffix}"
+        return (
+            f"{uri_to_path(uri)}:{node.lineno+base_lineno}:{node.col_offset}:{note}"
+        )
 
     def ast_funcdef_to_chart(self, node: ast.FunctionDef, uri: URI) -> FunctionNode:
         """Converts an AST function definition node to a Flowchart."""
@@ -655,8 +695,8 @@ class AstChartNodeConverter(BaseModel):
         # TODO: Parse inputs and decorations.
 
         start = StartNode(
-            name=self.node_name(node, uri=uri),
-            uuid=self.node_name(node, uri=uri),
+            name=f"{node.name}_Start",
+            uuid=self.node_name(node, uri=uri, suffix="_start"),
             label=f"Function {node.name}",
             inputs=[],
         )
@@ -666,14 +706,15 @@ class AstChartNodeConverter(BaseModel):
 
         # TODO: Summarize all returns and add them to the end node.
         end = EndNode(
-            name=self.node_name(node, uri=uri, note="end"),
-            uuid=self.node_name(node, uri=uri, note="end"),
+            name=f"{node.name}_end",
+            uuid=self.node_name(node, uri=uri, suffix="_end"),
             label=f"End of Function {node.name}",
         )
 
         func_node = FunctionNode.with_subchart(
-            name=self.node_name(node, uri=uri, note="FuncDef"),
-            uuid=self.node_name(node, uri=uri, note="FuncDef"),
+            # TODO: Make these suffixs constants.
+            name=f"{node.name}_FunctionDef",
+            uuid=self.node_name(node, uri=uri),
             label=f"Function {node.name}",
             func_uri=uri,
             start=start,
@@ -699,9 +740,14 @@ real_func_calls = [
     "",
 ]
 
+dummy_func_code = """
+def {func_name}():
+    return 1
+"""
+
 test_func_code = """
 def test_func():
-    if test_func():
+    if check_func():
         root_func(
             1,
             func_1(
@@ -718,6 +764,7 @@ def test_func():
 """
 test_func_calls = [
     "/autogpt.app.main/test_func",
+    "/autogpt.app.main/check_func",
     "/autogpt.app.main/root_func",
     "/autogpt.app.main/func_1",
     "/autogpt.app.main/func_2",
@@ -726,27 +773,42 @@ test_func_calls = [
     "",
 ]
 test_func_uri = "/autogpt.app.main/test_func"
-test_code_nodes = {
-    test_func_uri: CodeNode(
-        uri="/autogpt.app.main/test_func",
-        code=test_func_code,
-        calls=test_func_calls,
+test_code_nodes = dict()
+
+# NOTE: Need to generate dummy function definitions for the functions called.
+for called_uri in test_func_calls:
+    func_name = called_uri.split("/")[-1]
+    test_code_nodes[called_uri] = CodeNode(
+        uri=called_uri,
+        code=dummy_func_code.format(func_name=func_name),
+        calls=[],
         type="function",
         level=1,
-    ),
-}
-
-call_test_inputs = dict(
-    node=ast.parse(test_func_code).body[0].body,
+    )
+test_code_nodes[test_func_uri] = CodeNode(
     uri=test_func_uri,
-    # parent_uuid=f"root_{uuid4()}",
+    code=test_func_code,
+    calls=test_func_calls,
+    type="function",
+    level=1,
 )
-node_test_inputs = dict(
+
+test_converter = AstChartNodeConverter(
+    code_nodes=test_code_nodes,
+    simplify_threshold=0,
+    expand_threshold=0,
+)
+test_chart = test_converter.ast_funcdef_to_chart(
     node=ast.parse(test_func_code).body[0],
     uri=test_func_uri,
-    # parent_uuid=f"root_{uuid4()}",
 )
-# get = ast_call_to_chart_node(**call_test_inputs, expand_threshold=0)
+flowchart_node_to_dot_graph(
+    test_chart, config=FlowchartConfig(expand_all=True, show_cluster=True)
+)
+test_output_path = Path(__file__).parent / "test_output"
+test_chart.subchart.to_file(test_output_path / "funcdef_flowchart.json")
+
+#### Real code ####
 converter = AstChartNodeConverter(
     code_nodes=nodes,
     simplify_threshold=0,
@@ -759,12 +821,7 @@ get = converter.ast_funcdef_to_chart(
 flowchart_node_to_dot_graph(
     get, config=FlowchartConfig(expand_all=True, show_cluster=True)
 )
-# wrapper = converter._create_warpper_node(
-#     name="root",
-#     label="root",
-#     start=get,
-#     type=FlowchartType.LINEAR,
-# )
 get.subchart.to_file(output_path / "flowchart.json")
+logger.info(f"Flowchart saved to {output_path}/flowchart.json.")
 pass
 # %%
