@@ -213,6 +213,7 @@ class AstChartNodeConverter(BaseModel):
         ..., description="Code nodes of the whole repo."
     )
     func_nodes: dict[URI, FunctionNode] = Field(default_factory=dict)
+    node_uuids: set[str] = Field(default_factory=set)
     chart_nodes: dict[str, BaseFlowchartNode] = Field(default_factory=dict)
     simplify_threshold: int = Field(default=50)
     expand_threshold: int = Field(default=50)
@@ -695,8 +696,9 @@ class AstChartNodeConverter(BaseModel):
         node_uuid = (
             f"{uri_to_path(uri)}:{node.lineno+base_lineno}:{node.col_offset}:{note}"
         )
-        if node_uuid in self.chart_nodes:
+        if node_uuid in self.node_uuids:
             raise ValueError(f"Node {node_uuid} already exists.")
+        self.node_uuids.add(node_uuid)
         return node_uuid
 
     def ast_funcdef_to_chart(self, node: ast.FunctionDef, uri: URI) -> FunctionNode:
