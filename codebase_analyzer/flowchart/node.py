@@ -166,6 +166,7 @@ class Flowchart(BaseModel):
             raise ValueError(f"Invalid flowchart {self.name}")
         json_file.parent.mkdir(parents=True, exist_ok=True)
         json_file.write_text(json.dumps(self.to_flat_dict(), indent=indent))
+        logger.info(f"Saved flowchart {self.name} to {json_file}")
 
     def check(
         self,
@@ -300,6 +301,7 @@ class BaseFlowchartNode(BaseModel, ABC):
             subcls.__name__: subcls
             for subcls in [
                 StartNode,
+                CallNode,
                 ActionNode,
                 LoopNode,
                 DecisionNode,
