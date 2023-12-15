@@ -465,7 +465,8 @@ class CallNode(ActionNode):
     color: ClassVar[str] = "azure"
     chart_type: ClassVar[FlowchartType] = FlowchartType.FUNCTION_CALL
     func_uri: URI
-    # TODO: add inputs and return info
+    inputs: Any = None
+    returns: Any = None
 
 
 class ReturnNode(ActionNode):

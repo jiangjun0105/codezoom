@@ -5,15 +5,34 @@ import ast
 import copy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, ClassVar
 from uuid import uuid4
 
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from codebase_analyzer.flowchart.node import (
+    ActionNode,
+    BaseFlowchartNode,
+    CallNode,
+    DecisionNode,
+    EndNode,
+    ExitNode,
+    Flowchart,
+    FlowchartConfig,
+    FlowchartType,
+    FunctionNode,
+    LoopNode,
+    StartNode,
+    flowchart_node_to_dot_graph,
+)
+from codebase_analyzer.flowchart.process import ask_gpt
 from codebase_analyzer.flowchart.utils import _output_path
 from codebase_analyzer.parser.deftree import CodeInfo, CodeNode
 from codebase_analyzer.parser.uri import URI, uri_full_func_name, uri_to_path
+
+# %%
+from codebase_analyzer.tools.context import get_str_length
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 CACHE_ROOT = REPO_ROOT / "shared_cache"
@@ -35,6 +54,18 @@ print(output_path)
 code = nodes[target_uri].code
 ast_tree = ast.parse(code)
 SIMPLIFIED_TAG = "simplified"
+
+
+class ContextPair(BaseModel):
+    """A pair of context nodes."""
+
+    get_ctx: ActionNode | CallNode
+    enter: ActionNode
+    exit: ActionNode
+
+    @property
+    def start(self) -> ActionNode | CallNode:
+        return self.get_ctx if isinstance(self.get_ctx, CallNode) else self.enter
 
 
 def is_same_node(node1, node2):  # noqa C901
@@ -67,29 +98,6 @@ def is_same_node(node1, node2):  # noqa C901
     else:
         # If it's not an AST node, just compare values
         return node1 == node2
-
-
-from typing import ClassVar
-
-from codebase_analyzer.flowchart.node import (
-    ActionNode,
-    BaseFlowchartNode,
-    CallNode,
-    DecisionNode,
-    EndNode,
-    ExitNode,
-    Flowchart,
-    FlowchartConfig,
-    FlowchartType,
-    FunctionNode,
-    LoopNode,
-    StartNode,
-    flowchart_node_to_dot_graph,
-)
-from codebase_analyzer.flowchart.process import ask_gpt
-
-# %%
-from codebase_analyzer.tools.context import get_str_length
 
 
 def _is_same_method_call(known_call: str, test_call: str) -> bool:
@@ -273,8 +281,9 @@ class AstChartNodeConverter(BaseModel):
                 return self.ast_for_to_chart_node(node, uri=uri)
             case ast.AsyncFor:
                 return self.ast_asyncfor_to_chart_node(node, uri=uri)
-            case ast.comprehension:
-                return self.ast_comp_to_chart_node(node, uri=uri)
+            # TODO: handle comprehension for each type.
+            # case ast.comprehension:
+            #     return self.ast_comp_to_chart_node(node, uri=uri)
             case ast.While:
                 return self.ast_while_to_chart_node(node, uri=uri)
             # With group
@@ -282,8 +291,6 @@ class AstChartNodeConverter(BaseModel):
                 return self.ast_with_to_chart_node(node, uri=uri)
             case ast.AsyncWith:
                 return self.ast_asyncwith_to_chart_node(node, uri=uri)
-            case ast.withitem:
-                return self.ast_withitem_to_chart_node(node, uri=uri)
             case _:
                 raise ValueError(f"Node {node} is not a control flow node.")
 
@@ -515,6 +522,9 @@ class AstChartNodeConverter(BaseModel):
         start, fetch, if_continue = self._process_for_clause(
             node=node, uri=uri, loop_type="comp"
         )
+        # TODO: add the comprehension logic here.
+        # We need to do it for ListComp, SetComp, DictComp, because the elt is
+        # not included in the ast.comprehension node.
 
     def ast_while_to_chart_node(self, node: ast.While, uri: URI) -> LoopNode:
         """Converts an AST while node to a Flowchart node."""
@@ -545,16 +555,42 @@ class AstChartNodeConverter(BaseModel):
         )
         return wrapper
 
-    def ast_with_to_chart_node(self, node: ast.With, uri: URI) -> BaseFlowchartNode:
+    def ast_with_to_chart_node(self, node: ast.With, uri: URI) -> ActionNode:
         """Converts an AST with node to a Flowchart node."""
         assert isinstance(node, ast.With), f"Node {node} is not a with node."
         logger.info(
             f"Converting with node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
+        return self._ast_with_to_chart_node(node=node, uri=uri, type="with")
+
+    def _ast_with_to_chart_node(
+        self, node: ast.With, uri: URI, type: str
+    ) -> ActionNode:
+        contexts = [
+            self._process_withitem(node=node, index=index, uri=uri)
+            for index in range(len(node.items))
+        ]
+        assert len(contexts) > 0, "With node must have at least one context."
+        body = self.ast_nodes_to_chart_node(nodes=node.body, uri=uri)
+        for i, ctx in enumerate(contexts[:-1]):
+            assert ctx.get_ctx.next == ctx.enter
+            ctx.enter.next = contexts[i + 1].start
+            contexts[i + 1].exit.next = ctx.exit
+        contexts[-1].enter.next = body
+        body.next = contexts[-1].exit
+
+        wrapper = ActionNode.with_subchart(
+            name=f"{type}_{len(contexts)}_contexts",
+            uuid=self.node_uuid(node=node, uri=uri, suffix=f"{type}_wrapper"),
+            label=f"{type} {len(contexts)} contexts",
+            chart_start=contexts[0].start,
+            chart_type=FlowchartType.PROCESS,
+        )
+        return wrapper
 
     def ast_asyncwith_to_chart_node(
-        node: ast.AsyncWith, uri: URI
-    ) -> BaseFlowchartNode:
+        self, node: ast.AsyncWith, uri: URI
+    ) -> ActionNode:
         """Converts an AST asyncwith node to a Flowchart node."""
         assert isinstance(
             node, ast.AsyncWith
@@ -562,15 +598,44 @@ class AstChartNodeConverter(BaseModel):
         logger.info(
             f"Converting asyncwith node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
+        return self._ast_with_to_chart_node(node=node, uri=uri, type="async_with")
 
-    def ast_withitem_to_chart_node(
-        node: ast.withitem, uri: URI
-    ) -> BaseFlowchartNode:
+    def _process_withitem(
+        self, node: ast.With | ast.AsyncWith, index: int, uri: URI
+    ) -> ContextPair:
         """Converts an AST withitem node to a Flowchart node."""
-        assert isinstance(node, ast.withitem), f"Node {node} is not a withitem node."
+        item = node.items[index]
+        assert isinstance(item, ast.withitem), f"Node {item} is not a withitem node."
         logger.info(
-            f"Converting withitem node `{ast.unparse(node)[:10]}` to a Flowchart node."
+            f"Converting withitem node `{ast.unparse(item)[:10]}` to a Flowchart node."
         )
+        get_ctx = self.ast_node_to_chart_node(node=item.context_expr, uri=uri)
+        if isinstance(get_ctx, CallNode):
+            ctx = get_ctx.returns
+        elif isinstance(get_ctx, ActionNode):
+            # TODO: this means the context is an expression which evaluates as a
+            # context manager object. So we need to extract the evaluted value
+            # when processing expressions.
+            ctx = get_ctx.label
+
+        # TODO: match the context class and get the URI of the enter/exit functions.
+        enter_uri = f"{ctx}.__enter__"
+        exit_uri = f"{ctx}.__exit__"
+
+        # TODO: create CallNode for enter and exit from the functions.
+        # For now, we use ActionNode to represent the enter and exit.
+        enter = ActionNode(
+            name=f"enter_{get_ctx.name}",
+            uuid=self.node_uuid(node=node, uri=uri, suffix=f"enter_{index}"),
+            label=f"Call {enter_uri}",
+        )
+        get_ctx.next = enter
+        exit = ActionNode(
+            name=f"exit_{get_ctx.name}",
+            uuid=self.node_uuid(node=node, uri=uri, suffix=f"exit_{index}"),
+            label=f"Call {exit_uri}",
+        )
+        return ContextPair(get_ctx=get_ctx, enter=enter, exit=exit)
 
     def should_simplify(self, node: ast.AST) -> bool:
         return get_str_length(ast.unparse(node)) >= self.simplify_threshold
@@ -1045,6 +1110,12 @@ def test_func(messages):
         print("while true")
         break
 
+    # Test with
+    with func_1() as x, func_2() as y:
+        print(x, y)
+
+    with cm as x:
+        print(x)
     return 1
 
 """
