@@ -402,12 +402,17 @@ class AstChartNodeConverter(BaseModel):
         logger.info(
             f"Converting for node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
+        return self._ast_for_to_chart_node(node=node, uri=uri, note="for")
+
+    def _ast_for_to_chart_node(self, node: ast.For, uri: URI, note: str) -> LoopNode:
         foriter = self.ast_node_to_chart_node(node=node.iter, uri=uri)
         target_label = ast.unparse(node.target)
         if isinstance(foriter, CallNode):
             setup = ActionNode(
-                name=f"for_setup_{target_label}",
-                uuid=self.node_uuid(node=node.target, uri=uri, suffix="for_setup"),
+                name=f"{note}_setup_{target_label}",
+                uuid=self.node_uuid(
+                    node=node.target, uri=uri, suffix=f"{note}_setup"
+                ),
                 label=f"Fetch {target_label} from {foriter.label}",
             )
             foriter.next = setup
@@ -418,9 +423,9 @@ class AstChartNodeConverter(BaseModel):
             setup.label = f"Fetch {target_label} from {setup.label}"
 
         if_continue = DecisionNode(
-            name=f"for_check_{target_label}",
-            uuid=self.node_uuid(node=node.target, uri=uri, suffix="for_check"),
-            label="If got unprocessed data",
+            name=f"{note}_check_{target_label}",
+            uuid=self.node_uuid(node=node.target, uri=uri, suffix=f"{note}_check"),
+            label=f"If got unprocessed `{target_label}`",
         )
         forbody = self.ast_nodes_to_chart_node(nodes=node.body, uri=uri)
         setup.next = if_continue
@@ -429,20 +434,20 @@ class AstChartNodeConverter(BaseModel):
 
         if node.orelse:
             if_normal_end = DecisionNode(
-                name="for_check_loop_normal_finish",
+                name=f"{note}_check_loop_normal_finish",
                 uuid=self.node_uuid(
-                    node=node.orelse[0], uri=uri, suffix="for_else_check"
+                    node=node.orelse[0], uri=uri, suffix=f"{note}_else_check"
                 ),
-                label="If loop finished normally",
+                label=f"If all `{target_label}` are processed without break",
             )
             orelse_body = self.ast_nodes_to_chart_node(nodes=node.orelse, uri=uri)
             if_continue.false = if_normal_end
             if_normal_end.true = orelse_body
 
         wrapper = ActionNode.with_subchart(
-            name=f"for_loop_{forbody.name}",
-            uuid=self.node_uuid(node=node, uri=uri, suffix="for_wrapper"),
-            label=f"for process {forbody.label}",
+            name=f"{note}_loop_{forbody.name}",
+            uuid=self.node_uuid(node=node, uri=uri, suffix=f"{note}_wrapper"),
+            label=f"{note} process {forbody.label}",
             chart_start=foriter,
             chart_type=FlowchartType.PROCESS,
         )
@@ -456,6 +461,7 @@ class AstChartNodeConverter(BaseModel):
         logger.info(
             f"Converting asyncfor node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
+        return self._ast_for_to_chart_node(node=node, uri=uri, note="asyncfor")
 
     def ast_comp_to_chart_node(self, node: ast.AsyncFor, uri: URI) -> LoopNode:
         """Converts an AST asyncfor node to a Flowchart node."""
@@ -954,7 +960,7 @@ def test_func(messages):
         print("finally")
 
     # Testing for loop
-    for x in func_2():
+    async for x in func_2():
         for i in range(10):
             print(i, x)
     else:
