@@ -360,6 +360,39 @@ class AstChartNodeConverter(BaseModel):
         logger.info(
             f"Converting try node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
+        trybody = self.ast_nodes_to_chart_node(nodes=node.body, uri=uri)
+        orelse = self.ast_nodes_to_chart_node(nodes=node.orelse, uri=uri)
+        final = self.ast_nodes_to_chart_node(nodes=node.finalbody, uri=uri)
+
+        excepts = []
+        for handler in node.handlers:
+            test = DecisionNode(
+                name=f"check_{handler.name}",
+                uuid=self.node_uuid(node=handler, uri=uri, suffix="except"),
+                label=f"check if {handler.type.id} is raised",
+            )
+            excepts.append(test)
+            test.true = self.ast_nodes_to_chart_node(nodes=handler.body, uri=uri)
+            if final:
+                test.true.next = final
+
+        assert len(excepts) > 0, "Try node must have at least one except node."
+        trybody.next = excepts[0]
+        for i in range(len(excepts) - 1):
+            excepts[i].false = excepts[i + 1]
+
+        if orelse:
+            excepts[-1].false = orelse
+            orelse.next = final
+
+        wrapper = ActionNode.with_subchart(
+            name=f"try_{len(excepts)}_excepts",
+            uuid=self.node_uuid(node=node, uri=uri, suffix="try_wrapper"),
+            label=f"try {ast.unparse(node.body)}",
+            chart_start=trybody,
+            chart_type=FlowchartType.PROCESS,
+        )
+        return wrapper
 
     def ast_for_to_chart_node(self, node: ast.For, uri: URI) -> LoopNode:
         """Converts an AST for node to a Flowchart node."""
@@ -862,6 +895,16 @@ def test_func(messages):
             # print([m for m in messages if len(m) > 0])
             # DEBUG: Didn't see the glue node here.
             print(func_1())
+    try:
+        print("try")
+    except ValueError:
+        print("value error")
+    except Exception:
+        print("exception")
+    else:
+        print("else")
+    finally:
+        print("finally")
     return 1
 """
 test_func_calls = [
