@@ -298,10 +298,13 @@ class AstChartNodeConverter(BaseModel):
         # NOTE: Abondoned for now. See if we need it later when using GPT.
         pass
 
-    def _process_if_test(
+    def _process_if_clause(
         self, test_node: ast.AST, uri: URI
     ) -> tuple[BaseFlowchartNode, DecisionNode]:
-        """Processes the test of an if node."""
+        """Processes clause `if xxx`, which generates:
+
+        (test_call) -> if_node
+        """
 
         test = self.ast_node_to_chart_node(node=test_node, uri=uri)
         if_node = DecisionNode(
@@ -321,7 +324,7 @@ class AstChartNodeConverter(BaseModel):
         logger.info(
             f"Converting if node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
-        chart_start, if_node = self._process_if_test(test_node=node.test, uri=uri)
+        chart_start, if_node = self._process_if_clause(test_node=node.test, uri=uri)
 
         if isinstance(node.body, list):  # ast.If
             if_node.true = self.ast_nodes_to_chart_node(nodes=node.body, uri=uri)
@@ -402,25 +405,32 @@ class AstChartNodeConverter(BaseModel):
         )
         return self._ast_for_to_chart_node(node=node, uri=uri, loop_type="for")
 
-    def _ast_for_to_chart_node(
+    def _process_for_clause(
         self, node: ast.For, uri: URI, loop_type: str
-    ) -> LoopNode:
-        foriter = self.ast_node_to_chart_node(node=node.iter, uri=uri)
+    ) -> tuple[BaseFlowchartNode, BaseFlowchartNode, DecisionNode]:
+        """Processes `for target in iter` clause, which generates:
+
+        (func_call) -> fetch -> if_continue
+        """
+        assert hasattr(node, "iter"), f"Node {node} doesn't have iter."
+        assert hasattr(node, "target"), f"Node {node} doesn't have target."
+
         target_label = ast.unparse(node.target)
+        foriter = self.ast_node_to_chart_node(node=node.iter, uri=uri)
         if isinstance(foriter, CallNode):
-            setup = ActionNode(
-                name=f"{loop_type}_setup_{target_label}",
+            fetch = ActionNode(
+                name=f"{loop_type}_fetch_{target_label}",
                 uuid=self.node_uuid(
-                    node=node.target, uri=uri, suffix=f"{loop_type}_setup"
+                    node=node.target, uri=uri, suffix=f"{loop_type}_fetch"
                 ),
                 label=f"Fetch {target_label} from {foriter.label}",
             )
-            foriter.next = setup
+            foriter.next = fetch
         else:
             assert isinstance(foriter, ActionNode)
             assert foriter.subchart is None
-            setup = foriter
-            setup.label = f"Fetch {target_label} from {setup.label}"
+            fetch = foriter
+            fetch.label = f"Fetch {target_label} from {fetch.label}"
 
         if_continue = DecisionNode(
             name=f"{loop_type}_check_{target_label}",
@@ -429,10 +439,19 @@ class AstChartNodeConverter(BaseModel):
             ),
             label=f"If got unprocessed `{target_label}`",
         )
+        fetch.next = if_continue
+        return foriter, fetch, if_continue
+
+    def _ast_for_to_chart_node(
+        self, node: ast.For, uri: URI, loop_type: str
+    ) -> LoopNode:
+        target_label = ast.unparse(node.target)
         forbody = self.ast_nodes_to_chart_node(nodes=node.body, uri=uri)
-        setup.next = if_continue
+        start, fetch, if_continue = self._process_for_clause(
+            node=node, uri=uri, loop_type=loop_type
+        )
         if_continue.true = forbody
-        forbody.next = setup
+        forbody.next = fetch
 
         self._process_loop_orelse(
             node=node,
@@ -446,7 +465,7 @@ class AstChartNodeConverter(BaseModel):
             name=f"{loop_type}_loop_{forbody.name}",
             uuid=self.node_uuid(node=node, uri=uri, suffix=f"{loop_type}_wrapper"),
             label=f"{loop_type} process {forbody.label}",
-            chart_start=foriter,
+            chart_start=start,
             chart_type=FlowchartType.PROCESS,
         )
         return wrapper
@@ -492,19 +511,10 @@ class AstChartNodeConverter(BaseModel):
         logger.info(
             f"Converting comprehension node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
-        # NOTE: comprehension's target could be a ast.Call
-        target = self.ast_node_to_chart_node(node=node.target, uri=uri)
-        if isinstance(target, CallNode):
-            pick = ActionNode(
-                name=f"pick_{target.name}",
-                uuid=self.node_uuid(node=node.target, uri=uri, suffix="pick"),
-                label=f"Pick returns of {target.name}",
-            )
-        else:
-            pick = target
-            pick.label = f"Pick {pick.label}"
 
-        self.ast_node_to_chart_node(node=node.iter, uri=uri)
+        start, fetch, if_continue = self._process_for_clause(
+            node=node, uri=uri, loop_type="comp"
+        )
 
     def ast_while_to_chart_node(self, node: ast.While, uri: URI) -> LoopNode:
         """Converts an AST while node to a Flowchart node."""
@@ -512,7 +522,7 @@ class AstChartNodeConverter(BaseModel):
         logger.info(
             f"Converting while node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
-        chart_start, if_continue = self._process_if_test(
+        chart_start, if_continue = self._process_if_clause(
             test_node=node.test, uri=uri
         )
         body = self.ast_nodes_to_chart_node(nodes=node.body, uri=uri)
