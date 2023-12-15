@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -33,6 +34,7 @@ print(output_path)
 
 code = nodes[target_uri].code
 ast_tree = ast.parse(code)
+SIMPLIFIED_TAG = "simplified"
 
 
 def is_same_node(node1, node2):  # noqa C901
@@ -155,7 +157,7 @@ def is_first_party_call(node: ast.Call, calls: list[URI]) -> bool:
 
 
 def is_control_flow(node: ast.AST, threshold: int = 50) -> bool:
-    """Returns True if the node is a control flow node."""
+    """Returns True if the node is a control flow node and longer than threshold."""
     # TODO: get the list based on python version. ast.TryStar is added in 3.11
     # TODO: ast.comprehension might also need to be added.
     if isinstance(
@@ -165,6 +167,7 @@ def is_control_flow(node: ast.AST, threshold: int = 50) -> bool:
             ast.IfExp,
             ast.For,
             ast.AsyncFor,
+            ast.comprehension,
             ast.While,
             ast.With,
             ast.AsyncWith,
@@ -265,16 +268,18 @@ class AstChartNodeConverter(BaseModel):
                 return self.ast_try_to_chart_node(node, uri=uri)
             # Loop group
             case ast.For:
-                return self.ast_try_to_chart_node(node, uri=uri)
+                return self.ast_for_to_chart_node(node, uri=uri)
             case ast.AsyncFor:
-                return self.ast_try_to_chart_node(node, uri=uri)
+                return self.ast_asyncfor_to_chart_node(node, uri=uri)
+            case ast.comprehension:
+                return self.ast_comp_to_chart_node(node, uri=uri)
             case ast.While:
-                return self.ast_try_to_chart_node(node, uri=uri)
+                return self.ast_while_to_chart_node(node, uri=uri)
             # With group
             case ast.With:
-                return self.ast_try_to_chart_node(node, uri=uri)
+                return self.ast_with_to_chart_node(node, uri=uri)
             case ast.AsyncWith:
-                return self.ast_try_to_chart_node(node, uri=uri)
+                return self.ast_asyncwith_to_chart_node(node, uri=uri)
             case ast.withitem:
                 return self.ast_withitem_to_chart_node(node, uri=uri)
             case _:
@@ -315,6 +320,7 @@ class AstChartNodeConverter(BaseModel):
                 label=f"check if {test.label} is True",
             )
             chart_start = if_node
+            # NOTE: We probably want to pop test node?
             self.add_chart_node(if_node)
 
         if isinstance(node.body, list):  # ast.If
@@ -371,6 +377,15 @@ class AstChartNodeConverter(BaseModel):
             f"Converting asyncfor node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
 
+    def ast_comp_to_chart_node(self, node: ast.AsyncFor, uri: URI) -> LoopNode:
+        """Converts an AST asyncfor node to a Flowchart node."""
+        assert isinstance(
+            node, ast.comprehension
+        ), f"Node {node} is not an comprehension node."
+        logger.info(
+            f"Converting comprehension node `{ast.unparse(node)[:10]}` to a Flowchart node."
+        )
+
     def ast_while_to_chart_node(self, node: ast.While, uri: URI) -> LoopNode:
         """Converts an AST while node to a Flowchart node."""
         assert isinstance(node, ast.While), f"Node {node} is not a while node."
@@ -405,13 +420,35 @@ class AstChartNodeConverter(BaseModel):
             f"Converting withitem node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
 
-    def simplify_node_inplace(
-        self, node: ast.AST, chart_nodes: list[BaseFlowchartNode]
-    ) -> None:
+    def should_simplify(self, node: ast.AST) -> bool:
+        return get_str_length(ast.unparse(node)) >= self.simplify_threshold
+
+    def simplify_node(self, node: ast.AST, chart_node: BaseFlowchartNode) -> None:
         """Simplifies the call and control related code in the node."""
         # TODO: We can just replace the call or control with a variable and add a
         # comment showing what the variable does.
-        pass
+        if self.should_simplify(node):
+            common = dict(
+                tag=SIMPLIFIED_TAG,
+                id=chart_node.label.replace(" ", "_"),
+                lineno=node.lineno,
+                col_offset=node.col_offset,
+                ctx=ast.Load(),
+            )
+            if isinstance(node, ast.Call):
+                return ast.Name(**common)
+            if is_control_flow(node, threshold=0):
+                # NOTE: We might want to simplify control flows into a call ast node.
+                return ast.Name(**common)
+            raise ValueError(
+                f"Cannot simplify {node=} which is not a call or control flow."
+            )
+        else:
+            return node
+
+    def nothing_to_do(self, node: ast.AST) -> bool:
+        """Returns True if the node has nothing to convert any more."""
+        return hasattr(node, "tag") and node.tag == SIMPLIFIED_TAG
 
     def simple_code_to_chart_node(
         self,
@@ -452,7 +489,7 @@ class AstChartNodeConverter(BaseModel):
             ):
                 if current:
                     chart_nodes.append(
-                        self.simple_code_to_chart_node(node=current, uri=uri)
+                        self.simple_code_to_chart_node(nodes=current, uri=uri)
                     )
                     current = []
                 chart_nodes.append(self.ast_node_to_chart_node(node=node, uri=uri))
@@ -472,7 +509,9 @@ class AstChartNodeConverter(BaseModel):
         wrapper = ActionNode.with_subchart(
             name=f"process_of_{len(nodes)}_nodes",
             uuid=self.node_uuid(node=nodes[0], uri=uri, suffix="nodes_wrapper"),
-            # TODO: Use GPT to generate a better label.
+            # TODO: Use GPT to generate a better label. Here we only need a
+            # summary of all nodes, so no need to parse code again and no need
+            # to simplify code.
             label=f"Process of {len(nodes)} nodes",
             chart_start=connect_nodes(chart_nodes),
         )
@@ -484,7 +523,7 @@ class AstChartNodeConverter(BaseModel):
         *,
         node: ast.AST,
         uri: URI,
-    ) -> list[BaseFlowchartNode]:
+    ) -> tuple[list[BaseFlowchartNode], ast.AST]:
         """Convert a AST node to a list of Flowchart nodes.
         NOTE: The return list might be empty if there is no call or control logic in it."""
 
@@ -492,25 +531,44 @@ class AstChartNodeConverter(BaseModel):
             raise ValueError(f"Node {node} is not an AST node.")
 
         if is_first_party_call(node, calls=self.get_calls(uri)):
-            return [self.ast_call_to_chart_node(node=node, uri=uri)]
+            chart_node = self.ast_call_to_chart_node(node=node, uri=uri)
+            simplified = self.simplify_node(node, chart_node=chart_node)
+            return [chart_node], simplified
+
         if is_control_flow(node, threshold=self.expand_threshold):
-            return [self.ast_control_to_chart_node(node=node, uri=uri)]
+            chart_node = self.ast_control_to_chart_node(node=node, uri=uri)
+            simplified = self.simplify_node(node, chart_node=chart_node)
+            return [chart_node], simplified
 
         chart_nodes = []
+        simplified = copy.deepcopy(node)
         # NOTE: Be careful the order must match the execution order of a node.
         # NOTE: If we want to replace the node to simplify the code, we need to use iter_fields.
-        for child in ast.iter_child_nodes(node):
+        for field, value in ast.iter_fields(simplified):
             # NOTE: We need node calls for each child node, but the child nodes are
             # just part of the function being processed, so passing the full list of
             # the function calls is enough. We can make this more robust by passing
             # only function calls on these lines or even further, see how pycg works
             # and connect the function calls to the ast nodes directly.
-            new_nodes = self._ast_node_to_chart_nodes(node=child, uri=uri)
-            chart_nodes.extend(new_nodes)
-            if get_str_length(ast.unparse(child)) >= self.simplify_threshold:
-                self.simplify_node_inplace(child, chart_nodes=new_nodes)
+            if isinstance(value, list):
+                new_asts = []
+                for child in value:
+                    if not isinstance(child, ast.AST):
+                        continue
+                    new_charts, new_ast = self._ast_node_to_chart_nodes(
+                        node=child, uri=uri
+                    )
+                    chart_nodes.extend(new_charts)
+                    new_asts.append(new_ast)
+                setattr(simplified, field, new_asts)
+            elif isinstance(value, ast.AST):
+                new_charts, new_ast = self._ast_node_to_chart_nodes(
+                    node=value, uri=uri
+                )
+                chart_nodes.extend(new_charts)
+                setattr(simplified, field, new_ast)
 
-        return chart_nodes
+        return chart_nodes, simplified
 
     def ast_node_to_chart_node(
         self,
@@ -522,7 +580,11 @@ class AstChartNodeConverter(BaseModel):
         logger.info(f"Convert node {type(node)} to a Flowchart node.")
         logger.debug(f"Node code:\n{ast.unparse(node)}")
 
-        chart_nodes = self._ast_node_to_chart_nodes(
+        # TODO: this process should also simplified the code of the passed node.
+        # Which mean the call and control logic should be simplified in
+        # the code. Here, should generate a node showing what the simplified code does.
+        # This is the same as the ones in the `ast_call_to_chart_node` function.
+        chart_nodes, new_ast = self._ast_node_to_chart_nodes(
             node=node,
             uri=uri,
         )
@@ -530,20 +592,19 @@ class AstChartNodeConverter(BaseModel):
             logger.debug(
                 f"node {type(node)} doesn't have any call/control logic in it."
             )
-            assert not should_expand(node, calls=self.get_calls(uri))
+            assert not should_expand(
+                node, calls=self.get_calls(uri), threshold=self.expand_threshold
+            )
 
-        if len(chart_nodes) == 1:
-            # A single call or control node.
+        if self.nothing_to_do(new_ast):
+            # All logic converted for single call or control nodes.
             return chart_nodes[0]
 
-        # TODO: the above process should also simplified the code of the passed node.
-        # Which mean the call and control logic should be simplified in
-        # the code. Here, should generate a node showing what the simplified code does.
-        # This is the same as the ones in the `ast_call_to_chart_node` function.
         glue = ActionNode(
             name="glue",
             uuid=self.node_uuid(node=node, uri=uri, suffix="glue"),
-            label=f"non-call and non-control in `{ast.unparse(node)[:10]}`",
+            # Use new_ast + GPT
+            label=f"`{ast.unparse(new_ast)[:30]}`",
         )
         self.add_chart_node(glue)
         if isinstance(node, ast.Expr):
@@ -600,24 +661,33 @@ class AstChartNodeConverter(BaseModel):
             # call in the should_expand function.
             raise ValueError(f"Called URI {called_uri} is not in the code nodes.")
 
-        call_node = self.chart_funcdef_to_chart_call(
-            node=node, uri=uri, called_uri=called_uri
-        )
         chart_nodes = []
         # NOTE: We do should_expand check here because we don't want to generate a
         # single node for non-call nor control flow nodes. Also, we do not do the
         # check in the ast_node_to_chart_node function because we want a single type
         # return as a clear interface.
         for arg in node.args:
-            if should_expand(arg, calls=self.get_calls(uri)):
+            if should_expand(
+                arg, calls=self.get_calls(uri), threshold=self.expand_threshold
+            ):
                 chart_nodes.append(self.ast_node_to_chart_node(node=arg, uri=uri))
 
         for keyword in node.keywords:
-            if should_expand(keyword.value, calls=self.get_calls(uri)):
+            if should_expand(
+                keyword.value,
+                calls=self.get_calls(uri),
+                threshold=self.expand_threshold,
+            ):
                 chart_nodes.append(
                     self.ast_node_to_chart_node(node=keyword.value, uri=uri)
                 )
 
+        # TODO: simplify the args and kwargs in the code using the returned ast_nodes.
+        # self.simplify_node_inplace(node, chart_nodes=chart_nodes)
+
+        call_node = self.chart_funcdef_to_chart_call(
+            node=node, uri=uri, called_uri=called_uri
+        )
         if not chart_nodes:
             return call_node
 
@@ -771,12 +841,13 @@ def {func_name}():
 """
 
 test_func_code = """
-def test_func():
+def test_func(messages):
     if check_func():
         root_func(
             1,
             func_1(
                 func_1_1(),
+                True if messages else False,
                 e=3,
             ),  # test function call arg
             a=2,
@@ -785,6 +856,12 @@ def test_func():
                 g=1 if func_2_1() else 0,
             ),  # test function call kwarg
         )
+    else:
+        if messages:
+            # DEBUG: Didn't see the for loop and if here.
+            # print([m for m in messages if len(m) > 0])
+            # DEBUG: Didn't see the glue node here.
+            print(func_1())
     return 1
 """
 test_func_calls = [
@@ -849,4 +926,3 @@ flowchart_node_to_dot_graph(
 get.subchart.to_file(output_path / "flowchart.json")
 logger.info(f"Flowchart saved to {output_path}/flowchart.json.")
 pass
-# %%
