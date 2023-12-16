@@ -199,7 +199,7 @@ class BaseFlowchartNode(BaseModel, ABC):
     # NOTE: Any node can have a subchart after merging.
     # but after reorganizing, only IfNode and LoopNode will have subcharts
     subchart: Flowchart = Field(default=None)
-    expand: bool = False
+    expand: bool = True
 
     @property
     def node_attrs(self) -> dict[str, str]:
@@ -467,6 +467,7 @@ class CallNode(ActionNode):
     func_uri: URI
     inputs: Any = None
     returns: Any = None
+    expand: bool = False
 
 
 class ReturnNode(ActionNode):
@@ -856,7 +857,7 @@ def _add_in_edges(
             elif graph.get_edge(*node_edge).attr["label"] != edge.label:
                 logger.warning(
                     f"Edge {node_edge} already exists with label "
-                    f"{graph.get_edge(node_edge).attr['label']}. "
+                    f"{graph.get_edge(*node_edge).attr['label']}. "
                     f"Will overwrite with label {edge.label}."
                 )
                 graph.add_edge(node_edge, label=edge.label)
@@ -946,9 +947,11 @@ def node_to_graph(
         out_edges = node_to_graph(
             node.next, graph, in_edges=node.out_edges(graph), config=config
         )
-    elif isinstance(node, (ExitNode, EndNode)):
+    elif isinstance(node, (ExitNode, EndNode, FunctionNode)):
         logger.info(f"Encounter an ExitNode {node.name} at this branch.")
         out_edges = []
+    else:
+        raise ValueError(f"Cannot visualize {type(node)}")
 
     return out_edges
 
