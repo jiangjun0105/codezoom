@@ -30,29 +30,8 @@ from codebase_analyzer.flowchart.process import ask_gpt
 from codebase_analyzer.flowchart.utils import _output_path
 from codebase_analyzer.parser.deftree import CodeInfo, CodeNode
 from codebase_analyzer.parser.uri import URI, uri_full_func_name, uri_to_path
-
-# %%
 from codebase_analyzer.tools.context import get_str_length
 
-REPO_ROOT = Path(__file__).parent.parent.parent
-CACHE_ROOT = REPO_ROOT / "shared_cache"
-LOCAL_ROOT = REPO_ROOT / ".local"
-
-code_info = CodeInfo.from_disk(input_path=CACHE_ROOT / "Auto-GPT/codeinfo.json")
-nodes = code_info.nodes
-output_dir = (LOCAL_ROOT / "flowcharts").absolute()
-
-debug_uri = "/autogpt.logs.logger/Logger.debug"
-main_uri = "/autogpt.app.main/run_auto_gpt"
-update_uri = "/autogpt.app.main/update_user"
-loop_uri = "/autogpt.app.main/run_interaction_loop"
-# %%
-target_uri = main_uri
-output_path = _output_path(target_uri, output_dir=output_dir)
-print(output_path)
-
-code = nodes[target_uri].code
-ast_tree = ast.parse(code)
 SIMPLIFIED_TAG = "simplified"
 
 
@@ -665,6 +644,9 @@ class AstChartNodeConverter(BaseModel):
 
     def nothing_to_do(self, node: ast.AST) -> bool:
         """Returns True if the node has nothing to convert any more."""
+        if isinstance(node, ast.Expr):
+            # Single line call is wrapped in an Expr node.
+            node = node.value
         return hasattr(node, "tag") and node.tag == SIMPLIFIED_TAG
 
     def simple_code_to_chart_node(
@@ -1166,17 +1148,36 @@ test_output_path = Path(__file__).parent / "test_output"
 test_chart.subchart.to_file(test_output_path / "funcdef_flowchart.json")
 
 #### Real code ####
+REPO_ROOT = Path(__file__).parent.parent.parent
+CACHE_ROOT = REPO_ROOT / "shared_cache"
+LOCAL_ROOT = REPO_ROOT / ".local"
+
+code_info = CodeInfo.from_disk(input_path=CACHE_ROOT / "Auto-GPT/codeinfo.json")
+nodes = code_info.nodes
+output_dir = (LOCAL_ROOT / "flowcharts").absolute()
+
+debug_uri = "/autogpt.logs.logger/Logger.debug"
+main_uri = "/autogpt.app.main/run_auto_gpt"
+update_uri = "/autogpt.app.main/update_user"
+loop_uri = "/autogpt.app.main/run_interaction_loop"
+# %%
+target_uri = main_uri
+output_path = _output_path(target_uri, output_dir=output_dir)
+print(output_path)
+
+code = nodes[target_uri].code
+ast_tree = ast.parse(code)
 converter = AstChartNodeConverter(
     code_nodes=nodes,
     simplify_threshold=0,
     expand_threshold=0,
 )
 get = converter.ast_funcdef_to_chart(
-    node=ast.parse(nodes[debug_uri].code).body[0],
-    uri=debug_uri,
+    node=ast.parse(nodes[update_uri].code).body[0],
+    uri=update_uri,
 )
 flowchart_node_to_dot_graph(
-    get, config=FlowchartConfig(expand_all=True, show_cluster=True)
+    get, config=FlowchartConfig(expand_all=False, show_cluster=True)
 )
 get.subchart.to_file(output_path / "flowchart.json")
 logger.info(f"Flowchart saved to {output_path}/flowchart.json.")
