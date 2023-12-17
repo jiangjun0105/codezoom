@@ -79,6 +79,11 @@ def is_same_node(node1, node2):  # noqa C901
         return node1 == node2
 
 
+def is_docstring(node: ast.AST) -> bool:
+    """Check if the given node is a docstring."""
+    return isinstance(node, ast.Expr) and isinstance(node.value, (ast.Constant))
+
+
 def _is_same_method_call(known_call: str, test_call: str) -> bool:
     """FIXME: This is a hacky way to compare method calls. We need a more robust
     way, otherwise there will be millions of corner cases."""
@@ -154,7 +159,7 @@ def is_control_flow(node: ast.AST, threshold: int = 50) -> bool:
             ast.IfExp,
             ast.For,
             ast.AsyncFor,
-            ast.comprehension,
+            # ast.comprehension,
             ast.While,
             ast.With,
             ast.AsyncWith,
@@ -233,12 +238,12 @@ class AstChartNodeConverter(BaseModel):
         else:
             raise ValueError(f"Function node {uri} already exists.")
 
-    def add_chart_node(self, node: BaseFlowchartNode) -> None:
-        """Adds a function node to the func_nodes dict."""
-        if self.chart_nodes.get(node.uuid) is None:
-            self.chart_nodes[node.uuid] = node
-        else:
-            raise ValueError(f"Chart node {node.uuid} already exists.")
+    # def add_chart_node(self, node: BaseFlowchartNode) -> None:
+    #     """Adds a function node to the func_nodes dict."""
+    #     if self.chart_nodes.get(node.uuid) is None:
+    #         self.chart_nodes[node.uuid] = node
+    #     else:
+    #         raise ValueError(f"Chart node {node.uuid} already exists.")
 
     def ast_control_to_chart_node(self, node: ast.AST, uri: URI) -> ActionNode:
         """Converts an AST control flow node to a Flowchart node.
@@ -298,7 +303,7 @@ class AstChartNodeConverter(BaseModel):
             uuid=self.node_uuid(node=test_node, uri=uri, suffix="check_value"),
             label=f"If the return of {test.label} is True",
         )
-        if isinstance(test, CallNode):
+        if isinstance(test, CallNode) or test.subchart is not None:
             # NOTE: We only separate the call node and the if node when calling functions.
             test.next = if_node
             return test, if_node
@@ -326,7 +331,6 @@ class AstChartNodeConverter(BaseModel):
             label=f"if {ast.unparse(node.test)}",
             chart_start=chart_start,
         )
-        self.add_chart_node(action_node)
         return action_node
 
     def ast_if_to_chart_node(self, node: ast.If, uri: URI) -> ActionNode:
@@ -355,10 +359,11 @@ class AstChartNodeConverter(BaseModel):
 
         excepts = []
         for handler in node.handlers:
+            raised = ast.unparse(handler.type) if handler.type else "anhy exception"
             test = DecisionNode(
                 name=f"check_{handler.name}",
                 uuid=self.node_uuid(node=handler, uri=uri, suffix="except"),
-                label=f"check if {handler.type.id} is raised",
+                label=f"check if {raised} is raised",
             )
             excepts.append(test)
             test.true = self.ast_nodes_to_chart_node(nodes=handler.body, uri=uri)
@@ -403,7 +408,7 @@ class AstChartNodeConverter(BaseModel):
 
         target_label = ast.unparse(node.target)
         foriter = self.ast_node_to_chart_node(node=node.iter, uri=uri)
-        if isinstance(foriter, CallNode):
+        if isinstance(foriter, CallNode) or foriter.subchart is not None:
             fetch = ActionNode(
                 name=f"{loop_type}_fetch_{target_label}",
                 uuid=self.node_uuid(
@@ -665,7 +670,6 @@ class AstChartNodeConverter(BaseModel):
             label=f"`{code[:30]}`",
             uuid=self.node_uuid(node=nodes[0], uri=uri, suffix="simple"),
         )
-        self.add_chart_node(action_node)
         return action_node
 
     def ast_nodes_to_chart_node(
@@ -714,7 +718,6 @@ class AstChartNodeConverter(BaseModel):
             label=f"Process of {len(nodes)} nodes",
             chart_start=connect_nodes(chart_nodes),
         )
-        self.add_chart_node(wrapper)
         return wrapper
 
     def _ast_node_to_chart_nodes(
@@ -805,7 +808,6 @@ class AstChartNodeConverter(BaseModel):
             # Use new_ast + GPT
             label=f"`{ast.unparse(new_ast)[:30]}`",
         )
-        self.add_chart_node(glue)
         if isinstance(node, ast.Expr):
             # TODO: Actually get the evaluation results of the expression.
             logger.debug(f"Get evaluation of {ast.unparse(node)}")
@@ -822,7 +824,6 @@ class AstChartNodeConverter(BaseModel):
             label=f"Wrapper for ast node {ast.unparse(node)}",
             chart_start=connect_nodes(chart_nodes),
         )
-        self.add_chart_node(action_node)
         return action_node
 
     @property
@@ -900,7 +901,6 @@ class AstChartNodeConverter(BaseModel):
             label=f"generate args and call {ast.unparse(node.func)}",
             chart_start=connect_nodes(chart_nodes),
         )
-        self.add_chart_node(wrapper)
         return wrapper
 
     def chart_funcdef_to_chart_call(
@@ -950,7 +950,6 @@ class AstChartNodeConverter(BaseModel):
             returns=func_returns,
             subchart=func_process,
         )
-        self.add_chart_node(call_node)
         assert (call_node.subchart is None) or (
             call_node.subchart.uuid == call_node.uuid
         )
@@ -962,9 +961,7 @@ class AstChartNodeConverter(BaseModel):
         """Gets node names in format of
         `/package.subpkg.module/function:lineno:col_offset:suffix`."""
         note = f"{node.__class__.__name__}:{suffix}"
-        node_uuid = (
-            f"{uri_to_path(uri)}:{node.lineno+base_lineno}:{node.col_offset}:{note}"
-        )
+        node_uuid = f"{uri}:{node.lineno+base_lineno}:{node.col_offset}:{note}"
         if node_uuid in self.node_uuids:
             raise ValueError(f"Node {node_uuid} already exists.")
         self.node_uuids.add(node_uuid)
@@ -991,10 +988,14 @@ class AstChartNodeConverter(BaseModel):
             label=f"Function {node.name}",
             inputs=[],
         )
-        self.add_chart_node(start)
 
         # TODO: Collect ReturnNodes while processing body.
-        body = self.ast_nodes_to_chart_node(nodes=node.body, uri=uri)
+        if is_docstring(node.body[0]):
+            docstr = ast.unparse(node.body[0])
+            body_nodes = node.body[1:]
+        else:
+            body_nodes = node.body
+        body = self.ast_nodes_to_chart_node(nodes=body_nodes, uri=uri)
 
         # TODO: Summarize all returns and add them to the end node.
         end = EndNode(
@@ -1002,7 +1003,6 @@ class AstChartNodeConverter(BaseModel):
             uuid=self.node_uuid(node, uri=uri, suffix="end"),
             label=f"End of Function {node.name}",
         )
-        self.add_chart_node(end)
 
         func_node = FunctionNode.with_subchart(
             # TODO: Make these suffixs constants.
@@ -1015,7 +1015,6 @@ class AstChartNodeConverter(BaseModel):
             end=end,
             chart_start=connect_nodes([start, body, end]),
         )
-        self.add_chart_node(func_node)
         self.add_func_node(uri, node=func_node)
         return func_node
 
@@ -1041,6 +1040,7 @@ def {func_name}():
 
 test_func_code = """
 def test_func(messages):
+    \"\"\"This is a docstring.\"\"\"  # test docstring
     if check_func():
         root_func(
             1,
@@ -1161,7 +1161,7 @@ main_uri = "/autogpt.app.main/run_auto_gpt"
 update_uri = "/autogpt.app.main/update_user"
 loop_uri = "/autogpt.app.main/run_interaction_loop"
 # %%
-target_uri = main_uri
+target_uri = update_uri
 output_path = _output_path(target_uri, output_dir=output_dir)
 print(output_path)
 
@@ -1173,12 +1173,28 @@ converter = AstChartNodeConverter(
     expand_threshold=0,
 )
 get = converter.ast_funcdef_to_chart(
-    node=ast.parse(nodes[update_uri].code).body[0],
-    uri=update_uri,
+    node=ast.parse(nodes[target_uri].code).body[0],
+    uri=target_uri,
 )
-flowchart_node_to_dot_graph(
-    get, config=FlowchartConfig(expand_all=False, show_cluster=True)
-)
-get.subchart.to_file(output_path / "flowchart.json")
-logger.info(f"Flowchart saved to {output_path}/flowchart.json.")
+
+# %%
+from codebase_analyzer.flowchart.node import flowchart_to_element_json
+
+for func_uri, func_node in converter.func_nodes.items():
+    json_file = f"{uri_to_path(func_uri)}.json"
+    flatten_dir = Path("./flatten")
+    element_dir = Path("./element")
+    graph_dir = Path("./chart")
+
+    flowchart_node_to_dot_graph(
+        func_node,
+        config=FlowchartConfig(expand_all=False, show_cluster=True),
+        output_path=graph_dir,
+    )
+    # func_node.subchart.to_file(flatten_dir / json_file)
+    # read = Flowchart.from_file(json_file=flatten_dir / json_file)
+    # assert read == func_node.subchart
+    flowchart_to_element_json(
+        flowchart=func_node.subchart, output_path=element_dir / json_file
+    )
 pass
