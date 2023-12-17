@@ -23,7 +23,7 @@ from codebase_analyzer.flowchart.datamodel import (
     LoopPattern,
     Process,
 )
-from codebase_analyzer.parser.uri import URI, uri_stem
+from codebase_analyzer.parser.uri import URI, node_uuid_to_uri, uri_to_path
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 CACHE_ROOT = REPO_ROOT / "shared_cache"
@@ -394,6 +394,27 @@ class FunctionNode(BaseFlowchartNode):
         copied.uuid = uuid
         return copied
 
+    def to_flat_dict(self, nodes: dict[str, dict] | None = None) -> dict:
+        if nodes is None:
+            nodes = dict()
+        updated = super().to_flat_dict(exclude={"start", "end", "body"}, nodes=nodes)
+        if not updated:
+            logger.debug(f"Node {self.uuid} already added, skip")
+            return nodes
+
+        node = nodes.get(self.uuid, None)
+        assert node, f"Node {self.uuid} not found in nodes"
+        for key, branch in [
+            ("start", self.start),
+            ("body", self.body),
+            ("end", self.end),
+        ]:
+            if branch:
+                node[key] = branch.uuid
+                branodes = branch.to_flat_dict(nodes)
+                nodes.update(branodes)
+        return nodes
+
 
 class BaseOneOutNode(BaseFlowchartNode):
     """Nodes that only have one out-edge."""
@@ -469,6 +490,13 @@ class CallNode(ActionNode):
     returns: Any = None
     expand: bool = False
 
+    @property
+    def node_attrs(self) -> dict[str, str]:
+        # Use this method to customize the visualization of the node
+        attrs = super().node_attrs
+        attrs["func_uri"] = self.func_uri
+        return attrs
+
 
 class ReturnNode(ActionNode):
     """A node that represents a function return."""
@@ -515,6 +543,8 @@ class DecisionNode(BaseFlowchartNode):
             self.false.check(expected_parent=expected_parent, checked=checked)
 
     def to_flat_dict(self, nodes: dict[str, dict] | None = None) -> dict:
+        if nodes is None:
+            nodes = dict()
         updated = super().to_flat_dict(exclude={"true", "false"}, nodes=nodes)
         if not updated:
             logger.debug(f"Node {self.uuid} already added, skip")
@@ -1000,12 +1030,8 @@ def flowchart_node_to_dot_graph(
         output_path = Path(__file__).parent / "dot_graphs"
         output_path.mkdir(parents=True, exist_ok=True)
 
-    # FIXME: We need a better way to decide dump path.
-    uri_fn = input.name
-    if input.name.startswith("/"):
-        uri_fn = input.name.split("/", 2)[1]
-    uri_fn = uri_fn.replace(":", "_").replace(".", "/")
-    file_name = output_path / f"{uri_fn}{suffix}"
+    input_uri = node_uuid_to_uri(input.uuid)
+    file_name = output_path / f"{uri_to_path(input_uri)}{suffix}"
     file_name.parent.mkdir(parents=True, exist_ok=True)
     if save_png:
         graph.draw(file_name.with_suffix(".png"), prog="dot")
@@ -1233,8 +1259,8 @@ def _dict_node_element(node: dict) -> dict:
     )
 
 
-def _node_element(node) -> dict:
-    return dict(
+def _node_element(node: pgv.Node) -> dict:
+    element = dict(
         group="nodes",
         data=dict(
             id=node.name,
@@ -1243,6 +1269,9 @@ def _node_element(node) -> dict:
         ),
         classes=node.attr["type"],
     )
+    if node.attr["type"] == "CallNode":
+        element["data"]["func_uri"] = node.attr["func_uri"]
+    return element
 
 
 def flowchart_to_element_json(
@@ -1254,7 +1283,7 @@ def flowchart_to_element_json(
         flowchart,
         save_png=False,
         save_dot=False,
-        config=FlowchartConfig(expand_all=True),
+        config=FlowchartConfig(expand_all=False),
     )
     flat_dict = flowchart.to_flat_dict()
     for node in agraph.nodes():
