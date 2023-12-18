@@ -302,11 +302,13 @@ class BaseFlowchartNode(BaseModel, ABC):
             for subcls in [
                 StartNode,
                 CallNode,
+                DefineNode,
                 ActionNode,
                 LoopNode,
                 DecisionNode,
                 ExitNode,
                 EndNode,
+                FunctionNode,
             ]
         }
         if not (subclass := mapping.get(class_name, None)):
@@ -364,58 +366,6 @@ class BaseFlowchartNode(BaseModel, ABC):
         return node
 
 
-class FunctionNode(BaseFlowchartNode):
-    """Node for a function."""
-
-    shape: ClassVar[str] = "box"
-    color: ClassVar[str] = "cornflowerblue"
-    chart_type: ClassVar[FlowchartType] = FlowchartType.FUNCTION_DEF
-    func_uri: URI
-    start: BaseFlowchartNode
-    body: BaseFlowchartNode
-    end: BaseFlowchartNode
-
-    @property
-    def inputs(self) -> Any:
-        return self.start.inputs
-
-    @property
-    def returns(self) -> Any:
-        return self.end.returns
-
-    def get_process_chart(self, uuid: str) -> Flowchart:
-        if not self.body.subchart:
-            logger.debug(
-                f"Function {self.name} body has no subchart."
-                "Should merge this function with the caller."
-            )
-            return None
-        copied = copy.deepcopy(self.body.subchart)
-        copied.uuid = uuid
-        return copied
-
-    def to_flat_dict(self, nodes: dict[str, dict] | None = None) -> dict:
-        if nodes is None:
-            nodes = dict()
-        updated = super().to_flat_dict(exclude={"start", "end", "body"}, nodes=nodes)
-        if not updated:
-            logger.debug(f"Node {self.uuid} already added, skip")
-            return nodes
-
-        node = nodes.get(self.uuid, None)
-        assert node, f"Node {self.uuid} not found in nodes"
-        for key, branch in [
-            ("start", self.start),
-            ("body", self.body),
-            ("end", self.end),
-        ]:
-            if branch:
-                node[key] = branch.uuid
-                branodes = branch.to_flat_dict(nodes)
-                nodes.update(branodes)
-        return nodes
-
-
 class BaseOneOutNode(BaseFlowchartNode):
     """Nodes that only have one out-edge."""
 
@@ -439,13 +389,23 @@ class BaseOneOutNode(BaseFlowchartNode):
             self.next.check(expected_parent=expected_parent, checked=checked)
         return checked
 
-    def to_flat_dict(self, nodes: dict[str, dict] | None = None) -> dict:
+    def to_flat_dict(
+        self, nodes: dict[str, dict] | None = None, extra_exclude: dict | None = None
+    ) -> dict:
+        """Converts the node and sub-nodes to a flat dict.
+
+        Args:
+            nodes: dict of nodes already added
+            extra_exclude: set of attributes to exclude other than "next"
+        """
         # NOTE: Do not do nodes = xxx, only modify it in place!
         # We need receive the converted nodes to check if the next node is
         # Added or not before.
         if nodes is None:
             nodes = dict()
-        updated = super().to_flat_dict(exclude={"next"}, nodes=nodes)
+
+        exclude = {"next"} | (extra_exclude or set())
+        updated = super().to_flat_dict(exclude=exclude, nodes=nodes)
         if not updated:
             logger.debug(f"Node {self.uuid} already added, skip")
             return nodes
@@ -463,6 +423,89 @@ class BaseOneOutNode(BaseFlowchartNode):
         if next_uuid := node_dict.pop("next", None):
             return dict(next=next_uuid)
         return dict()
+
+
+class FunctionNode(BaseFlowchartNode):
+    """Node for a function.
+
+    A function node must have a subchart like:
+        start -> body -> end
+
+    where the body usually has a subchart defining the detailed logics.
+    """
+
+    shape: ClassVar[str] = "box"
+    color: ClassVar[str] = "cornflowerblue"
+    chart_type: ClassVar[FlowchartType] = FlowchartType.FUNCTION_DEF
+    func_uri: URI
+
+    class Config:
+        validate_assignment = True
+
+    @validator("subchart")
+    def subchart(cls, subchart: Any) -> dict:
+        if not subchart:
+            return subchart
+        if subchart.type != FlowchartType.FUNCTION_DEF:
+            raise ValueError(
+                f"Function node must have a subchart of type {FlowchartType.FUNCTION_DEF}"
+            )
+        if (
+            subchart.start is None
+            or subchart.start.next is None
+            or subchart.start.next.next is None
+        ):
+            raise ValueError(
+                f"Function subchart must have [start -> body -> end] structure, but got {subchart}"
+            )
+        return subchart
+
+    @property
+    def start(self) -> BaseFlowchartNode:
+        return self.subchart.start
+
+    @property
+    def body(self) -> BaseFlowchartNode:
+        return self.subchart.start.next
+
+    @property
+    def end(self) -> BaseFlowchartNode:
+        return self.subchart.start.next.next
+
+    @property
+    def inputs(self) -> Any:
+        return self.start.inputs
+
+    @property
+    def returns(self) -> Any:
+        return self.end.returns
+
+    def get_process_chart(self, uuid: str) -> Flowchart:
+        if not self.body.subchart:
+            logger.debug(
+                f"Function {self.name} body has no subchart."
+                "Should merge this function with the caller."
+            )
+            return None
+        copied = copy.deepcopy(self.body.subchart)
+        copied.uuid = uuid
+        return copied
+
+    def to_flat_dict(self, nodes: dict[str, dict] | None = None) -> dict:
+        """Converts the node and sub-nodes to a flat dict.
+        FunctionNode does not have any successors, because it's last node is EndNode."""
+        if nodes is None:
+            nodes = dict()
+        updated = super().to_flat_dict(
+            exclude={"start", "end", "body", "next"}, nodes=nodes
+        )
+        if not updated:
+            logger.debug(f"Node {self.uuid} already added, skip")
+            return nodes
+
+        node = nodes.get(self.uuid, None)
+        assert node, f"Node {self.uuid} not found in nodes"
+        return nodes
 
 
 class StartNode(BaseOneOutNode):
@@ -493,6 +536,20 @@ class CallNode(ActionNode):
     @property
     def node_attrs(self) -> dict[str, str]:
         # Use this method to customize the visualization of the node
+        attrs = super().node_attrs
+        attrs["func_uri"] = self.func_uri
+        return attrs
+
+
+class DefineNode(ActionNode):
+    """A node that defines a normal or nested function.
+    The defined function is not its subchart because the function is not executed."""
+
+    color: ClassVar[str] = "bisque"
+    func_uri: URI
+
+    @property
+    def node_attrs(self) -> dict[str, str]:
         attrs = super().node_attrs
         attrs["func_uri"] = self.func_uri
         return attrs
@@ -1277,7 +1334,6 @@ def _node_element(node: pgv.Node) -> dict:
 def flowchart_to_element_json(
     flowchart: Flowchart, output_path: Path | None = None
 ) -> dict:
-    # if True:
     elements = []
     agraph = flowchart_node_to_dot_graph(
         flowchart,
@@ -1290,10 +1346,10 @@ def flowchart_to_element_json(
         elements.append(_node_element(node))
         parent = flat_dict["nodes"].get(node.attr["parent_uuid"], None)
         if not parent:
-            print(f"no parent for node {node.name}")
+            logger.debug(f"no parent for node {node.name}")
             continue
         elements.append(_dict_node_element(parent))
-        print(f"add parent for node {node.name}")
+        logger.info(f"add parent for node {node.name}")
 
     for edge in agraph.edges():
         elements.append(_edge_element(edge))

@@ -26,7 +26,7 @@ def uri_to_path(uri: URI) -> Path:
     names = parts[0].split(".")
     file = Path("/".join(names))
     if len(parts) == 2:
-        file = file / parts[1]
+        file = file / parts[1].replace(".", "/")
     return file
 
 

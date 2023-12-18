@@ -16,6 +16,7 @@ from codebase_analyzer.flowchart.node import (
     BaseFlowchartNode,
     CallNode,
     DecisionNode,
+    DefineNode,
     EndNode,
     ExitNode,
     Flowchart,
@@ -209,7 +210,9 @@ class AstChartNodeConverter(BaseModel):
     )
     func_nodes: dict[URI, FunctionNode] = Field(default_factory=dict)
     node_uuids: set[str] = Field(default_factory=set)
-    chart_nodes: dict[str, BaseFlowchartNode] = Field(default_factory=dict)
+    # FIXME: for now we use this to save the calls of the nested functions.
+    # In long term, we should use namspace dict to handle this.
+    nested_func: dict[URI, list[URI]] = Field(default_factory=dict)
     simplify_threshold: int = Field(default=50)
     expand_threshold: int = Field(default=50)
 
@@ -229,6 +232,8 @@ class AstChartNodeConverter(BaseModel):
 
     def get_calls(self, uri: URI) -> list[URI]:
         """Gets the calls of a function."""
+        if uri in self.nested_func:
+            return self.nested_func[uri]
         return self.code_nodes[uri].calls
 
     def add_func_node(self, uri: URI, node: BaseFlowchartNode) -> None:
@@ -636,7 +641,7 @@ class AstChartNodeConverter(BaseModel):
                 col_offset=node.col_offset,
                 ctx=ast.Load(),
             )
-            if isinstance(node, ast.Call):
+            if isinstance(node, (ast.Call, ast.FunctionDef)):
                 return ast.Name(**common)
             if is_control_flow(node, threshold=0):
                 # NOTE: We might want to simplify control flows into a call ast node.
@@ -686,6 +691,7 @@ class AstChartNodeConverter(BaseModel):
 
         chart_nodes = []
         current = []
+        # TODO: Change this into namespace variable.
         for node in nodes:
             if should_expand(
                 node, calls=self.get_calls(uri), threshold=self.expand_threshold
@@ -731,6 +737,15 @@ class AstChartNodeConverter(BaseModel):
 
         if not isinstance(node, ast.AST):
             raise ValueError(f"Node {node} is not an AST node.")
+
+        # TODO: Merge these 3 if statements into one.
+        if isinstance(node, ast.FunctionDef):  # Nested function
+            # TODO: Pass calls into it.
+            nested_uri = f"{uri}.{node.name}"
+            self.nested_func[nested_uri] = self.get_calls(uri)
+            chart_node = self.ast_funcdef_to_chart_node(node=node, uri=nested_uri)
+            simplified = self.simplify_node(node, chart_node=chart_node)
+            return [chart_node], simplified
 
         if is_first_party_call(node, calls=self.get_calls(uri)):
             chart_node = self.ast_call_to_chart_node(node=node, uri=uri)
@@ -912,7 +927,7 @@ class AstChartNodeConverter(BaseModel):
         # the code_info generation and this process.
         func_ast = ast.parse(self.code_nodes[called_uri].code).body[0]
         if called_uri not in self.func_nodes:
-            self.ast_funcdef_to_chart(node=func_ast, uri=called_uri)
+            self.ast_funcdef_to_chart_node(node=func_ast, uri=called_uri)
 
         func_node = self.func_nodes[called_uri]
         call_uuid = self.node_uuid(node=node, uri=uri, suffix="call")
@@ -967,8 +982,13 @@ class AstChartNodeConverter(BaseModel):
         self.node_uuids.add(node_uuid)
         return node_uuid
 
-    def ast_funcdef_to_chart(self, node: ast.FunctionDef, uri: URI) -> FunctionNode:
-        """Converts an AST function definition node to a Flowchart."""
+    def ast_funcdef_to_chart_node(
+        self, node: ast.FunctionDef, uri: URI
+    ) -> DefineNode:
+        """Converts an AST function definition node to a Flowchart.
+        The defined FunctionNode will be registered in the func_nodes dict.
+        A node representing the function definition behavior will be returned.
+        """
         assert isinstance(node, ast.FunctionDef), f"Node {node} is not a function."
         if uri in self.func_nodes:
             logger.debug(f"Function {node.name} is being processed. Loop detected.")
@@ -1007,16 +1027,20 @@ class AstChartNodeConverter(BaseModel):
         func_node = FunctionNode.with_subchart(
             # TODO: Make these suffixs constants.
             name=f"{node.name}_FunctionDef",
-            uuid=self.node_uuid(node, uri=uri, suffix="func_wrapper"),
-            label=f"Function {node.name}",
+            uuid=self.node_uuid(node, uri=uri, suffix="funcdef_wrapper"),
+            label=f"Define function {node.name}",
             func_uri=uri,
-            start=start,
-            body=body,
-            end=end,
             chart_start=connect_nodes([start, body, end]),
         )
         self.add_func_node(uri, node=func_node)
-        return func_node
+
+        define_node = DefineNode(
+            name=f"{node.name}_Define",
+            uuid=self.node_uuid(node, uri=uri, suffix="define"),
+            label=f"Define function {node.name}",
+            func_uri=uri,
+        )
+        return define_node
 
 
 real_func_code = """
@@ -1137,7 +1161,7 @@ test_converter = AstChartNodeConverter(
     simplify_threshold=0,
     expand_threshold=0,
 )
-test_chart = test_converter.ast_funcdef_to_chart(
+test_chart = test_converter.ast_funcdef_to_chart_node(
     node=ast.parse(test_func_code).body[0],
     uri=test_func_uri,
 )
@@ -1145,7 +1169,8 @@ flowchart_node_to_dot_graph(
     test_chart, config=FlowchartConfig(expand_all=True, show_cluster=True)
 )
 test_output_path = Path(__file__).parent / "test_output"
-test_chart.subchart.to_file(test_output_path / "funcdef_flowchart.json")
+func_node = test_converter.func_nodes[test_chart.func_uri]
+func_node.subchart.to_file(test_output_path / "funcdef_flowchart.json")
 
 #### Real code ####
 REPO_ROOT = Path(__file__).parent.parent.parent
@@ -1172,7 +1197,7 @@ converter = AstChartNodeConverter(
     simplify_threshold=0,
     expand_threshold=0,
 )
-get = converter.ast_funcdef_to_chart(
+get = converter.ast_funcdef_to_chart_node(
     node=ast.parse(nodes[target_uri].code).body[0],
     uri=target_uri,
 )
@@ -1182,6 +1207,7 @@ from codebase_analyzer.flowchart.node import flowchart_to_element_json
 
 for func_uri, func_node in converter.func_nodes.items():
     json_file = f"{uri_to_path(func_uri)}.json"
+    json_file2 = f"{uri_to_path(func_uri)}_read.json"
     flatten_dir = Path("./flatten")
     element_dir = Path("./element")
     graph_dir = Path("./chart")
@@ -1191,9 +1217,10 @@ for func_uri, func_node in converter.func_nodes.items():
         config=FlowchartConfig(expand_all=False, show_cluster=True),
         output_path=graph_dir,
     )
-    # func_node.subchart.to_file(flatten_dir / json_file)
-    # read = Flowchart.from_file(json_file=flatten_dir / json_file)
-    # assert read == func_node.subchart
+    func_node.subchart.to_file(flatten_dir / json_file)
+    read = Flowchart.from_file(json_file=flatten_dir / json_file)
+    read.to_file(flatten_dir / json_file2)
+    # assert read.to_flat_dict() == func_node.subchart.to_flat_dict()
     flowchart_to_element_json(
         flowchart=func_node.subchart, output_path=element_dir / json_file
     )
