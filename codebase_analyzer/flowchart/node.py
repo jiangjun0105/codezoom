@@ -390,13 +390,13 @@ class BaseOneOutNode(BaseFlowchartNode):
         return checked
 
     def to_flat_dict(
-        self, nodes: dict[str, dict] | None = None, extra_exclude: dict | None = None
+        self, nodes: dict[str, dict] | None = None, exclude: dict | None = None
     ) -> dict:
         """Converts the node and sub-nodes to a flat dict.
 
         Args:
             nodes: dict of nodes already added
-            extra_exclude: set of attributes to exclude other than "next"
+            exclude: set of attributes to exclude other than "next"
         """
         # NOTE: Do not do nodes = xxx, only modify it in place!
         # We need receive the converted nodes to check if the next node is
@@ -404,7 +404,7 @@ class BaseOneOutNode(BaseFlowchartNode):
         if nodes is None:
             nodes = dict()
 
-        exclude = {"next"} | (extra_exclude or set())
+        exclude = {"next"} | (exclude or set())
         updated = super().to_flat_dict(exclude=exclude, nodes=nodes)
         if not updated:
             logger.debug(f"Node {self.uuid} already added, skip")
@@ -443,7 +443,7 @@ class FunctionNode(BaseFlowchartNode):
         validate_assignment = True
 
     @validator("subchart")
-    def subchart(cls, subchart: Any) -> dict:
+    def check_subchart(cls, subchart: Any) -> dict:
         if not subchart:
             return subchart
         if subchart.type != FlowchartType.FUNCTION_DEF:
@@ -531,7 +531,7 @@ class CallNode(ActionNode):
     func_uri: URI
     inputs: Any = None
     returns: Any = None
-    expand: bool = False
+    expand: bool = True
 
     @property
     def node_attrs(self) -> dict[str, str]:
