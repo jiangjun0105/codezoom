@@ -243,13 +243,6 @@ class AstChartNodeConverter(BaseModel):
         else:
             raise ValueError(f"Function node {uri} already exists.")
 
-    # def add_chart_node(self, node: BaseFlowchartNode) -> None:
-    #     """Adds a function node to the func_nodes dict."""
-    #     if self.chart_nodes.get(node.uuid) is None:
-    #         self.chart_nodes[node.uuid] = node
-    #     else:
-    #         raise ValueError(f"Chart node {node.uuid} already exists.")
-
     def ast_control_to_chart_node(self, node: ast.AST, uri: URI) -> ActionNode:
         """Converts an AST control flow node to a Flowchart node.
 
@@ -856,7 +849,9 @@ class AstChartNodeConverter(BaseModel):
         """Converts an AST call node to a Flowchart node."""
         assert isinstance(node, ast.Call), f"Node {node} is not a call node."
 
-        if uri not in self.code_nodes:
+        # FIXME: We need a better way to check if pycg extract the call correctly.
+        # Idealy following python's LEGB rule.
+        if uri not in self.code_nodes and uri not in self.nested_func:
             logger.warning(f"Call of {uri} is not in the code nodes. Skip it.")
             self.add_func_node(uri, node=self.skipped_value)
             return None
@@ -896,9 +891,6 @@ class AstChartNodeConverter(BaseModel):
                 chart_nodes.append(
                     self.ast_node_to_chart_node(node=keyword.value, uri=uri)
                 )
-
-        # TODO: simplify the args and kwargs in the code using the returned ast_nodes.
-        # self.simplify_node_inplace(node, chart_nodes=chart_nodes)
 
         call_node = self.chart_funcdef_to_chart_call(
             node=node, uri=uri, called_uri=called_uri
@@ -941,11 +933,11 @@ class AstChartNodeConverter(BaseModel):
             # best to be able to keep the reference to the actual node generated later.
             func_inputs = func_ast.args
             func_returns = func_ast.returns
-            func_process = None
+            # func_process = None
         else:
             func_inputs = func_node.inputs
             func_returns = func_node.returns
-            func_process = func_node.get_process_chart(uuid=call_uuid)
+            # func_process = func_node.get_process_chart(uuid=call_uuid)
 
         # NOTE: When the called function is complex (has a subchart), create
         # a call node wrapping the subchart.
@@ -963,7 +955,7 @@ class AstChartNodeConverter(BaseModel):
             # call_node.inputs
             inputs=func_inputs,
             returns=func_returns,
-            subchart=func_process,
+            # subchart=func_process,
         )
         assert (call_node.subchart is None) or (
             call_node.subchart.uuid == call_node.uuid
@@ -1186,7 +1178,7 @@ main_uri = "/autogpt.app.main/run_auto_gpt"
 update_uri = "/autogpt.app.main/update_user"
 loop_uri = "/autogpt.app.main/run_interaction_loop"
 # %%
-target_uri = update_uri
+target_uri = main_uri
 output_path = _output_path(target_uri, output_dir=output_dir)
 print(output_path)
 
@@ -1220,7 +1212,7 @@ for func_uri, func_node in converter.func_nodes.items():
     func_node.subchart.to_file(flatten_dir / json_file)
     read = Flowchart.from_file(json_file=flatten_dir / json_file)
     read.to_file(flatten_dir / json_file2)
-    # assert read.to_flat_dict() == func_node.subchart.to_flat_dict()
+    assert read.to_flat_dict() == func_node.subchart.to_flat_dict()
     flowchart_to_element_json(
         flowchart=func_node.subchart, output_path=element_dir / json_file
     )
