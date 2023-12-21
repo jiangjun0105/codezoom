@@ -619,6 +619,12 @@ class AstChartNodeConverter(BaseModel):
         )
         return ContextPair(get_ctx=get_ctx, enter=enter, exit=exit)
 
+    def should_expand(
+        self, node: ast.AST, uri: URI, threshold: int | None = None
+    ) -> bool:
+        threshold = threshold or self.expand_threshold
+        return should_expand(node, calls=self.get_calls(uri), threshold=threshold)
+
     def should_simplify(self, node: ast.AST) -> bool:
         return get_str_length(ast.unparse(node)) >= self.simplify_threshold
 
@@ -643,6 +649,8 @@ class AstChartNodeConverter(BaseModel):
                 f"Cannot simplify {node=} which is not a call or control flow."
             )
         else:
+            # So that we won't reprocess it.
+            node.tag = SIMPLIFIED_TAG
             return node
 
     def nothing_to_do(self, node: ast.AST) -> bool:
@@ -686,9 +694,7 @@ class AstChartNodeConverter(BaseModel):
         current = []
         # TODO: Change this into namespace variable.
         for node in nodes:
-            if should_expand(
-                node, calls=self.get_calls(uri), threshold=self.expand_threshold
-            ):
+            if self.should_expand(node, uri=uri):
                 if current:
                     chart_nodes.append(
                         self.simple_code_to_chart_node(nodes=current, uri=uri)
@@ -745,7 +751,10 @@ class AstChartNodeConverter(BaseModel):
             simplified = self.simplify_node(node, chart_node=chart_node)
             return [chart_node], simplified
 
-        if is_control_flow(node, threshold=self.expand_threshold):
+        # NOTE: No need to set threshold because if a control flow node is
+        # passed into this function, it must have a first party call in it and
+        # we want to expand it no matter how long it is.
+        if is_control_flow(node, threshold=0):
             chart_node = self.ast_control_to_chart_node(node=node, uri=uri)
             simplified = self.simplify_node(node, chart_node=chart_node)
             return [chart_node], simplified
@@ -802,9 +811,7 @@ class AstChartNodeConverter(BaseModel):
             logger.debug(
                 f"node {type(node)} doesn't have any call/control logic in it."
             )
-            assert not should_expand(
-                node, calls=self.get_calls(uri), threshold=self.expand_threshold
-            )
+            assert not self.should_expand(node, uri=uri)
 
         if self.nothing_to_do(new_ast):
             # All logic converted for single call or control nodes.
@@ -877,17 +884,11 @@ class AstChartNodeConverter(BaseModel):
         # check in the ast_node_to_chart_node function because we want a single type
         # return as a clear interface.
         for arg in node.args:
-            if should_expand(
-                arg, calls=self.get_calls(uri), threshold=self.expand_threshold
-            ):
+            if self.should_expand(arg, uri=uri):
                 chart_nodes.append(self.ast_node_to_chart_node(node=arg, uri=uri))
 
         for keyword in node.keywords:
-            if should_expand(
-                keyword.value,
-                calls=self.get_calls(uri),
-                threshold=self.expand_threshold,
-            ):
+            if self.should_expand(node=keyword.value, uri=uri):
                 chart_nodes.append(
                     self.ast_node_to_chart_node(node=keyword.value, uri=uri)
                 )
@@ -1148,21 +1149,24 @@ test_code_nodes[test_func_uri] = CodeNode(
     level=1,
 )
 
-test_converter = AstChartNodeConverter(
-    code_nodes=test_code_nodes,
-    simplify_threshold=0,
-    expand_threshold=0,
-)
-test_chart = test_converter.ast_funcdef_to_chart_node(
-    node=ast.parse(test_func_code).body[0],
-    uri=test_func_uri,
-)
-flowchart_node_to_dot_graph(
-    test_chart, config=FlowchartConfig(expand_all=True, show_cluster=True)
-)
-test_output_path = Path(__file__).parent / "test_output"
-func_node = test_converter.func_nodes[test_chart.func_uri]
-func_node.subchart.to_file(test_output_path / "funcdef_flowchart.json")
+for expand_threhold in [0, 100]:
+    test_converter = AstChartNodeConverter(
+        code_nodes=test_code_nodes,
+        simplify_threshold=0,
+        expand_threshold=expand_threhold,
+    )
+    test_chart = test_converter.ast_funcdef_to_chart_node(
+        node=ast.parse(test_func_code).body[0],
+        uri=test_func_uri,
+    )
+    flowchart_node_to_dot_graph(
+        test_converter.func_nodes[test_func_uri],
+        config=FlowchartConfig(expand_all=True, show_cluster=True),
+        output_path=Path(__file__).parent / f"test_output_{expand_threhold}",
+    )
+    test_output_path = Path(__file__).parent / "test_output"
+    func_node = test_converter.func_nodes[test_chart.func_uri]
+    func_node.subchart.to_file(test_output_path / "funcdef_flowchart.json")
 
 #### Real code ####
 REPO_ROOT = Path(__file__).parent.parent.parent
@@ -1186,8 +1190,8 @@ code = nodes[target_uri].code
 ast_tree = ast.parse(code)
 converter = AstChartNodeConverter(
     code_nodes=nodes,
-    simplify_threshold=0,
-    expand_threshold=0,
+    simplify_threshold=10,
+    expand_threshold=50,
 )
 get = converter.ast_funcdef_to_chart_node(
     node=ast.parse(nodes[target_uri].code).body[0],
@@ -1197,23 +1201,27 @@ get = converter.ast_funcdef_to_chart_node(
 # %%
 from codebase_analyzer.flowchart.node import flowchart_to_element_json
 
-for func_uri, func_node in converter.func_nodes.items():
-    json_file = f"{uri_to_path(func_uri)}.json"
-    json_file2 = f"{uri_to_path(func_uri)}_read.json"
-    flatten_dir = Path("./flatten")
-    element_dir = Path("./element")
-    graph_dir = Path("./chart")
 
-    flowchart_node_to_dot_graph(
-        func_node,
-        config=FlowchartConfig(expand_all=False, show_cluster=True),
-        output_path=graph_dir,
-    )
-    func_node.subchart.to_file(flatten_dir / json_file)
-    read = Flowchart.from_file(json_file=flatten_dir / json_file)
-    read.to_file(flatten_dir / json_file2)
-    assert read.to_flat_dict() == func_node.subchart.to_flat_dict()
-    flowchart_to_element_json(
-        flowchart=func_node.subchart, output_path=element_dir / json_file
-    )
-pass
+def save_function_separate(converter):
+    for func_uri, func_node in converter.func_nodes.items():
+        json_file = f"{uri_to_path(func_uri)}.json"
+        json_file2 = f"{uri_to_path(func_uri)}_read.json"
+        flatten_dir = Path("./flatten")
+        element_dir = Path("./element")
+        graph_dir = Path("./chart")
+
+        flowchart_node_to_dot_graph(
+            func_node,
+            config=FlowchartConfig(expand_all=False, show_cluster=True),
+            output_path=graph_dir,
+        )
+        func_node.subchart.to_file(flatten_dir / json_file)
+        read = Flowchart.from_file(json_file=flatten_dir / json_file)
+        read.to_file(flatten_dir / json_file2)
+        assert read.to_flat_dict() == func_node.subchart.to_flat_dict()
+        flowchart_to_element_json(
+            flowchart=func_node.subchart, output_path=element_dir / json_file
+        )
+
+
+save_function_separate(converter=converter)
