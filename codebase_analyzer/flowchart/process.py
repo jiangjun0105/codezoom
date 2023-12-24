@@ -213,13 +213,14 @@ def generate_by_chain(
     output_key: str,
     output_path: Path | None = None,
     call_api: bool = False,
+    model: str = "gpt-3.5-turbo",
 ) -> dict:
     prompt = ChatPromptTemplate.from_messages(
         messages=messages,
     )
     chain = LLMChain(
         llm=ChatOpenAI(
-            model="gpt-3.5-turbo",
+            model=model,
             temperature=0,
             streaming=True,
             verbose=True,
@@ -233,13 +234,14 @@ def generate_by_chain(
     formated_prompt = prompt.format(**inputs)
 
     if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.with_suffix(".input.md").write_text(formated_prompt)
 
     if call_api:
         outputs = chain(inputs=inputs)
     else:
         outputs = inputs.copy()
-        outputs[chain.output_key] = "Fake response of gpt-3.5-turbo"
+        outputs[chain.output_key] = f"Fake response of {model=}"
 
     if output_path is not None:
         output_path.write_text(outputs[chain.output_key])
