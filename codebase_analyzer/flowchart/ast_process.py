@@ -28,7 +28,11 @@ from codebase_analyzer.flowchart.node import (
     flowchart_node_to_dot_graph,
 )
 from codebase_analyzer.flowchart.process import generate_by_chain
-from codebase_analyzer.flowchart.prompt import PROCESS_PROMPT_SET, REFINE_TEXT_PROMPT
+from codebase_analyzer.flowchart.prompt import (
+    PROCESS_PROMPT_SET,
+    REFINE_TEXT_PROMPT,
+    SUMMARIZE_LABELS_PROMPT,
+)
 from codebase_analyzer.flowchart.utils import _output_path
 from codebase_analyzer.parser.deftree import CodeInfo, CodeNode
 from codebase_analyzer.parser.uri import URI, Uri, uri_to_path
@@ -347,8 +351,12 @@ class AstChartNodeConverter(BaseModel):
             name="if",
             uuid=uuid,
             # TODO: Template for summarizeing if node.
-            label=self.label_from_labels(
-                nodes=[if_node, if_node.true, if_node.false]
+            label=self.label_from_if_labels(
+                start=chart_start,
+                test=if_node,
+                true=if_node.true,
+                false=if_node.false,
+                uuid=uuid,
             ),
             chart_start=chart_start,
         )
@@ -387,7 +395,7 @@ class AstChartNodeConverter(BaseModel):
                     node=handler,
                     uri=uri,
                     suffix="except",
-                    draft=f'check if exception "{raised}" is raised',
+                    draft=f'If exception "{raised}" is raised',
                 ),
             )
             excepts.append(test)
@@ -409,8 +417,12 @@ class AstChartNodeConverter(BaseModel):
             name=f"try_{len(excepts)}_excepts",
             uuid=uuid,
             # TODO: summary template for try node.
-            label=self.label_from_labels(
-                nodes=[trybody, *excepts, orelse, final],
+            label=self.label_from_try_labels(
+                body=trybody,
+                excepts=excepts,
+                orelse=orelse,
+                final=final,
+                uuid=uuid,
             ),
             chart_start=trybody,
             chart_type=FlowchartType.PROCESS,
@@ -442,7 +454,7 @@ class AstChartNodeConverter(BaseModel):
             fetch = ActionNode(
                 name=f"{loop_type}_fetch_{target_label}",
                 uuid=uuid,
-                label=f"Fetch {target_label} from {foriter.label}",
+                label=f"Iterate {target_label} in {foriter.label}",
                 # label=self.label_from_code(ast.unparse(node), uuid=uuid),
             )
             foriter.next = fetch
@@ -473,7 +485,7 @@ class AstChartNodeConverter(BaseModel):
         if_continue.true = forbody
         forbody.next = fetch
 
-        self._process_loop_orelse(
+        orelse = self._process_loop_orelse(
             node=node,
             uri=uri,
             loop_type=loop_type,
@@ -481,11 +493,14 @@ class AstChartNodeConverter(BaseModel):
             orelse_label=f"If all `{target_label}` are processed without break",
         )
 
+        uuid = self.node_uuid(node=node, uri=uri, suffix=f"{loop_type}_wrapper")
         wrapper = ActionNode.with_subchart(
             name=f"{loop_type}_loop_{forbody.name}",
-            uuid=self.node_uuid(node=node, uri=uri, suffix=f"{loop_type}_wrapper"),
+            uuid=uuid,
             # TODO: summary template for for node.
-            label=self.label_from_labels([fetch, if_continue, forbody]),
+            label=self.label_from_for_labels(
+                foriter=start, body=forbody, orelse=orelse, uuid=uuid
+            ),
             chart_start=start,
             chart_type=FlowchartType.PROCESS,
         )
@@ -550,7 +565,7 @@ class AstChartNodeConverter(BaseModel):
             test_node=node.test, uri=uri
         )
         body = self.ast_nodes_to_chart_node(nodes=node.body, uri=uri)
-        self._process_loop_orelse(
+        orelse = self._process_loop_orelse(
             node=node,
             uri=uri,
             loop_type="while",
@@ -560,11 +575,18 @@ class AstChartNodeConverter(BaseModel):
 
         if_continue.true = body
         body.next = chart_start
+        uuid = self.node_uuid(node=node, uri=uri, suffix="while_wrapper")
         wrapper = ActionNode.with_subchart(
             name=f"while_loop_{body.name}",
-            uuid=self.node_uuid(node=node, uri=uri, suffix="while_wrapper"),
+            uuid=uuid,
             # TODO: Template for summarizing while node.
-            label=self.label_from_labels([if_continue, body]),
+            label=self.label_from_while_labels(
+                start=chart_start,
+                test=if_continue,
+                body=body,
+                orelse=orelse,
+                uuid=uuid,
+            ),
             chart_start=chart_start,
             chart_type=FlowchartType.PROCESS,
         )
@@ -594,11 +616,16 @@ class AstChartNodeConverter(BaseModel):
         contexts[-1].enter.next = body
         body.next = contexts[-1].exit
 
+        uuid = self.node_uuid(node=node, uri=uri, suffix=f"{type}_wrapper")
         wrapper = ActionNode.with_subchart(
             name=f"{type}_{len(contexts)}_contexts",
-            uuid=self.node_uuid(node=node, uri=uri, suffix=f"{type}_wrapper"),
+            uuid=uuid,
             # TODO: Template for summarizing with node.
-            label=self.label_from_labels([ctx.get_ctx for ctx in contexts]),
+            label=self.label_from_with_labels(
+                contexts=contexts,
+                body=body,
+                uuid=uuid,
+            ),
             chart_start=contexts[0].start,
             chart_type=FlowchartType.PROCESS,
         )
@@ -752,11 +779,12 @@ class AstChartNodeConverter(BaseModel):
             return chart_nodes[0]
 
         # TODO: not just roots
+        uuid = self.node_uuid(node=nodes[0], uri=uri, suffix="nodes_wrapper")
         wrapper = ActionNode.with_subchart(
             name=f"process_of_{len(nodes)}_nodes",
-            uuid=self.node_uuid(node=nodes[0], uri=uri, suffix="nodes_wrapper"),
+            uuid=uuid,
             # TODO: template for summarizing a list of nodes.
-            label=self.label_from_labels(chart_nodes),
+            label=self.label_from_linear_labels(chart_nodes, uuid=uuid),
             chart_start=connect_nodes(chart_nodes),
         )
         return wrapper
@@ -873,7 +901,7 @@ class AstChartNodeConverter(BaseModel):
             name=ast.unparse(node),
             uuid=self.node_uuid(node=node, uri=uri, suffix="wrapper"),
             # TODO: template for summarizing a list of nodes.
-            label=self.label_from_labels(chart_nodes),
+            label=self.label_from_linear_labels(chart_nodes, uuid=uuid),
             chart_start=connect_nodes(chart_nodes),
         )
         return action_node
@@ -939,12 +967,13 @@ class AstChartNodeConverter(BaseModel):
         # NOTE: Put the argument nodes before the call node.
         chart_nodes.append(call_node)
 
+        uuid = self.node_uuid(node=node, uri=uri, suffix="call_wrapper")
         wrapper = ActionNode.with_subchart(
             # TODO: generate name and label using GPT
             name=ast.unparse(node.func),
-            uuid=self.node_uuid(node=node, uri=uri, suffix="call_wrapper"),
+            uuid=uuid,
             # TODO: Template for summarizing call nodes
-            label=self.label_from_labels(chart_nodes),
+            label=self.label_from_linear_labels(chart_nodes, uuid=uuid),
             chart_start=connect_nodes(chart_nodes),
         )
         return wrapper
@@ -1022,59 +1051,138 @@ class AstChartNodeConverter(BaseModel):
 {text}
 """
         )
-        if self.call_api:
-            uri = Uri.from_node_uuid(uuid)
-            refined_key = "refined"
-            response = generate_by_chain(
-                messages=[REFINE_TEXT_PROMPT],
-                inputs=dict(text=text),
-                output_key=refined_key,
-                output_path=self.prompt_dump_path(uri=uri, uuid=uuid),
-                call_api=True,
-                model="gpt-4-1106-preview",
-            )
-            return response[refined_key]
+        if not self.call_api:
+            return text
 
-        return text
+        return generate_by_chain(
+            messages=REFINE_TEXT_PROMPT,
+            inputs=dict(text=text),
+            output_path=self.prompt_dump_path(uuid=uuid),
+            call_api=True,
+            model="gpt-4-1106-preview",
+        )
 
     def label_from_code(self, code: str, uuid: str) -> str:
         """ "Generates labels for nodes."""
         # TODO: If just a variable, return its meaning in the namespace.
         uri = Uri.from_node_uuid(uuid)
-        if self.call_api:
-            inputs = dict(
+        if not self.call_api:
+            return f"{code[:50]}"
+
+        return generate_by_chain(
+            messages=PROCESS_PROMPT_SET,
+            inputs=dict(
                 summaries="",
                 code=code,
                 function_name=uri.function,
                 file_name=uri.path,
                 # function_summary = self.code_nodes[uri].summary if uri in self.code_nodes else "None",
                 # summaries = "* _save_split: Split the given string by space and return the result.",
-            )
-            output_key = "process"
-            outputs = generate_by_chain(
-                messages=PROCESS_PROMPT_SET,
-                inputs=inputs,
-                output_key=output_key,
-                output_path=self.prompt_dump_path(uri=uri, uuid=uuid),
-                call_api=True,
-                model="gpt-4-1106-preview",
-            )
-            return outputs[output_key]
-        return f"{code[:50]}"
-
-    def label_from_labels(self, nodes: list[BaseFlowchartNode]) -> str:
-        """Summarizes the labels of a list of nodes."""
-        labels = [node.label for node in nodes if node]
-        self.save_to_debug_file(
-            f"""# Summary of labels
-Summarize labels:
-{' *'.join(labels)}
-"""
+            ),
+            output_path=self.prompt_dump_path(uuid=uuid),
+            call_api=True,
+            model="gpt-4-1106-preview",
         )
-        if self.call_api:
-            pass
-            # TODO: Call GPT and return response
-        return f"Summary of {len(nodes)} nodes"
+
+    def label_from_labels(self, labels: str, uuid: str) -> str:
+        """Summarizes the labels of a list of nodes."""
+        self.save_to_debug_file(f"Summarizing labels:\n{labels}")
+        if not self.call_api:
+            return "Summary of several nodes"
+
+        return generate_by_chain(
+            messages=SUMMARIZE_LABELS_PROMPT,
+            inputs=dict(labels=labels),
+            output_path=self.prompt_dump_path(uuid),
+            call_api=True,
+            model="gpt-4-1106-preview",
+        )
+
+    def label_from_linear_labels(
+        self, nodes: list[BaseFlowchartNode], uuid: str
+    ) -> str:
+        """Summarizes the labels of a list of nodes."""
+        return self.label_from_labels(
+            labels="\n".join([node.label for node in nodes if node]),
+            uuid=uuid,
+        )
+
+    def label_from_if_labels(
+        self,
+        start: BaseFlowchartNode,
+        test: DecisionNode,
+        true: ActionNode,
+        false: ActionNode,
+        uuid: str,
+    ) -> str:
+        """Summarizes the labels of a if node."""
+        prepare = ""
+        if start.label != test.label:
+            prepare = start.label
+        return self.label_from_labels(
+            labels=prepare
+            + f"if {test.label}:\n\t{true.label}\n"
+            + (f"else:\n\t{false.label}" if false else ""),
+            uuid=uuid,
+        )
+
+    def label_from_for_labels(
+        self, foriter: ActionNode, body: ActionNode, orelse: ActionNode, uuid: str
+    ) -> str:
+        """Summarizes the labels of a for node."""
+        return self.label_from_labels(
+            labels=f"{foriter.label}:\n\t{body.label}\n"
+            + (f"else:\n\t{orelse.label}" if orelse else ""),
+            uuid=uuid,
+        )
+
+    def label_from_try_labels(
+        self,
+        body: ActionNode,
+        excepts: list[DecisionNode],
+        orelse: ActionNode,
+        final: ActionNode,
+        uuid: str,
+    ) -> str:
+        """Summarizes the labels of a try node."""
+        except_labels = "\nOtherwise ".join(
+            [f"{exc.label}:\n\t{exc.true.label}" for exc in excepts]
+        )
+        return self.label_from_labels(
+            labels=f"try:\n\t{body}\n{except_labels}\nelse:\n\t{orelse}\nfinally:\n\t{final}",
+            uuid=uuid,
+        )
+
+    def label_from_with_labels(
+        self, contexts: list[ContextPair], body: ActionNode, uuid: str
+    ) -> str:
+        """Summarizes the labels of a with node."""
+        get_ctxs = [ctx.get_ctx.label for ctx in contexts]
+        enters = [ctx.enter.label for ctx in contexts]
+        exits = [ctx.exit.label for ctx in reversed(contexts)]
+        return self.label_from_labels(
+            labels="\n".join(get_ctxs + enters + [body.label] + exits),
+            uuid=uuid,
+        )
+
+    def label_from_while_labels(
+        self,
+        start: BaseFlowchartNode,
+        test: DecisionNode,
+        body: ActionNode,
+        orelse: ActionNode,
+        uuid: str,
+    ) -> str:
+        """Summarizes the labels of a while node."""
+        label = ""
+        if start.label != test.label:
+            label = start.label
+        return self.label_from_labels(
+            labels=label
+            + f"while {test.label}:\n\t{body.label}\n"
+            + (f"else:\n\t{orelse.label}" if orelse else ""),
+            uuid=uuid,
+        )
 
     def uuid_and_label(
         self,
@@ -1088,7 +1196,8 @@ Summarize labels:
         label = self.label_from_text(text=draft, uuid=uuid)
         return dict(uuid=uuid, label=label)
 
-    def prompt_dump_path(self, uri: Uri, uuid: str) -> Path:
+    def prompt_dump_path(self, uuid: str) -> Path:
+        uri = Uri.from_node_uuid(uuid=uuid)
         file = "_".join(uuid.split(":")[1:])
         return self.dump_dir / uri.dump_dir / "prompts" / f"{file}.md"
 
