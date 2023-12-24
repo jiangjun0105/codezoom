@@ -210,7 +210,7 @@ def add_lineno_to_code(code: str) -> str:
 def generate_by_chain(
     messages: list[BaseMessage],
     inputs: dict,
-    output_key: str,
+    output_key: str | None = None,
     output_path: Path | None = None,
     call_api: bool = False,
     model: str = "gpt-3.5-turbo",
@@ -218,6 +218,7 @@ def generate_by_chain(
     prompt = ChatPromptTemplate.from_messages(
         messages=messages,
     )
+    _output_key = output_key or "process_output"
     chain = LLMChain(
         llm=ChatOpenAI(
             model=model,
@@ -227,7 +228,7 @@ def generate_by_chain(
             callbacks=[BotStreamingStdOutCallbackHandler()],
         ),
         prompt=prompt,
-        output_key=output_key,
+        output_key=_output_key,
         verbose=True,
     )
 
@@ -245,6 +246,9 @@ def generate_by_chain(
 
     if output_path is not None:
         output_path.write_text(outputs[chain.output_key])
+
+    if output_key is None:
+        outputs = outputs[_output_key]
     return outputs
 
 

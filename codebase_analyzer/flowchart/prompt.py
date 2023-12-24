@@ -116,9 +116,26 @@ meaning:
 
 {text}
 """
-REFINE_TEXT_PROMPT = SystemMessagePromptTemplate.from_template(
-    template=REFINE_TEXT_TEMPLATE,
-)
+REFINE_TEXT_PROMPT = [
+    SystemMessagePromptTemplate.from_template(
+        template=REFINE_TEXT_TEMPLATE,
+    )
+]
+
+SUMMARIZE_LABELS_TEMPLATE = """The following is a description of some process \
+using  mix of human language and python syntax. Please help to summarize its \
+major processes into one sentence using less than 30 words \
+
+{labels}
+
+NOTE: No need to say "The process ..." at the beginning, say the content directly.
+"""
+
+SUMMARIZE_LABELS_PROMPT = [
+    SystemMessagePromptTemplate.from_template(
+        template=SUMMARIZE_LABELS_TEMPLATE,
+    )
+]
 
 if __name__ == "__main__":
     output_key = "process"
@@ -143,7 +160,7 @@ if assistant_thought:
     generate_by_chain(
         # messages=PROCESS_PROMPT_SET,
         # inputs=inputs,
-        messages=[REFINE_TEXT_PROMPT],
+        messages=REFINE_TEXT_PROMPT,
         inputs=dict(text=text),
         output_key=output_key,
         output_path=output_path,
