@@ -23,7 +23,7 @@ from codebase_analyzer.flowchart.datamodel import (
     LoopPattern,
     Process,
 )
-from codebase_analyzer.parser.uri import URI, node_uuid_to_uri, uri_to_path
+from codebase_analyzer.parser.uri import URI, Uri, node_uuid_to_uri, uri_to_path
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 CACHE_ROOT = REPO_ROOT / "shared_cache"
@@ -1088,14 +1088,15 @@ def flowchart_node_to_dot_graph(
         output_path.mkdir(parents=True, exist_ok=True)
 
     input_uri = node_uuid_to_uri(input.uuid)
-    file_name = output_path / f"{uri_to_path(input_uri)}{suffix}"
+    uri = Uri.from_fasten_uri(input_uri)
+    file_name = output_path / uri.dump_dir / f"chart{suffix}"
     file_name.parent.mkdir(parents=True, exist_ok=True)
     if save_png:
         graph.draw(file_name.with_suffix(".png"), prog="dot")
         logger.info(f"Saved {file_name.with_suffix('.png')}")
     if save_dot:
         graph.write(file_name.with_suffix(".dot"))
-        logger.info
+        logger.info(f"Saved {file_name.with_suffix('.dot')}")
     return graph
 
 
