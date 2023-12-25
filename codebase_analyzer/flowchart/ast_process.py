@@ -1421,7 +1421,7 @@ converter = AstChartNodeConverter(
     code_nodes=nodes,
     simplify_threshold=10,
     expand_threshold=50,
-    call_api=True,
+    call_api=False,
 )
 get = converter.ast_funcdef_to_chart_node(
     node=ast.parse(nodes[target_uri].code).body[0],
@@ -1438,7 +1438,7 @@ def save_function_separate(converter):
         flat_json = uri.dump_dir / "flat.json"
         element_json = uri.dump_dir / "element.json"
 
-        flowchart_node_to_dot_graph(
+        agraph = flowchart_node_to_dot_graph(
             func_node,
             config=FlowchartConfig(expand_all=False, show_cluster=True),
             output_path=converter.dump_dir,
@@ -1447,7 +1447,7 @@ def save_function_separate(converter):
         read = Flowchart.from_file(json_file=converter.dump_dir / flat_json)
         assert read.to_flat_dict() == func_node.subchart.to_flat_dict()
         flowchart_to_element_json(
-            flowchart=func_node.subchart,
+            flowchart=func_node,
             output_path=converter.dump_dir / element_json,
         )
 
