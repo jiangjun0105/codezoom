@@ -1293,7 +1293,7 @@ def test_save_load(test_node):
 # %%
 
 # %%
-def _edge_element(edge) -> dict:
+def pgv_edge_element(edge) -> dict:
     return dict(
         group="edges",
         data=dict(
@@ -1317,7 +1317,7 @@ def _dict_node_element(node: dict) -> dict:
     )
 
 
-def _node_element(node: pgv.Node) -> dict:
+def pgv_node_element(node: pgv.Node) -> dict:
     element = dict(
         group="nodes",
         data=dict(
@@ -1332,28 +1332,39 @@ def _node_element(node: pgv.Node) -> dict:
     return element
 
 
+def flat_node_element(node: dict) -> dict:
+    element = dict(
+        group="nodes",
+        data=dict(
+            id=node["uuid"],
+            label=node["label"],
+            parent=node["parent_uuid"],
+        ),
+        classes=node["type"],
+    )
+    if node["type"] == "CallNode":
+        element["data"]["func_uri"] = node["func_uri"]
+    return element
+
+
 def flowchart_to_element_json(
-    flowchart: Flowchart, output_path: Path | None = None
+    flowchart: Flowchart | BaseFlowchartNode, output_path: Path | None = None
 ) -> dict:
     elements = []
     agraph = flowchart_node_to_dot_graph(
         flowchart,
         save_png=False,
         save_dot=False,
-        config=FlowchartConfig(expand_all=False),
+        config=FlowchartConfig(expand_all=True),
     )
     flat_dict = flowchart.to_flat_dict()
-    for node in agraph.nodes():
-        elements.append(_node_element(node))
-        parent = flat_dict["nodes"].get(node.attr["parent_uuid"], None)
-        if not parent:
-            logger.debug(f"no parent for node {node.name}")
-            continue
-        elements.append(_dict_node_element(parent))
-        logger.info(f"add parent for node {node.name}")
+    nodes = flat_dict["nodes"] if isinstance(flowchart, Flowchart) else flat_dict
+    for node in nodes.values():
+        elements.append(flat_node_element(node))
+        logger.info(f"add parent for node {node['uuid']}")
 
     for edge in agraph.edges():
-        elements.append(_edge_element(edge))
+        elements.append(pgv_edge_element(edge))
 
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
