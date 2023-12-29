@@ -185,19 +185,16 @@ def flowchart_node_to_dot_graph(
     else:
         raise ValueError(f"Cannot visualize {type(input)}")
 
-    if output_path is None:
-        output_path = Path(__file__).parent / ".local"
+    if save_dot or save_png or save_svg:
+        output_path = output_path or Path(__file__).parent / ".local"
+        uri = Uri.from_node_uuid(input.uuid)
+        file_name = output_path / uri.dump_dir / f"chart{suffix}"
+        file_name.parent.mkdir(parents=True, exist_ok=True)
 
-    uri = Uri.from_node_uuid(input.uuid)
-    file_name = output_path / uri.dump_dir / f"chart{suffix}"
-    file_name.parent.mkdir(parents=True, exist_ok=True)
-    if save_png:
-        graph.draw(file_name.with_suffix(".png"), prog="dot")
-        logger.info(f"Saved {file_name.with_suffix('.png')}")
-    if save_svg:
-        graph.draw(file_name.with_suffix(".svg"), prog="dot")
-        logger.info(f"Saved {file_name.with_suffix('.svg')}")
-    if save_dot:
-        graph.write(file_name.with_suffix(".dot"))
-        logger.info(f"Saved {file_name.with_suffix('.dot')}")
+    for save, ext in zip([save_png, save_svg, save_dot], ["png", "svg", "dot"]):
+        if not save:
+            continue
+        fn = file_name.with_suffix(f".{ext}")
+        graph.draw(fn, prog="dot")
+        logger.info(f"Saved {fn}")
     return graph
