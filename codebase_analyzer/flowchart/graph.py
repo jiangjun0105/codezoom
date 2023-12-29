@@ -169,7 +169,7 @@ def flowchart_node_to_dot_graph(
     config: FlowchartConfig | None = None,
     save_png: bool = True,
     save_dot: bool = True,
-    save_svg: bool = True,
+    save_svg: bool = False,
     output_path: Path | None = None,
     suffix: str = "",
 ) -> pgv.AGraph:

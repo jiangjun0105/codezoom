@@ -24,6 +24,9 @@ CHART_KEY = "chart"
 NODES_KEY = "nodes"
 START_KEY = "start"
 
+FLAT_JSON = "flat.json"
+ELEMENT_JSON = "element.json"
+
 
 class FlowchartType(Enum):
     PROCESS: str = "PROCESS"
