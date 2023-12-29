@@ -18,7 +18,7 @@ from loguru import logger
 from pydantic import BaseModel, Field, root_validator
 
 from codebase_analyzer.bots.callbacks import BotStreamingStdOutCallbackHandler
-from codebase_analyzer.flowchart.datamodel import (
+from codebase_analyzer.flowchart.process.schema import (
     ActionPattern,
     ElifPattern,
     ElsePattern,
@@ -27,7 +27,7 @@ from codebase_analyzer.flowchart.datamodel import (
     LoopPattern,
     Process,
 )
-from codebase_analyzer.flowchart.utils import _output_path
+from codebase_analyzer.flowchart.process.utils import _output_path
 from codebase_analyzer.parser.codeinfo import check_state, update_state
 from codebase_analyzer.parser.deftree import CodeInfo, CodeNode
 from codebase_analyzer.parser.uri import URI, uri_stem
@@ -275,7 +275,6 @@ import re
 def ask_gpt(
     prompt: str, model: str = "gpt-3.5-turbo", call_api: bool = False
 ) -> str:
-    print(prompt)
     llm = ChatOpenAI(
         model=model,
         temperature=0,
@@ -465,8 +464,8 @@ def show_process_lineno(code: str, output_path: Path | None = None) -> None:
 from langchain.chains.openai_functions.base import create_openai_fn_chain
 
 # %%
-from codebase_analyzer.flowchart.add_lineno import add_code_lineno
-from codebase_analyzer.flowchart.check_lineno import check_process_linenos
+from codebase_analyzer.flowchart.process.add_lineno import add_code_lineno
+from codebase_analyzer.flowchart.process.check_lineno import check_process_linenos
 
 # %%
 
@@ -654,7 +653,7 @@ def process_pattern(
 
 
 # %%
-from codebase_analyzer.flowchart.check_pattern import check_process_pattern
+from codebase_analyzer.flowchart.process.check_pattern import check_process_pattern
 
 if __name__ == "__main__":
     code_info = CodeInfo.from_disk(input_path=CACHE_ROOT / "Auto-GPT/codeinfo.json")
@@ -682,7 +681,7 @@ if __name__ == "__main__":
     # %%
     ### NO API CALL
     process = process_to_json(output_path=output_path)
-    from codebase_analyzer.flowchart.check_index import check_process_indexes
+    from codebase_analyzer.flowchart.process.check_index import check_process_indexes
 
     ### TODO: Fix the root index
     process.to_file(output_path / "process.json")
@@ -711,22 +710,15 @@ if __name__ == "__main__":
     check_process_pattern(process)
     process.to_file(output_path / "process.json")
 
-    # %%
-    # import codebase_analyzer.flowchart.node
-    # import importlib
-    # importlib.reload(codebase_analyzer.flowchart.node)
-    from codebase_analyzer.flowchart.node import (
+if __name__ == "__main__":
+    from codebase_analyzer.flowchart.graph import (
         FlowchartConfig,
         flowchart_node_to_dot_graph,
-        flowchart_to_element_json,
-        root_process_to_flowchart,
     )
+    from codebase_analyzer.flowchart.process.convert import root_process_to_flowchart
 
     process = Process.from_file(output_path / "process.json")
     flowchart = root_process_to_flowchart(process)
     flowchart_node_to_dot_graph(
         flowchart, config=FlowchartConfig(expand_all=True, show_cluster=True)
     )
-    # db_path = Path("/Users/jun/Projects/display-flowchart/db.json")
-    # flowchart_to_element_json(flowchart=flowchart, output_path=db_path)
-    # %%

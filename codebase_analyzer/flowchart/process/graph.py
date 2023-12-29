@@ -6,13 +6,13 @@ from pathlib import Path
 import pygraphviz as pgv
 from pydantic import BaseModel, Field, root_validator
 
-from codebase_analyzer.flowchart.process import (
+from codebase_analyzer.flowchart.process.generate import (
     Process,
     code_to_process,
     process_lineno,
     process_to_json,
 )
-from codebase_analyzer.flowchart.utils import _output_path
+from codebase_analyzer.flowchart.process.utils import _output_path
 from codebase_analyzer.parser.deftree import CodeInfo, CodeNode
 from codebase_analyzer.parser.uri import URI, uri_stem
 

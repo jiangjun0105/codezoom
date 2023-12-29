@@ -194,3 +194,6 @@ Temporary Items
 .local
 .logs
 config.yaml
+
+# Cosine codebase QA plugin
+.cosine/

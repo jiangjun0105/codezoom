@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
-from codebase_analyzer.flowchart.datamodel import Process
+from codebase_analyzer.flowchart.process.schema import Process
 
 
 def is_index_larger(index1: str, index2: str) -> bool:

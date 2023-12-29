@@ -46,9 +46,7 @@ class Uri(BaseModel):
         return self.__str__().__hash__()
 
     def __eq__(self, other: URI | Uri) -> bool:
-        if isinstance(other, Uri):
-            return self == other
-        return str(self) == other
+        return str(self) == str(other)
 
     @property
     def file(self) -> Path:
