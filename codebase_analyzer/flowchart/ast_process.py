@@ -1205,6 +1205,7 @@ if True:
             simplify_threshold=0,
             expand_threshold=expand_threhold,
             call_api=False,
+            dump_dir=Path(__file__).parent / f".local/test_output_{expand_threhold}",
         )
         test_chart = test_converter.ast_funcdef_to_chart_node(
             node=ast.parse(test_func_code).body[0],
@@ -1213,7 +1214,8 @@ if True:
         flowchart_node_to_dot_graph(
             test_converter.func_nodes[test_func_uri],
             config=FlowchartConfig(expand_all=True, show_cluster=True),
-            output_path=Path(__file__).parent / f"test_output_{expand_threhold}",
+            output_path=Path(__file__).parent
+            / f".local/test_output_{expand_threhold}",
         )
         test_output_path = Path(__file__).parent / "test_output"
         func_node = test_converter.func_nodes[test_chart.func_uri]
@@ -1266,7 +1268,7 @@ converter = AstChartNodeConverter(
     simplify_threshold=10,
     expand_threshold=50,
     call_api=False,
-    dump=True,
+    dump_dir=Path(__file__).parent / ".local/convert_dump",
 )
 if True:
     get = converter.ast_funcdef_to_chart_node(
@@ -1280,6 +1282,7 @@ dump_dir = converter.dump_dir / "autogpt_full"
 linked_flat_json = Path("convert_dump/linked_flat.json")
 linked_element_json = Path("convert_dump/linked_element.json")
 link_nodes_and_save_jsons(
+    nodes=nodes,
     target_uri=main_uri,
     dump_dir=dump_dir,
     linked_flat_json=linked_flat_json,
