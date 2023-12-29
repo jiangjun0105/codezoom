@@ -11,13 +11,16 @@ from uuid import uuid4
 from loguru import logger
 from pydantic import BaseModel, Field, root_validator
 
+from codebase_analyzer.flowchart.element import flowchart_to_element_json
 from codebase_analyzer.flowchart.graph import (
     FlowchartConfig,
     flowchart_node_to_dot_graph,
 )
 from codebase_analyzer.flowchart.label import NodeLabelerMixin
-from codebase_analyzer.flowchart.link import link_nodes_and_save_jsons
+from codebase_analyzer.flowchart.link import link_all_chart_nodes
 from codebase_analyzer.flowchart.node import (
+    ELEMENT_JSON,
+    FLAT_JSON,
     ActionNode,
     BaseFlowchartNode,
     BaseOneOutNode,
@@ -1084,6 +1087,26 @@ class AstChartNodeConverter(NodeLabelerMixin):
         )
         return define_node
 
+    def save_func_nodes(self):
+        """Saves the function nodes into dump_dir following the folder structure in the input repo."""
+        for func_uri, func_node in self.func_nodes.items():
+            uri = Uri.from_fasten_uri(func_uri)
+            flat_json = uri.dump_dir / FLAT_JSON
+            element_json = uri.dump_dir / ELEMENT_JSON
+
+            flowchart_node_to_dot_graph(
+                func_node,
+                config=FlowchartConfig(expand_all=False, show_cluster=True),
+                output_path=self.dump_dir,
+            )
+            func_node.to_file(self.dump_dir / flat_json)
+            read = BaseFlowchartNode.from_file(json_file=self.dump_dir / flat_json)
+            assert read.to_flat_dict() == func_node.to_flat_dict()
+            flowchart_to_element_json(
+                flowchart=func_node,
+                output_path=self.dump_dir / element_json,
+            )
+
 
 real_func_code = """
 logger.typewriter_log(
@@ -1198,7 +1221,8 @@ test_code_nodes[test_func_uri] = CodeNode(
     level=1,
 )
 
-if True:
+run_test_code = False
+if run_test_code:
     for expand_threhold in [0, 100]:
         dump_dir = Path(__file__).parent / f".local/test_output_{expand_threhold}"
         test_converter = AstChartNodeConverter(
@@ -1217,9 +1241,16 @@ if True:
             config=FlowchartConfig(expand_all=True, show_cluster=True),
             output_path=dump_dir,
         )
-        func_node = test_converter.func_nodes[test_chart.func_uri]
-        func_node.subchart.to_file(dump_dir / "funcdef_flowchart.json")
+        test_converter.save_func_nodes()
+        full_chart = link_all_chart_nodes(
+            target_uri=test_func_uri,
+            dump_dir=dump_dir,
+            save_dot=True,
+            save_flat=True,
+            save_element=True,
+        )
 
+# %%
 #### Real code ####
 REPO_ROOT = Path(__file__).parent.parent.parent
 CACHE_ROOT = REPO_ROOT / "shared_cache"
@@ -1233,34 +1264,10 @@ debug_uri = "/autogpt.logs.logger/Logger.debug"
 main_uri = "/autogpt.app.main/run_auto_gpt"
 update_uri = "/autogpt.app.main/update_user"
 loop_uri = "/autogpt.app.main/run_interaction_loop"
-# %%
+
 target_uri = main_uri
 code = nodes[target_uri].code
 ast_tree = ast.parse(code)
-
-# %%
-from codebase_analyzer.flowchart.element import flowchart_to_element_json
-
-
-def save_function_separate(converter):
-    for func_uri, func_node in converter.func_nodes.items():
-        uri = Uri.from_fasten_uri(func_uri)
-        flat_json = uri.dump_dir / "flat.json"
-        element_json = uri.dump_dir / "element.json"
-
-        flowchart_node_to_dot_graph(
-            func_node,
-            config=FlowchartConfig(expand_all=False, show_cluster=True),
-            output_path=converter.dump_dir,
-        )
-        func_node.to_file(converter.dump_dir / flat_json)
-        read = BaseFlowchartNode.from_file(json_file=converter.dump_dir / flat_json)
-        assert read.to_flat_dict() == func_node.to_flat_dict()
-        flowchart_to_element_json(
-            flowchart=func_node,
-            output_path=converter.dump_dir / element_json,
-        )
-
 
 converter = AstChartNodeConverter(
     code_nodes=nodes,
@@ -1269,31 +1276,31 @@ converter = AstChartNodeConverter(
     call_api=False,
     dump_dir=Path(__file__).parent / ".local/convert_dump",
 )
-if True:
+
+run_real_code = False
+if run_real_code:
     get = converter.ast_funcdef_to_chart_node(
         node=ast.parse(nodes[target_uri].code).body[0],
         uri=target_uri,
     )
 
-    save_function_separate(converter=converter)
+    converter.save_func_nodes()
 
-dump_dir = converter.dump_dir / "autogpt_full"
-linked_flat_json = Path("convert_dump/linked_flat.json")
-linked_element_json = Path("convert_dump/linked_element.json")
-link_nodes_and_save_jsons(
-    nodes=nodes,
-    target_uri=main_uri,
-    dump_dir=dump_dir,
-    linked_flat_json=linked_flat_json,
-    linked_element_json=linked_element_json,
-)
-node = BaseFlowchartNode.from_file(json_file=linked_flat_json)
-flowchart_node_to_dot_graph(
-    node,
-    config=FlowchartConfig(expand_all=True, show_cluster=False),
-    output_path=dump_dir,
-    save_png=False,
-    save_svg=True,
-    suffix="_linked_expand_no_cluster",
-)
+if True:
+    read_dir = converter.dump_dir / "autogpt_full"
+    full_chart = link_all_chart_nodes(
+        target_uri=main_uri,
+        dump_dir=read_dir,
+        save_dot=True,
+        save_flat=True,
+        save_element=True,
+    )
+    # flowchart_node_to_dot_graph(
+    #     full_chart,
+    #     config=FlowchartConfig(expand_all=True, show_cluster=False),
+    #     output_path=read_dir,
+    #     save_png=False,
+    #     save_svg=True,
+    #     suffix="_linked_expand_no_cluster",
+    # )
 # %%

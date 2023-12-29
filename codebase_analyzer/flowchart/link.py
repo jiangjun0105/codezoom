@@ -12,32 +12,29 @@ from codebase_analyzer.flowchart.graph import (
     flowchart_node_to_dot_graph,
 )
 from codebase_analyzer.flowchart.node import (
-    ActionNode,
+    ELEMENT_JSON,
+    FLAT_JSON,
     BaseFlowchartNode,
     BaseOneOutNode,
     CallNode,
-    ContextPair,
     DecisionNode,
-    DefineNode,
     EndNode,
     ExitNode,
     Flowchart,
-    FlowchartType,
     FunctionNode,
-    LoopNode,
-    StartNode,
 )
-from codebase_analyzer.parser.deftree import CodeInfo, CodeNode
 from codebase_analyzer.parser.uri import URI, Uri
 
 
-def get_utility_functions(nodes: dict[str, CodeNode]) -> set[URI]:
+def get_utility_functions(func_nodes: dict[Uri, FunctionNode]) -> set[URI]:
     counter = Counter()
     utility = set()
 
-    for node in nodes.values():
-        for call in node.calls:
-            counter[call] += 1
+    for node in func_nodes.values():
+        flat_dict = node.to_flat_dict()
+        for info in flat_dict.values():
+            if info["type"] == CallNode.__name__:
+                counter[info["func_uri"]] += 1
 
     for call, count in counter.items():
         if count > 1:
@@ -46,24 +43,21 @@ def get_utility_functions(nodes: dict[str, CodeNode]) -> set[URI]:
     return utility
 
 
-FLAT_JSON = "flat.json"
-
-
-def load_function_nodes(load_dir: Path) -> dict[URI, Flowchart]:
+def load_function_nodes(load_dir: Path) -> dict[URI, FunctionNode]:
     func_nodes = dict()
     for func_path in load_dir.glob(f"**/{FLAT_JSON}"):
         logger.info(f"Loading function chart from {func_path}.")
-        chart = BaseFlowchartNode.from_file(json_file=func_path)
-        uri = Uri.from_node_uuid(chart.uuid)
-        func_nodes[uri] = chart
+        func_node = BaseFlowchartNode.from_file(json_file=func_path)
+        uri = Uri.from_node_uuid(func_node.uuid)
+        func_nodes[uri] = func_node
     return func_nodes
 
 
 def link_called_functions(
-    func_nodes: dict[URI, Flowchart],
-    utility: set[URI],
+    func_nodes: dict[Uri, FunctionNode],
+    utility: set[Uri],
     node: BaseFlowchartNode,
-    done: set[URI],
+    done: set[Uri],
 ) -> Flowchart:
     """Links all the CallNodes with the FunctionNodes."""
     if node is None or node.uuid in done:
@@ -102,13 +96,12 @@ def link_called_functions(
 
 def link_charts_from_entrypoint(
     dump_dir: Path,
-    nodes: dict[str, CodeNode],
     entry_uri: URI,
 ) -> Flowchart:
     """Links all the CallNodes with the FunctionNodes."""
     done = set()
     func_nodes = load_function_nodes(dump_dir)
-    utility = get_utility_functions(nodes)
+    utility = get_utility_functions(func_nodes)
     entry_node = func_nodes[entry_uri].start
     link_called_functions(
         func_nodes=func_nodes, utility=utility, node=entry_node, done=done
@@ -116,29 +109,32 @@ def link_charts_from_entrypoint(
     return entry_node
 
 
-def link_nodes_and_save_jsons(
-    nodes: dict[str, CodeNode],
+def link_all_chart_nodes(
     target_uri: str,
     dump_dir: Path,
-    linked_flat_json: Path,
-    linked_element_json: Path,
-):
-    link_charts_from_entrypoint(
+    save_flat: bool = False,
+    save_element: bool = False,
+    save_dot: bool = False,
+) -> Flowchart:
+    full_chart = link_charts_from_entrypoint(
         dump_dir=dump_dir,
-        nodes=nodes,
         entry_uri=Uri.from_fasten_uri(target_uri),
-    ).to_file(linked_flat_json)
+    )
+    if save_flat:
+        full_chart.to_file(dump_dir.parent / f"linked_{FLAT_JSON}")
 
-    read = BaseFlowchartNode.from_file(json_file=linked_flat_json)
-    flowchart_to_element_json(
-        flowchart=read,
-        output_path=linked_element_json,
-    )
-    flowchart_node_to_dot_graph(
-        read,
-        config=FlowchartConfig(expand_all=False, show_cluster=True),
-        output_path=dump_dir,
-        save_png=False,
-        save_svg=True,
-        suffix="_linked",
-    )
+    if save_element:
+        flowchart_to_element_json(
+            flowchart=full_chart,
+            output_path=dump_dir.parent / f"linked_{ELEMENT_JSON}.json",
+        )
+    if save_dot:
+        flowchart_node_to_dot_graph(
+            full_chart,
+            config=FlowchartConfig(expand_all=False, show_cluster=False),
+            output_path=dump_dir.parent / "linked_chart",
+            save_png=False,
+            save_svg=True,
+            suffix="_linked",
+        )
+    return full_chart
