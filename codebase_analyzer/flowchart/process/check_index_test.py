@@ -1,7 +1,7 @@
 """Test cases for the check_process_indexes function"""
 # %%
-from codebase_analyzer.flowchart.check_index import check_process_indexes
-from codebase_analyzer.flowchart.datamodel import Process
+from codebase_analyzer.flowchart.process.check_index import check_process_indexes
+from codebase_analyzer.flowchart.process.schema import Process
 
 # Define test cases JSON structures
 test_cases = [

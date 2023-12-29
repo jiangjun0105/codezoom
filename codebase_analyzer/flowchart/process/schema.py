@@ -2,16 +2,10 @@
 from __future__ import annotations
 
 import json
-from collections import defaultdict
-from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
-from typing import ClassVar, Type, Union
+from typing import ClassVar
 
-from loguru import logger
-from pydantic import BaseModel, Field, root_validator
-
-# %%
+from pydantic import BaseModel, Field
 
 
 class Pattern(BaseModel):
@@ -32,9 +26,6 @@ class Pattern(BaseModel):
             if type_ == sub_cls.get_name():
                 return sub_cls.parse_obj(obj)
         raise ValueError(f"Cannot find the pattern type {type_}")
-
-
-# %%
 
 
 class LoopPattern(Pattern):

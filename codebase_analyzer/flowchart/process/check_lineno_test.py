@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from codebase_analyzer.flowchart.check_lineno import (
+from codebase_analyzer.flowchart.process.check_lineno import (
     check_process_linenos_data,
     compare_indices,
 )
