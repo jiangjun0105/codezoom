@@ -186,11 +186,9 @@ def flowchart_node_to_dot_graph(
         raise ValueError(f"Cannot visualize {type(input)}")
 
     if output_path is None:
-        output_path = Path(__file__).parent / "dot_graphs"
-        output_path.mkdir(parents=True, exist_ok=True)
+        output_path = Path(__file__).parent / ".local"
 
-    input_uri = node_uuid_to_uri(input.uuid)
-    uri = Uri.from_fasten_uri(input_uri)
+    uri = Uri.from_node_uuid(input.uuid)
     file_name = output_path / uri.dump_dir / f"chart{suffix}"
     file_name.parent.mkdir(parents=True, exist_ok=True)
     if save_png:

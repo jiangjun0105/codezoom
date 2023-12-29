@@ -1200,12 +1200,13 @@ test_code_nodes[test_func_uri] = CodeNode(
 
 if True:
     for expand_threhold in [0, 100]:
+        dump_dir = Path(__file__).parent / f".local/test_output_{expand_threhold}"
         test_converter = AstChartNodeConverter(
             code_nodes=test_code_nodes,
             simplify_threshold=0,
             expand_threshold=expand_threhold,
             call_api=False,
-            dump_dir=Path(__file__).parent / f".local/test_output_{expand_threhold}",
+            dump_dir=dump_dir,
         )
         test_chart = test_converter.ast_funcdef_to_chart_node(
             node=ast.parse(test_func_code).body[0],
@@ -1214,12 +1215,10 @@ if True:
         flowchart_node_to_dot_graph(
             test_converter.func_nodes[test_func_uri],
             config=FlowchartConfig(expand_all=True, show_cluster=True),
-            output_path=Path(__file__).parent
-            / f".local/test_output_{expand_threhold}",
+            output_path=dump_dir,
         )
-        test_output_path = Path(__file__).parent / "test_output"
         func_node = test_converter.func_nodes[test_chart.func_uri]
-        func_node.subchart.to_file(test_output_path / "funcdef_flowchart.json")
+        func_node.subchart.to_file(dump_dir / "funcdef_flowchart.json")
 
 #### Real code ####
 REPO_ROOT = Path(__file__).parent.parent.parent

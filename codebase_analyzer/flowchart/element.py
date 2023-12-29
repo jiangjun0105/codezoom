@@ -79,6 +79,7 @@ def flowchart_to_element_json(
         flowchart,
         save_png=False,
         save_dot=False,
+        save_svg=False,
         config=FlowchartConfig(expand_all=True),
     )
     flat_dict = flowchart.to_flat_dict()
