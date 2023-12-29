@@ -3,7 +3,7 @@ from typing import List
 
 from pydantic import ValidationError
 
-from codebase_analyzer.flowchart.datamodel import (
+from codebase_analyzer.flowchart.process.schema import (
     ActionPattern,
     ElifPattern,
     ElsePattern,

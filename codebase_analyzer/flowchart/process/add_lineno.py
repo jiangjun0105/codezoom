@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 from loguru import logger
 
-from codebase_analyzer.flowchart.datamodel import Process
+from codebase_analyzer.flowchart.process.schema import Process
 
 
 def add_lineno_to_process(

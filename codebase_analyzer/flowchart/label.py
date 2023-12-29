@@ -174,7 +174,6 @@ class NodeLabelerMixin(BaseModel):
 
     call_api: bool = False
     dump: bool = True
-    dump_csv: Path = Field(default=Path(__file__).parent / "convert_dump/labels.csv")
     dump_dir: Path = Field(default=Path(__file__).parent / "convert_dump")
     prompt_tokens: int = 0
     completion_tokens: int = 0
@@ -185,10 +184,11 @@ class NodeLabelerMixin(BaseModel):
         dump = values.get("dump")
         if not dump:
             return values
-        csv_file = values.get("dump_csv")
+        csv_file = values.get("dump_dir") / "labels.csv"
         if csv_file.exists():
             csv_file.unlink()
 
+        csv_file.parent.mkdir(parents=True, exist_ok=True)
         with open(csv_file, "a+", newline="") as f:
             csv_writer = csv.writer(f)
             csv_writer.writerow(
@@ -202,6 +202,10 @@ class NodeLabelerMixin(BaseModel):
                 ]
             )
         return values
+
+    @property
+    def dump_csv(self) -> Path:
+        return self.dump_dir / "labels.csv"
 
     def save_to_md(self, uuid: str, prompt: str, response: str) -> Path:
         uri = Uri.from_node_uuid(uuid=uuid)

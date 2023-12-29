@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from codebase_analyzer.flowchart.datamodel import ROOT_PROCESS_INDEX, Process
+from codebase_analyzer.flowchart.process.schema import ROOT_PROCESS_INDEX, Process
 
 
 def format_expected_index(parent_index: str | None, next_index: int) -> str:
