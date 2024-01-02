@@ -1264,8 +1264,9 @@ debug_uri = "/autogpt.logs.logger/Logger.debug"
 main_uri = "/autogpt.app.main/run_auto_gpt"
 update_uri = "/autogpt.app.main/update_user"
 loop_uri = "/autogpt.app.main/run_interaction_loop"
+think_uri = "/autogpt.agents.base/BaseAgent.think"
 
-target_uri = main_uri
+target_uri = think_uri
 code = nodes[target_uri].code
 ast_tree = ast.parse(code)
 
@@ -1289,7 +1290,7 @@ if run_real_code:
 if True:
     read_dir = converter.dump_dir / "autogpt_full"
     full_chart = link_all_chart_nodes(
-        target_uri=main_uri,
+        target_uri=think_uri,
         dump_dir=read_dir,
         save_dot=True,
         save_flat=True,

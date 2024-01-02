@@ -362,7 +362,9 @@ class NodeLabelerMixin(BaseModel):
             [f"{exc.label}:\n\t{exc.true.label}" for exc in excepts]
         )
         return self.label_from_labels(
-            labels=f"try:\n\t{body}\n{except_labels}\nelse:\n\t{orelse}\nfinally:\n\t{final}",
+            labels=f"try:\n\t{body.label}\n{except_labels}"
+            + (f"\nelse:\n\t{orelse.label}" if orelse else "")
+            + (f"\nfinally:\n\t{final.label}" if final else ""),
             uuid=uuid,
         )
 
