@@ -177,7 +177,7 @@ def flowchart_node_to_dot_graph(
         config = FlowchartConfig(
             show_cluster=False, expand_all=False, fold_all=False, expand_list=[]
         )
-    graph = pgv.AGraph(name=input.name, strict=False, directed=True, rankdir="TB")
+    graph = pgv.AGraph(name=input.name, strict=True, directed=True, rankdir="TB")
     if isinstance(input, Flowchart):
         flowchart_to_graph(input, graph=graph, config=config)
     elif isinstance(input, BaseFlowchartNode):
