@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Any, Callable, ClassVar
 from uuid import uuid4
 
+import networkx as nx
 import numpy as np
 import pygraphviz as pgv
+from customized_louvain import best_partition
 from loguru import logger
 from pydantic import BaseModel, Field, root_validator
 from sklearn.metrics.pairwise import cosine_distances
@@ -155,14 +157,13 @@ def create_nxgraph_with_weights(
     agraph: pgv.AGraph, semantics: dict[str, NodeSemantics]
 ) -> pgv.AGraph:
     nx_graph = nx.nx_agraph.from_agraph(agraph).to_undirected()
-    # assert set(nx_graph.edges()) == set(agraph.edges()), "Edges are not the same."
     weights = dict()
-    for start, end, key in nx_graph.edges(keys=True):
+    for start, end in nx_graph.edges():
         start_embed = semantics[start].embedding
         end_embed = semantics[end].embedding
         distance = cosine_distances([start_embed], [end_embed])[0][0]
         similarity = 1 / distance if distance != 0 else 100
-        weights[(start, end, key)] = similarity
+        weights[(start, end)] = similarity
     nx.set_edge_attributes(nx_graph, weights, "weight")
     return nx_graph
 
@@ -187,19 +188,18 @@ def plot_partition_results(
     weights = nx.get_edge_attributes(nx_graph, "weight")
     for edge in agraph.edges():
         s, e = edge
-        try:
-            weight = weights[(s, e, 0)]
-            edge.attr["label"] = f"{weight:.2f}"
-        except KeyError:
-            edge.attr["label"] = "Non-existent in nxgraph"
+        # The edge is directed, so we need to check both directions
+        if (s, e) in weights:
+            weight = weights[(s, e)]
+        elif (e, s) in weights:
+            weight = weights[(e, s)]
+        else:
+            raise ValueError(f"Edge {s} -> {e} does not exist in nxgraph.")
+        edge.attr["label"] = f"{weight:.2f}"
 
     if output_file:
         agraph.draw(str(output_file), prog="dot")
     return agraph
-
-
-import networkx as nx
-from customized_louvain import best_partition
 
 
 def detect_communities(nx_graph: nx.MultiGraph) -> nx.MultiGraph:
