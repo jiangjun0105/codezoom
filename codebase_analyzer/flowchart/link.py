@@ -126,12 +126,12 @@ def link_all_chart_nodes(
     if save_element:
         flowchart_to_element_json(
             flowchart=full_chart,
-            output_path=dump_dir.parent / f"linked_{ELEMENT_JSON}.json",
+            output_path=dump_dir.parent / f"linked_{ELEMENT_JSON}",
         )
     if save_dot:
         flowchart_node_to_dot_graph(
             full_chart,
-            config=FlowchartConfig(expand_all=False, show_cluster=False),
+            config=FlowchartConfig(expand_all=False, show_cluster=True),
             output_path=dump_dir.parent / "linked_chart",
             save_png=False,
             save_svg=True,

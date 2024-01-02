@@ -1,4 +1,4 @@
-"""Generate dot graph from a flowchart."""
+"""Generates a dot graph from a flowchart."""
 from __future__ import annotations
 
 from pathlib import Path
