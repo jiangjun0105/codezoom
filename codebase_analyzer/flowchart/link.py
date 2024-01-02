@@ -138,3 +138,15 @@ def link_all_chart_nodes(
             suffix="_linked",
         )
     return full_chart
+
+
+if __name__ == "__main__":
+    think_uri = "/autogpt.agents.base/BaseAgent.think"
+    read_dir = Path(__file__).parent / ".local/convert_dump/autogpt_full"
+    full_chart = link_all_chart_nodes(
+        target_uri=think_uri,
+        dump_dir=read_dir,
+        save_dot=True,
+        save_flat=True,
+        save_element=True,
+    )

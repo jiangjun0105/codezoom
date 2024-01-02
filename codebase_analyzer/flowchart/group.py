@@ -51,14 +51,14 @@ class NodeSemantics(BaseModel):
     label: str
     code: str | None = None
     embedding: list[float]
-    csv_columns: ClassVar[list[str]] = ["uuid", "label", "embedding"]
+    csv_columns: ClassVar[list[str]] = ["uuid", "label", "code", "embedding"]
 
     @classmethod
     def from_csv(cls, row: list[str]) -> NodeSemantics:
-        return cls(uuid=row[0], label=row[1], embedding=eval(row[2]))
+        return cls(uuid=row[0], label=row[1], code=row[2], embedding=eval(row[3]))
 
     def to_csv(self) -> list[str]:
-        return [self.uuid, self.label, self.embedding]
+        return [self.uuid, self.label, self.code, self.embedding]
 
 
 def generate_label_embeddings(
@@ -154,7 +154,9 @@ def get_text_color(hex_color: str):
 
 
 def create_nxgraph_with_weights(
-    agraph: pgv.AGraph, semantics: dict[str, NodeSemantics]
+    agraph: pgv.AGraph,
+    semantics: dict[str, NodeSemantics],
+    max_similarity: float = 25,
 ) -> pgv.AGraph:
     nx_graph = nx.nx_agraph.from_agraph(agraph).to_undirected()
     weights = dict()
@@ -162,13 +164,15 @@ def create_nxgraph_with_weights(
         start_embed = semantics[start].embedding
         end_embed = semantics[end].embedding
         distance = cosine_distances([start_embed], [end_embed])[0][0]
-        similarity = 1 / distance if distance != 0 else 100
+        similarity = min(
+            max_similarity, 1 / distance if distance != 0 else max_similarity
+        )
         weights[(start, end)] = similarity
     nx.set_edge_attributes(nx_graph, weights, "weight")
     return nx_graph
 
 
-def plot_partition_results(
+def save_partition_results(
     agraph: pgv.AGraph,
     semantics: dict[str, NodeSemantics],
     nx_graph: nx.MultiGraph,
@@ -198,7 +202,25 @@ def plot_partition_results(
         edge.attr["label"] = f"{weight:.2f}"
 
     if output_file:
-        agraph.draw(str(output_file), prog="dot")
+        agraph.draw(str(output_file.with_suffix(".pdf")), prog="dot")
+        logger.info(f"Saved {output_file}")
+
+        labels = nx.get_node_attributes(nx_graph, "label")
+        communities = nx.get_node_attributes(nx_graph, "community")
+        with open(output_file.with_suffix(".csv"), "w") as f:
+            writer = csv.writer(f)
+            writer.writerow(["node_id", "label", "code", "community"])
+            for node in agraph.nodes():
+                writer.writerow(
+                    [
+                        node.name,
+                        labels[node.name],
+                        semantics[node.name].code,
+                        communities[node.name],
+                    ]
+                )
+        logger.info(f"Saved {output_file.with_suffix('.csv')}")
+
     return agraph
 
 
@@ -220,7 +242,7 @@ def detect_communities(nx_graph: nx.MultiGraph) -> nx.MultiGraph:
 if __name__ == "__main__":
     flat_json = Path(__file__).parent / ".local/convert_dump/linked_flat.json"
     embed_csv = Path(__file__).parent / ".local/convert_dump/embedding.csv"
-    svg_file = Path(__file__).parent / ".local/convert_dump/linked_flat.pdf"
+    svg_file = Path(__file__).parent / ".local/convert_dump/linked_group.pdf"
     generate_label_embeddings(
         flat_json=flat_json,
         embed_csv=embed_csv,
@@ -235,6 +257,6 @@ if __name__ == "__main__":
     )
     nx_graph = create_nxgraph_with_weights(agraph=agraph, semantics=loaded)
     nx_graph = detect_communities(nx_graph=nx_graph)
-    plot_partition_results(
+    save_partition_results(
         agraph=agraph, nx_graph=nx_graph, semantics=loaded, output_file=svg_file
     )

@@ -1287,21 +1287,4 @@ if run_real_code:
 
     converter.save_func_nodes()
 
-if True:
-    read_dir = converter.dump_dir / "autogpt_full"
-    full_chart = link_all_chart_nodes(
-        target_uri=think_uri,
-        dump_dir=read_dir,
-        save_dot=True,
-        save_flat=True,
-        save_element=True,
-    )
-    # flowchart_node_to_dot_graph(
-    #     full_chart,
-    #     config=FlowchartConfig(expand_all=True, show_cluster=False),
-    #     output_path=read_dir,
-    #     save_png=False,
-    #     save_svg=True,
-    #     suffix="_linked_expand_no_cluster",
-    # )
 # %%
