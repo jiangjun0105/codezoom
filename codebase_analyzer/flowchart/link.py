@@ -95,12 +95,12 @@ def link_called_functions(
 
 
 def link_charts_from_entrypoint(
-    dump_dir: Path,
+    load_dir: Path,
     entry_uri: URI,
 ) -> Flowchart:
     """Links all the CallNodes with the FunctionNodes."""
     done = set()
-    func_nodes = load_function_nodes(dump_dir)
+    func_nodes = load_function_nodes(load_dir)
     utility = get_utility_functions(func_nodes)
     entry_node = func_nodes[entry_uri].start
     link_called_functions(
@@ -112,27 +112,28 @@ def link_charts_from_entrypoint(
 def link_all_chart_nodes(
     target_uri: str,
     dump_dir: Path,
+    load_dir: Path,
     save_flat: bool = False,
     save_element: bool = False,
     save_dot: bool = False,
 ) -> Flowchart:
     full_chart = link_charts_from_entrypoint(
-        dump_dir=dump_dir,
+        load_dir=load_dir,
         entry_uri=Uri.from_fasten_uri(target_uri),
     )
     if save_flat:
-        full_chart.to_file(dump_dir.parent / f"linked_{FLAT_JSON}")
+        full_chart.to_file(dump_dir / f"linked_{FLAT_JSON}")
 
     if save_element:
         flowchart_to_element_json(
             flowchart=full_chart,
-            output_path=dump_dir.parent / f"linked_{ELEMENT_JSON}",
+            output_path=dump_dir / f"linked_{ELEMENT_JSON}",
         )
     if save_dot:
         flowchart_node_to_dot_graph(
             full_chart,
             config=FlowchartConfig(expand_all=False, show_cluster=True),
-            output_path=dump_dir.parent / "linked_chart",
+            output_path=dump_dir / "linked_chart",
             save_png=False,
             save_svg=True,
             suffix="_linked",
@@ -142,10 +143,12 @@ def link_all_chart_nodes(
 
 if __name__ == "__main__":
     think_uri = "/autogpt.agents.base/BaseAgent.think"
-    read_dir = Path(__file__).parent / ".local/convert_dump/autogpt_full"
+    load_dir = Path(__file__).parent / ".local/autogpt/tree/autogpt"
+    dump_dir = load_dir.parent.parent / "linked"
     full_chart = link_all_chart_nodes(
         target_uri=think_uri,
-        dump_dir=read_dir,
+        dump_dir=dump_dir,
+        load_dir=load_dir,
         save_dot=True,
         save_flat=True,
         save_element=True,

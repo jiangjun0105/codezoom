@@ -288,10 +288,11 @@ class AstChartNodeConverter(NodeLabelerMixin):
         test = self.ast_node_to_chart_node(node=test_node, uri=uri)
         if_node = DecisionNode(
             name=f"check_{test.name}",
+            code=f"if {ast.unparse(test_node)}:",
             **self.uuid_and_label(
                 node=test_node,
                 uri=uri,
-                suffix="check_value",
+                suffix="if_check",
                 draft=f"Check if condition `{test.label}` is True",
             ),
         )
@@ -351,15 +352,27 @@ class AstChartNodeConverter(NodeLabelerMixin):
         logger.info(
             f"Converting try node `{ast.unparse(node)[:10]}` to a Flowchart node."
         )
+        tryentry = ActionNode(
+            name="try_entry",
+            code="try:",
+            **self.uuid_and_label(
+                node=node,
+                uri=uri,
+                suffix="try_entry",
+                draft="Try to execute the following code and capture exceptions:",
+            ),
+        )
         trybody = self.ast_nodes_to_chart_node(nodes=node.body, uri=uri)
         orelse = self.ast_nodes_to_chart_node(nodes=node.orelse, uri=uri)
         final = self.ast_nodes_to_chart_node(nodes=node.finalbody, uri=uri)
 
         excepts = []
         for handler in node.handlers:
-            raised = ast.unparse(handler.type) if handler.type else "anhy exception"
+            raised = ast.unparse(handler.type) if handler.type else "Exception"
+            asname = f" as {handler.name}" if handler.name else ""
             test = DecisionNode(
                 name=f"check_{handler.name}",
+                code=f"except {raised}{asname}:",
                 **self.uuid_and_label(
                     node=handler,
                     uri=uri,
@@ -373,6 +386,7 @@ class AstChartNodeConverter(NodeLabelerMixin):
                 test.true.next = final
 
         assert len(excepts) > 0, "Try node must have at least one except node."
+        tryentry.next = trybody
         trybody.next = excepts[0]
         for i in range(len(excepts) - 1):
             excepts[i].false = excepts[i + 1]
@@ -392,7 +406,7 @@ class AstChartNodeConverter(NodeLabelerMixin):
                 final=final,
                 uuid=uuid,
             ),
-            chart_start=trybody,
+            chart_start=tryentry,
             chart_type=FlowchartType.PROCESS,
         )
         return wrapper
@@ -418,11 +432,12 @@ class AstChartNodeConverter(NodeLabelerMixin):
         target_label = ast.unparse(node.target)
         foriter = self.ast_node_to_chart_node(node=node.iter, uri=uri)
         uuid = self.node_uuid(node=node.target, uri=uri, suffix=f"{loop_type}_fetch")
+        code = f"for {target_label} in {ast.unparse(node.iter)}:"
         if isinstance(foriter, CallNode) or foriter.subchart is not None:
             fetch = ActionNode(
                 name=f"{loop_type}_fetch_{target_label}",
                 uuid=uuid,
-                code=f"for {target_label} in {ast.unparse(node.iter)}:",
+                code=code,
                 label=self.label_from_text(
                     uuid=uuid,
                     text=f"For each `{target_label}` in the results of `{foriter.label}`:",
@@ -433,13 +448,15 @@ class AstChartNodeConverter(NodeLabelerMixin):
             assert isinstance(foriter, ActionNode)
             assert foriter.subchart is None
             fetch = foriter
-            fetch.label = f"Fetch {target_label} from {fetch.label}"
+            fetch.code = code
+            fetch.label = f"For each `{target_label}` in the result of {fetch.label}"
 
         if_continue = DecisionNode(
             name=f"{loop_type}_check_{target_label}",
             uuid=self.node_uuid(
                 node=node.target, uri=uri, suffix=f"{loop_type}_check"
             ),
+            code=f"# If got unprocessed `{target_label}`",
             label=f"If got unprocessed `{target_label}`",
         )
         fetch.next = if_continue
@@ -493,6 +510,7 @@ class AstChartNodeConverter(NodeLabelerMixin):
                 node=node.orelse[0], uri=uri, suffix=f"{loop_type}_else_check"
             ),
             label=orelse_label,
+            code=f"# {orelse_label}",
         )
         orelse = self.ast_nodes_to_chart_node(nodes=node.orelse, uri=uri)
         if_continue.false = if_normal_end
@@ -540,7 +558,7 @@ class AstChartNodeConverter(NodeLabelerMixin):
             uri=uri,
             loop_type="while",
             if_continue=if_continue,
-            orelse_label="If the while loop is finished without break",
+            orelse_label="If the while loop finished without break",
         )
 
         if_continue.true = body
@@ -666,13 +684,16 @@ class AstChartNodeConverter(NodeLabelerMixin):
         if self.should_simplify(node):
             common = dict(
                 tag=SIMPLIFIED_TAG,
-                id=chart_node.label.replace(" ", "_"),
+                # id=chart_node.label.replace(" ", "_"),
                 lineno=node.lineno,
                 col_offset=node.col_offset,
                 ctx=ast.Load(),
             )
-            if isinstance(node, (ast.Call, ast.FunctionDef)):
-                return ast.Name(**common)
+            if isinstance(node, ast.FunctionDef):
+                return ast.Name(**common, id=f"def {node.name}(...): \n    ...")
+            if isinstance(node, ast.Call):
+                node.tag = SIMPLIFIED_TAG
+                return node
             if is_control_flow(node, threshold=0):
                 # NOTE: We might want to simplify control flows into a call ast node.
                 return ast.Name(**common)
@@ -1275,11 +1296,10 @@ converter = AstChartNodeConverter(
     simplify_threshold=10,
     expand_threshold=50,
     call_api=False,
-    dump_dir=Path(__file__).parent / ".local/convert_dump",
+    dump_dir=Path(__file__).parent / ".local/autogpt/tree",
 )
 
-run_real_code = False
-if run_real_code:
+if True:
     get = converter.ast_funcdef_to_chart_node(
         node=ast.parse(nodes[target_uri].code).body[0],
         uri=target_uri,
