@@ -145,11 +145,14 @@ def test_aliases_resolve_to_surviving_steps(tree):
         assert new in tree.nodes, f"{old} has no surviving stand-in"
 
 
-def test_top_level_hides_no_more_than_its_share():
+def test_layers_phases_then_processes():
     cfg = Config()
     tree = retree(load(), cfg)
     total = tree.weight(ROOT)
-    for step in tree[ROOT].children:
-        node = tree[step]
-        if node.children:
-            assert tree.weight(step) <= cfg.root_share * total, node.title
+    phases = tree[ROOT].children
+    assert 2 <= len(phases) <= cfg.phases
+    # below the phases, no process hides more than its share of the program
+    for ph in phases:
+        for step in tree[ph].children if tree[ph].kind == "group" else [ph]:
+            if tree[step].children:
+                assert tree.weight(step) <= cfg.root_share * total, tree[step].title

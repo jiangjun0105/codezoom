@@ -37,12 +37,18 @@ export const IN = "__in";
 export const OUT = "__out";
 
 /** Wrapped label lines, estimated conservatively so text is never cut mid-line. */
+/** The program itself, alone on the first level, is drawn as one large card. */
+export const isSystemCard = (id: string) => node(id).kind === "program";
+export const cardWidth = (id: string) => (isSystemCard(id) ? 460 : CARD_W);
+
 export function labelLines(id: string): number {
-  return Math.min(4, Math.max(1, Math.ceil(node(id).label.length / 27)));
+  const per = isSystemCard(id) ? 44 : 27;
+  return Math.min(4, Math.max(1, Math.ceil(node(id).label.length / per)));
 }
 
 /** Card height: tag row + title + label lines + optional footer with a miniature of the chart inside. */
 export function cardHeight(id: string): number {
+  if (isSystemCard(id)) return 96 + labelLines(id) * 24 + 34 + 120;
   return 68 + labelLines(id) * 19 + (canEnter(id) ? 50 : 0);
 }
 
@@ -59,7 +65,7 @@ function build(scope: string): Layout {
   g.setDefaultEdgeLabel(() => ({}));
   const kids = flowOrder(scope);
   const inScope = new Set(kids);
-  for (const id of kids) g.setNode(id, { width: CARD_W, height: cardHeight(id) });
+  for (const id of kids) g.setNode(id, { width: cardWidth(id), height: cardHeight(id) });
 
   const order = new Map(kids.map((id, i) => [id, i]));
   type E = { from: string; to: string; label?: string; skip?: boolean };

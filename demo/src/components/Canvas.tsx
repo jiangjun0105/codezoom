@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clearThread } from "../lib/ask";
-import { ROOT, canEnter, enterTarget, leafCount, node, parentScope, scopeTrail, shownIn, type GNode } from "../lib/graph";
-import { IN, OUT, labelLines, layoutOf, pathOf, type LEdge, type Layout } from "../lib/layout";
+import { ROOT, canEnter, enterTarget, graph, leafCount, levelOf, node, parentScope, scopeTrail, shownIn, type GNode } from "../lib/graph";
+import { IN, OUT, isSystemCard, labelLines, layoutOf, pathOf, type LEdge, type Layout } from "../lib/layout";
 import { arrived, getState, goUp, highlightOrder, motion, openNode, select, set, setHighlight, useStore } from "../store";
 import { NodePanel } from "./NodePanel";
 
@@ -29,6 +29,8 @@ interface Nest {
 }
 
 const PAD = 48;
+/** room at the top of the canvas for the caption that says what this level shows */
+const CAP = 70;
 const PANEL_W = 352;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -49,16 +51,17 @@ const FLIP_OUT = 0.42;
 
 /** Camera that fits a chart in the view, optionally keeping one step in sight. */
 function camFor(l: Layout, vp: Size, focus?: Rect): Cam {
-  const fit = Math.min((vp.w - PAD * 2) / l.box.w, (vp.h - PAD * 2) / l.box.h);
+  const top = PAD + CAP, H = vp.h - top - PAD, mid = top + H / 2;
+  const fit = Math.min((vp.w - PAD * 2) / l.box.w, H / l.box.h);
   const k = clamp(fit, 0.34, 1.1);
   const fitsW = l.box.w * k <= vp.w - PAD * 2 + 1;
-  const fitsH = l.box.h * k <= vp.h - PAD * 2 + 1;
+  const fitsH = l.box.h * k <= H + 1;
   const start = l.byId[IN];
   let x = fitsW ? vp.w / 2 - k * (l.box.x + l.box.w / 2) : PAD - k * (start ? start.x : l.box.x);
-  let y = fitsH ? vp.h / 2 - k * (l.box.y + l.box.h / 2) : vp.h / 2 - k * (start ? start.y + start.h / 2 : l.box.y);
+  let y = fitsH ? mid - k * (l.box.y + l.box.h / 2) : mid - k * (start ? start.y + start.h / 2 : l.box.y);
   if (focus) {
     if (!fitsW) x = clamp(vp.w / 2 - k * (focus.x + focus.w / 2), vp.w - PAD - k * (l.box.x + l.box.w), PAD - k * l.box.x);
-    if (!fitsH) y = clamp(vp.h / 2 - k * (focus.y + focus.h / 2), vp.h - PAD - k * (l.box.y + l.box.h), PAD - k * l.box.y);
+    if (!fitsH) y = clamp(mid - k * (focus.y + focus.h / 2), vp.h - PAD - k * (l.box.y + l.box.h), top - k * l.box.y);
   }
   return { x, y, k };
 }
@@ -182,6 +185,27 @@ const Card = memo(function Card(props: {
   } as React.CSSProperties;
   const enterable = canEnter(n.id);
   const named = n.kind === "group";
+  if (isSystemCard(n.id)) {
+    const m = graph.meta;
+    return (
+      <div className={`card system tone-group${props.selected ? " is-selected" : ""}${props.hovered ? " is-hover" : ""}`} style={style} data-id={n.id} tabIndex={0} role="button" aria-label={n.label}>
+        <div className="card-tag">
+          <span className="glyph" />
+          <span>System</span>
+          <span className="card-lines">{m.version}</span>
+        </div>
+        <div className="sys-title">{n.title}</div>
+        <div className="card-label">{n.label}</div>
+        <div className="sys-facts">
+          {m.chartedFunctions} functions · {m.statementCount} statements · entry <code>run_auto_gpt()</code>
+        </div>
+        <button className="card-open sys-open" data-open={n.id} tabIndex={-1}>
+          <Mini id={n.id} />
+          <span className="sys-go">Zoom in to see how it works</span>
+        </button>
+      </div>
+    );
+  }
   const cls = [
     "card",
     `tone-${toneOf(n)}`,
@@ -306,6 +330,8 @@ export function Canvas() {
   const navToken = useRef(0);
   /** true while travel() is passing through levels; the store's scope changes at each one */
   const travelling = useRef(false);
+  /** set when a zoom gesture carried us into a new level; the gesture then ends on a fitted view */
+  const crossed = useRef(false);
   const settleTimer = useRef(0);
   const revealed = useRef<HTMLElement[]>([]);
 
@@ -369,6 +395,7 @@ export function Canvas() {
       if (v.portal && cc && zc > FLIP_IN) {
         // zoomed in far enough: the chart inside the step becomes the current one
         cam.current = cc;
+        crossed.current = true;
         setView({ cur: v.portal.scope, portal: null });
         if (getState().scope !== v.portal.scope) set({ scope: v.portal.scope, touched: true, ...(getState().driving ? {} : { selected: null }) });
         continue;
@@ -558,6 +585,11 @@ export function Canvas() {
         if (zoomingIn && zc >= SHOW[0]) return void glideTo(v.portal.scope, fitCam(v.portal.scope), 420);
         if (zc < 0.08) setView({ cur: v.cur, portal: null });
       }
+      if (zoomingIn && crossed.current && !v.portal) {
+        crossed.current = false;
+        return void glideTo(v.cur, fitCam(v.cur), 420);
+      }
+      crossed.current = false;
       if (parent && z < HIDE[1]) {
         if (zoomingIn) void glideTo(v.cur, fitCam(v.cur), 380);
         else void glideTo(parent, fitCam(parent, layoutOf(parent).byId[shownIn(parent, v.cur) ?? ""]), 420);
@@ -748,6 +780,7 @@ export function Canvas() {
     spinBy(Math.log(f), w / 2, h / 2, rect.left + w / 2, rect.top + h / 2);
   };
   const up = parentScope(view.cur);
+  const level = levelOf(scope);
   const panelNode = selected && panelOn && !busy ? selected : null;
   const layers = [up, view.cur, view.portal?.scope].filter((s): s is string => Boolean(s));
 
@@ -801,6 +834,14 @@ export function Canvas() {
             Up to {node(up).title}
           </button>
         )}
+      </div>
+      <div className="canvas-ui caption" key={scope}>
+        <div className="cap-kicker">
+          Level {level.depth} · {level.name}
+          <span>{level.what}</span>
+        </div>
+        <div className="cap-title">{scope === ROOT ? `${graph.meta.repo} ${graph.meta.version}` : node(scope).title}</div>
+        <div className="cap-text">{node(scope).label}</div>
       </div>
       {highlight.length > 0 && (
         <button className="canvas-ui path-chip" onClick={() => setHighlight([])}>

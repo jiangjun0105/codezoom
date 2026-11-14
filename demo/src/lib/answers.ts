@@ -1,6 +1,7 @@
 import { PROGRAM_QUESTIONS } from "../data/authored";
 import type { Action } from "../store";
 import {
+  MAIN,
   ROOT,
   callSites,
   canEnter,
@@ -173,7 +174,7 @@ function where(id: string): Suggestion {
       return {
         text,
         actions: [
-          { tool: "zoom_to_level", id: ROOT },
+          { tool: "zoom_to_level", id: MAIN },
           { tool: "highlight_path", ids: [id] },
         ],
         source: "derived",
@@ -191,8 +192,8 @@ export function suggestionsFor(id: string): Suggestion[] {
   else if (n.type === "decision") out.push(branches(id));
   else out.push(next(id));
   if (n.type === "call") out.push(callers(id));
-  if (n.parent !== ROOT) out.push(where(id));
-  else out.push(next(id));
+  if (n.parent !== ROOT && n.parent !== MAIN) out.push(where(id));
+  else if (n.parent === MAIN) out.push(next(id));
   return out;
 }
 

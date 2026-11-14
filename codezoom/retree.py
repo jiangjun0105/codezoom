@@ -40,6 +40,8 @@ class Config:
     # the top level is the overview: no step there may hide more than this share of the
     # program, so a heavy call is opened up and its phases become top-level steps
     root_share: float = 0.3
+    # above that sits the main flow: the top level bundled again into this many phases
+    phases: int = 3
     balance: float = 0.5
     signals: tuple[float, float, float] = (1.0, 1.0, 1.0)  # flow, data, lexical
 
@@ -142,15 +144,23 @@ def fallback_text(tree: Tree, members: list[str]) -> tuple[str, str]:
 
 
 def group(
-    tree: Tree, scope: str, cfg: Config, oracle: Oracle | None = None
+    tree: Tree,
+    scope: str,
+    cfg: Config,
+    oracle: Oracle | None = None,
+    limit: int | None = None,
+    least: int | None = None,
+    capped: bool = True,
+    tag: str | None = None,
 ) -> list[str]:
     """Bundle the steps of an over-full chart into consecutive single-entry, single-exit groups."""
     s = tree[scope]
     steps = tree.flow_order(scope)
-    limit = cfg.root_fan if scope == ROOT else cfg.max_fan
+    limit = limit or (cfg.root_fan if scope == ROOT else cfg.max_fan)
+    least = least or cfg.min_fan
     valid = sese(tree, steps)
     cap = None
-    if scope == ROOT:
+    if scope == ROOT and capped:
         # a group over the cap is not allowed; a single step always is
         total = tree.weight(scope)
         cap = max(1, int(cfg.root_share * total))
@@ -162,7 +172,9 @@ def group(
                 if acc[j] - acc[i] > cap:
                     valid[i][j] = False
     text: dict[int, tuple[str, str]] = {}
-    answer = oracle.grouping(tree, scope, steps, limit, cap) if oracle else None
+    answer = (
+        oracle.grouping(tree, scope, steps, limit, cap, least) if oracle else None
+    )
     if answer:
         starts = [g["start"] for g in answer]
         ends = starts[1:] + [len(steps)]
@@ -174,11 +186,11 @@ def group(
             )
     if not answer:
         feats = Features(tree, steps)
-        k = segment.group_count(len(steps), cfg.min_fan, limit)
+        k = segment.group_count(len(steps), least, limit)
         starts = segment.min_cut_dp(
             feats.affinity(*cfg.signals), k, feats.weights, cfg.balance, valid
         )
-    tree.grouped_by[scope] = "model" if answer else "segmenter"
+    tree.grouped_by[tag or scope] = "model" if answer else "segmenter"
     bounds = starts + [len(steps)]
     owner: dict[str, str] = {}
     made: list[str] = []
@@ -266,6 +278,27 @@ def normalize(
         normalize(tree, k, cfg, oracle)
 
 
+def phase(tree: Tree, cfg: Config, oracle: Oracle | None = None) -> list[str]:
+    """Bundle the top level once more, into a few phases: the main flow seen from far away.
+
+    Seen from the top, a program is a handful of phases (start up, then run the loop);
+    each phase holds its processes, each process its parts. No share cap here: a phase
+    is meant to be a large part of the program.
+    """
+    if len(tree[ROOT].children) <= cfg.phases:
+        return []
+    return group(
+        tree,
+        ROOT,
+        cfg,
+        oracle,
+        limit=cfg.phases,
+        least=2,
+        capped=False,
+        tag="phases",
+    )
+
+
 def retree(
     tree: Tree, cfg: Config | None = None, oracle: Oracle | None = None
 ) -> Tree:
@@ -273,6 +306,7 @@ def retree(
     cfg = cfg or Config()
     simplify(tree)
     normalize(tree, ROOT, cfg, oracle)
+    phase(tree, cfg, oracle)
     tree._leaves.clear()
     return tree
 

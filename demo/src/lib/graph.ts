@@ -51,6 +51,9 @@ interface Graph {
     version: string;
     entry: string;
     root: string;
+    /** the program's own chart: its main flow */
+    main: string;
+    statementCount: number;
     entryFn: string;
     nodeCount: number;
     functionCount: number;
@@ -66,6 +69,7 @@ interface Graph {
 
 export const graph = raw as unknown as Graph;
 export const ROOT = graph.meta.root;
+export const MAIN = graph.meta.main;
 
 /** Ids from the 2023 dumps may name a step that was folded into another; follow it. */
 export const canon = (id: string): string => (id in graph.nodes ? id : (graph.aliases[id] ?? id));
@@ -156,6 +160,21 @@ export function crumbs(scope: string): { id: string; title: string; target: stri
   return lineage(scope)
     .filter((id) => isScope(id))
     .map((id) => ({ id, title: node(id).title, target: enterTarget(id) ?? id }));
+}
+
+/**
+ * What a chart is, by how far down it sits: the system, its main flow, the processes
+ * of a phase, the parts of a process, and below that steps, down to code.
+ */
+export function levelOf(scope: string): { depth: number; name: string; what: string } {
+  const depth = crumbs(scope).length - 1;
+  const leaves = node(scope).children.every((c) => !canEnter(c));
+  if (depth === 0) return { depth, name: "System", what: "What this program is" };
+  if (depth === 1) return { depth, name: "Main flow", what: "Its phases, in order" };
+  if (leaves) return { depth, name: "Code", what: "Statements, as written" };
+  if (depth === 2) return { depth, name: "Processes", what: "The processes in this phase" };
+  if (depth === 3) return { depth, name: "Parts", what: "The parts of this process" };
+  return { depth, name: "Steps", what: "The steps inside" };
 }
 
 export const shortFn = (uri: string) => uri.slice(uri.lastIndexOf("/") + 1);

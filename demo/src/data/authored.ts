@@ -1,4 +1,4 @@
-import { ROOT, node } from "../lib/graph";
+import { MAIN, node } from "../lib/graph";
 import type { Action } from "../store";
 
 /**
@@ -32,13 +32,9 @@ export const N = {
   promptUser: `${M}construct_main_ai_config:24:4:If:if_wrapper`,
 };
 
-const top = () => node(ROOT).children;
-/** Top-level steps before the agent loop: everything up to the first test. */
-const setup = () => {
-  const steps = top();
-  const at = steps.findIndex((id) => node(id).type === "decision");
-  return at > 0 ? steps.slice(0, at) : steps.slice(0, -1);
-};
+/** The main flow's phases; the first one is setup, the agent loop comes after it. */
+const phases = () => node(MAIN).children;
+const setup = () => phases()[0];
 
 export interface Authored {
   q: string;
@@ -81,17 +77,17 @@ export const PROGRAM_QUESTIONS: Authored[] = [
     q: "What happens before the agent starts running?",
     get actions(): Action[] {
       return [
-        { tool: "zoom_to_level", id: ROOT },
-        { tool: "highlight_path", ids: setup() },
+        { tool: "zoom_to_level", id: setup() },
+        { tool: "highlight_path", ids: node(setup()).children },
       ];
     },
     get text() {
-      const steps = setup();
-      const loop = top()[steps.length];
+      const steps = node(setup()).children;
+      const next = phases()[1];
       return (
-        `The first ${steps.length} of the ${top().length} top-level steps are setup:\n` +
+        `The whole first phase, [[${setup()}|${node(setup()).title.toLowerCase()}]]. Its ${steps.length} processes run once, in this order:\n` +
         steps.map((id) => `- [[${id}|${node(id).title}]]: ${node(id).label.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase())};`).join("\n") +
-        (loop ? `\n\nOnly then does the loop begin, at [[${loop}|\`${node(loop).title.replace(/:$/, "")}\`]]. Everything to its right repeats once per cycle.` : "")
+        (next ? `\n\nOnly then does [[${next}|${node(next).title.toLowerCase()}]] begin, and that part repeats once per cycle.` : "")
       );
     },
   },
@@ -109,15 +105,17 @@ export const PROGRAM_QUESTIONS: Authored[] = [
   },
   {
     q: "What does continuous mode change?",
-    actions: [
-      { tool: "zoom_to_level", id: ROOT },
-      { tool: "highlight_path", ids: [N.continuousFlag, N.legalWarning, N.cycleBudget] },
-    ],
+    get actions(): Action[] {
+      return [
+        { tool: "zoom_to_level", id: setup() },
+        { tool: "highlight_path", ids: [N.continuousFlag, N.legalWarning, N.cycleBudget] },
+      ];
+    },
     text:
-      "Three places, which is why three steps light up at this level:\n" +
+      "Three places, all during setup, which is why three of its processes light up:\n" +
       "- [[" + N.continuousFlag + "|`create_config()`]] turns the `--continuous` flag into `config.continuous_mode` and stores the optional limit;\n" +
       "- [[" + N.legalWarning + "|`run_auto_gpt()`]] prints the legal warning when the mode is on;\n" +
-      "- [[" + N.cycleBudget + "|`_get_cycle_budget()`]] in the loop sets how many commands may run without approval: the limit, or infinity when there is none.\n\n" +
+      "- [[" + N.cycleBudget + "|`_get_cycle_budget()`]], just before the loop starts, sets how many commands may run without approval: the limit, or infinity when there is none.\n\n" +
       "With a budget above one, the loop skips the approval prompt until the budget is used up.",
   },
   {

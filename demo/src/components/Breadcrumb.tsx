@@ -1,4 +1,4 @@
-import { crumbs, node } from "../lib/graph";
+import { crumbs, levelOf, node } from "../lib/graph";
 import { goTo, useStore } from "../store";
 
 export function Breadcrumb() {
@@ -24,7 +24,7 @@ export function Breadcrumb() {
           </span>
         ),
       )}
-      <span className="level">Level {all.length - 1}</span>
+      <span className="level">Level {all.length - 1} · {levelOf(scope).name}</span>
     </nav>
   );
 }
