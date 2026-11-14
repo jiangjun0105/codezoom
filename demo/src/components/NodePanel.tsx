@@ -14,7 +14,8 @@ export function NodePanel({ id, onResize }: { id: string; onResize: () => void }
   const suggestions = useMemo(() => suggestionsFor(id), [id]);
   const callee = n.callee ? fnInfo(n.callee) : undefined;
   const enterable = canEnter(id);
-  const plain = n.type === "start" || n.type === "end";
+  const plain = false;
+  const named = n.kind === "group";
   // once a conversation is under way, the answer gets the room
   const talking = useThread("panel").length > 0;
 
@@ -30,7 +31,7 @@ export function NodePanel({ id, onResize }: { id: string; onResize: () => void }
       <header>
         <span className="card-tag">
           <span className="glyph" />
-          {n.kind === "stage" ? "Step" : tagOf(n)}
+          {tagOf(n)}
         </span>
         <span className="where">
           {shortFn(n.fn)} {linesOf(n)}
@@ -38,8 +39,13 @@ export function NodePanel({ id, onResize }: { id: string; onResize: () => void }
         <button className="close" onClick={() => (clearThread("panel"), select(null))} aria-label="Close">×</button>
       </header>
       <div className="panel-body">
-        <h3>{n.kind === "stage" ? n.title : n.label}</h3>
-        {n.kind === "stage" && <p className="summary">{n.label}</p>}
+        <h3>{named ? n.title : n.label}</h3>
+        {named && <p className="summary">{n.label}</p>}
+        {n.via && n.via.length > 0 && (
+          <p className="callee">
+            runs inside {n.via.map((v, i) => (<span key={v}>{i > 0 && ", "}<code>{v}()</code></span>))}
+          </p>
+        )}
         {callee && (
           <p className="callee">
             calls <code>{callee.name}</code>

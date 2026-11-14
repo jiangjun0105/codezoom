@@ -1,0 +1,14 @@
+{
+  "_about": "Reference groupings for the widest charts in the Auto-GPT run, written by hand after reading each function. Each value lists the index (in execution order) at which a group starts.",
+  "program": [0, 4, 5, 7, 11, 12, 14, 20],
+  "/autogpt.app.main/run_auto_gpt:3:13:Call:call": [0, 1, 4, 6, 8, 9, 11],
+  "/autogpt.app.main/run_auto_gpt:6:4:Call:call": [0, 1, 5, 6, 7, 10],
+  "/autogpt.app.setup/prompt_user:28:19:Call:call": [0, 4, 6, 8, 12],
+  "/autogpt.app.main/run_auto_gpt:29:16:Call:call": [0, 2, 4, 5, 7, 12],
+  "/autogpt.app.main/run_auto_gpt:28:23:Call:call": [0, 4, 5, 7],
+  "/autogpt.app.main/update_user:11:4:Call:call": [0, 3, 7],
+  "/autogpt.plugins.plugins_config/PluginsConfig.deserialize_config_file:5:8:Call:call": [0, 3, 5],
+  "/autogpt.agents.base/BaseAgent.think:11:27:Call:call": [0, 2, 5],
+  "/autogpt.app.main/run_interaction_loop:31:8:Expr:nodes_wrapper": [0, 2, 3, 4, 6],
+  "/autogpt.app.main/run_auto_gpt:41:4:Call:call": [0, 2, 4, 6]
+}

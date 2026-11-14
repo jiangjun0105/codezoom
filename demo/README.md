@@ -68,9 +68,9 @@ spend limit on the key as well.
 ## Layout
 
 ```
-scripts/export_data.py   2023 pipeline dumps → src/data/graph.json (stdlib Python)
+../codezoom/             2023 pipeline dumps → src/data/graph.json (see NOTES.md)
 src/data/graph.json      generated: nodes, links, code, function summaries
-src/data/authored.ts     hand-written answers to the whole-program questions
+src/data/authored.ts     answers to the whole-program questions
 src/lib/graph.ts         accessors over the graph, scope and breadcrumb rules
 src/lib/layout.ts        chart layout: dagre, column wrapping, the Level-0 grid
 src/lib/answers.ts       answers derived from the data, question matching
