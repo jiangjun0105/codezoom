@@ -102,16 +102,33 @@ answers both come from language models' reading of the code, by way of the perso
 wrote the references with one, so the model's score is likely flattered; nothing was
 tuned on a held-out set.
 
+## The top level is balanced by weight
+
+Grouping by meaning alone gave an overview that followed the order of the code: seven of
+eight top-level steps were start-up, and the agent loop, 170 of the 439 statements, was
+one box (`run_interaction_loop()`).
+
+The top level now has one extra rule (`Config.root_share`, 0.3): no step there may hold
+more than that share of the program's statements. A heavier step is expanded into the
+top level, and no group made there may exceed the cap; the cap is given to the model in
+its request and enforced by the same validity check as the single-entry, single-exit
+rule. For Auto-GPT this opens the loop: the top level becomes four start-up steps, the
+`while` test, and the loop's three phases (think, show and confirm, execute), with the
+loop's back edge drawn at the top level.
+
+The rule is a proxy. Statement count stands in for importance, which holds here and will
+not hold everywhere (a long argument parser is heavy and dull).
+
 ## What it does to the tree
 
 `python3 -m codezoom.export` prints these for Auto-GPT's `run_auto_gpt`:
 
 | | 2023 tree | Rebalanced |
 | --- | --- | --- |
-| Deepest statement (levels) | 21 | 7 |
-| Average statement depth | 8.1 | 4.4 |
-| Charts with 3 to 8 steps | 39% | 75% |
-| Charts with 1 or 2 steps | 158 | 19 |
+| Deepest statement (levels) | 21 | 6 |
+| Average statement depth | 8.1 | 4.3 |
+| Charts with 3 to 8 steps | 39% | 76% |
+| Charts with 1 or 2 steps | 158 | 18 |
 | Widest chart | 21 | 10 |
 
 For this build the model's grouping was used for 15 charts and the segmenter's for 4,

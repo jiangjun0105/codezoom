@@ -60,6 +60,10 @@ frozen dump.
 
 Read as a developer who wants to know how Auto-GPT works:
 
+Done since: the top level is balanced by weight (the loop's phases are top-level steps),
+every top-level step is named, the `while` test and the "Do nothing." label are repaired.
+Still open: the rest of this list.
+
 - The top level follows code order and volume: 7 of 8 steps are start-up, and the agent
   loop (170 of 439 statements, the part people come for) is one box at the far right.
   Try weighting by importance: fold start-up into two or three steps and give the loop's

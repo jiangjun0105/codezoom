@@ -33,6 +33,12 @@ export const N = {
 };
 
 const top = () => node(ROOT).children;
+/** Top-level steps before the agent loop: everything up to the first test. */
+const setup = () => {
+  const steps = top();
+  const at = steps.findIndex((id) => node(id).type === "decision");
+  return at > 0 ? steps.slice(0, at) : steps.slice(0, -1);
+};
 
 export interface Authored {
   q: string;
@@ -76,15 +82,16 @@ export const PROGRAM_QUESTIONS: Authored[] = [
     get actions(): Action[] {
       return [
         { tool: "zoom_to_level", id: ROOT },
-        { tool: "highlight_path", ids: top() },
+        { tool: "highlight_path", ids: setup() },
       ];
     },
     get text() {
-      const steps = top();
+      const steps = setup();
+      const loop = top()[steps.length];
       return (
-        `Everything before the last of the ${steps.length} top-level steps is setup, all of it inside \`run_auto_gpt()\`:\n` +
-        steps.slice(0, -1).map((id) => `- [[${id}|${node(id).title}]]: ${node(id).label.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase())};`).join("\n") +
-        `\n\nOnly then does [[${steps[steps.length - 1]}|${node(steps[steps.length - 1]).title.replace(/^./, (c) => c.toLowerCase())}]] begin.`
+        `The first ${steps.length} of the ${top().length} top-level steps are setup:\n` +
+        steps.map((id) => `- [[${id}|${node(id).title}]]: ${node(id).label.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase())};`).join("\n") +
+        (loop ? `\n\nOnly then does the loop begin, at [[${loop}|\`${node(loop).title.replace(/:$/, "")}\`]]. Everything to its right repeats once per cycle.` : "")
       );
     },
   },

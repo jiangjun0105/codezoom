@@ -89,10 +89,12 @@ const TAGS: Record<string, string> = {
 export function tagOf(n: GNode): string {
   if (n.kind === "group") return "Steps";
   if (n.type === "call") return "Call";
+  if (n.type === "decision" && n.title.startsWith("while ")) return "Loop test";
   return TAGS[n.kind] ?? (n.type === "decision" ? "If" : "Action");
 }
 export function toneOf(n: GNode): string {
   if (n.type === "call") return "call";
+  if (n.type === "decision" && n.title.startsWith("while ")) return "loop";
   if (n.type === "decision") return "decision";
   if (n.loop) return "loop";
   if (n.kind === "group") return "group";
