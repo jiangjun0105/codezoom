@@ -9,8 +9,9 @@ Working plan for taking the 2023 prototype to a demo worth showing. Updated as w
 - **Done.** Abstraction pass (`codezoom/`): rebalances the 2023 tree by expanding thin
   levels and grouping long runs into named blocks. The top level is now generated, not
   hand-written. Approaches compared in [abstraction.md](abstraction.md).
-- **Not done.** The data still starts from 2023 dumps of one program. The front end has
-  had one design pass. Live mode has never run against a real key.
+- **Done.** Viewer rework after feedback: continuous zoom into the step under the cursor,
+  and graph layout at every level.
+- **Not done.** The data still starts from 2023 dumps of one program. Live mode has never run against a real key.
 
 ## Track 1: understanding (how low-level logic becomes high-level blocks)
 
@@ -38,12 +39,17 @@ frozen dump.
 
 ## Track 3: front end
 
-1. Design review against screenshots at three widths; fix what reads badly.
-2. Show function boundaries inside a chart that spans several functions.
-3. A minimap or outline for orientation at depth.
-4. Keyboard navigation between steps.
-5. Record the README GIF.
-6. Tune the phone layout.
+1. ~~Continuous, cursor-driven zoom: the inner chart appears inside the step as it grows.~~
+2. ~~One left-to-right graph layout for every level; skip edges, loop edges, and a
+   miniature of the inner chart on every card.~~
+3. Surface branching at high levels as real edges (today a group hides it by
+   construction): try groups with two exits, or lifting a dominant decision out of a group.
+4. Design review against screenshots at three widths; fix what reads badly.
+5. Show function boundaries inside a chart that spans several functions.
+6. A minimap or outline for orientation at depth.
+7. Keyboard navigation between steps.
+8. Record the README GIF.
+9. Tune the phone layout; test pinch on a touch device.
 
 ## Track 4: ship
 

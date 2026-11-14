@@ -1,27 +1,8 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import {
-  ROOT,
-  canEnter,
-  leafCount,
-  lineage,
-  node,
-  parentScope,
-  shownIn,
-  type GNode,
-} from "../lib/graph";
-import { IN, OUT, labelLines, layoutOf, pathOf, type LEdge, type Layout } from "../lib/layout";
-import {
-  getState,
-  goUp,
-  highlightOrder,
-  openNode,
-  select,
-  set,
-  setHighlight,
-  transitionMs,
-  useStore,
-} from "../store";
 import { clearThread } from "../lib/ask";
+import { ROOT, canEnter, enterTarget, leafCount, node, parentScope, scopeTrail, shownIn, type GNode } from "../lib/graph";
+import { IN, OUT, labelLines, layoutOf, pathOf, type LEdge, type Layout } from "../lib/layout";
+import { arrived, getState, goUp, highlightOrder, motion, openNode, select, set, setHighlight, useStore } from "../store";
 import { NodePanel } from "./NodePanel";
 
 interface Cam {
@@ -33,47 +14,66 @@ interface Size {
   w: number;
   h: number;
 }
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+/** How a child chart sits inside the step that stands for it: child world -> parent world. */
+interface Nest {
+  rect: Rect;
+  m: number;
+  tx: number;
+  ty: number;
+}
 
-const PAD = 52;
+const PAD = 48;
 const PANEL_W = 352;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const ramp = (t: number, a: number, b: number) => clamp((t - a) / (b - a), 0, 1);
+const css = (c: Cam) => `translate(${c.x}px, ${c.y}px) scale(${c.k})`;
 
-/** Camera that shows a chart: fitted when it is small, readable and top-aligned when it is not. */
-function camFor(l: Layout, vp: Size, focus?: { x: number; y: number; w: number; h: number }): Cam {
-  const pad = l.scope === ROOT ? 34 : PAD;
-  const fit = Math.min((vp.w - pad * 2) / l.box.w, (vp.h - pad * 2 - (l.scope === ROOT ? 30 : 0)) / l.box.h);
-  const k = clamp(fit, l.scope === ROOT ? 0.3 : 0.7, l.scope === ROOT ? 1.25 : 1.08);
-  const anchor = l.byId[IN] ?? null;
-  const fitsW = l.box.w * k <= vp.w - pad * 2 + 1;
-  const fitsH = l.box.h * k <= vp.h - pad * 2 + 1;
-  let x = fitsW || !anchor
-    ? vp.w / 2 - k * (l.box.x + l.box.w / 2)
-    : vp.w / 2 - k * (anchor.x + anchor.w / 2);
-  let y = fitsH ? vp.h / 2 - k * (l.box.y + l.box.h / 2) - (l.scope === ROOT ? 12 : 0) : pad - k * l.box.y;
+/*
+ * Zoom is one continuous quantity. For a chart, z = (its scale on screen) / (its scale
+ * when fitted to the view). A chart fades in as z goes 0.2 -> 0.5, and the chart around
+ * it fades out as z goes 0.32 -> 0.62. Which chart is "current" (takes clicks, owns the
+ * breadcrumb) flips near z = 0.44, with a little hysteresis. Nothing jumps at the flip,
+ * because both charts are drawn as one rigid picture the whole time.
+ */
+const SHOW = [0.2, 0.5] as const;
+const HIDE = [0.32, 0.62] as const;
+const FLIP_IN = 0.46;
+const FLIP_OUT = 0.42;
+
+/** Camera that fits a chart in the view, optionally keeping one step in sight. */
+function camFor(l: Layout, vp: Size, focus?: Rect): Cam {
+  const fit = Math.min((vp.w - PAD * 2) / l.box.w, (vp.h - PAD * 2) / l.box.h);
+  const k = clamp(fit, 0.34, 1.1);
+  const fitsW = l.box.w * k <= vp.w - PAD * 2 + 1;
+  const fitsH = l.box.h * k <= vp.h - PAD * 2 + 1;
+  const start = l.byId[IN];
+  let x = fitsW ? vp.w / 2 - k * (l.box.x + l.box.w / 2) : PAD - k * (start ? start.x : l.box.x);
+  let y = fitsH ? vp.h / 2 - k * (l.box.y + l.box.h / 2) : vp.h / 2 - k * (start ? start.y + start.h / 2 : l.box.y);
   if (focus) {
-    if (!fitsH)
-      y = clamp(vp.h / 2 - k * (focus.y + focus.h / 2), vp.h - pad - k * (l.box.y + l.box.h), pad - k * l.box.y);
-    if (!fitsW)
-      x = clamp(vp.w / 2 - k * (focus.x + focus.w / 2), vp.w - pad - k * (l.box.x + l.box.w), pad - k * l.box.x);
+    if (!fitsW) x = clamp(vp.w / 2 - k * (focus.x + focus.w / 2), vp.w - PAD - k * (l.box.x + l.box.w), PAD - k * l.box.x);
+    if (!fitsH) y = clamp(vp.h / 2 - k * (focus.y + focus.h / 2), vp.h - PAD - k * (l.box.y + l.box.h), PAD - k * l.box.y);
   }
   return { x, y, k };
 }
 
-/** Where a child chart sits inside the node that stands for it in the parent chart. */
-function nest(parent: Layout, child: Layout) {
-  const shown = shownIn(parent.scope, child.scope);
-  const r = shown ? parent.byId[shown] : null;
+function nestOf(parent: Layout, child: Layout, nodeId: string | null): Nest | null {
+  const r = nodeId ? parent.byId[nodeId] : null;
   if (!r) return null;
-  const m = Math.min(r.w / child.box.w, r.h / child.box.h) * 0.9;
-  return {
-    rect: r,
-    m,
-    tx: r.x + r.w / 2 - m * (child.box.x + child.box.w / 2),
-    ty: r.y + r.h / 2 - m * (child.box.y + child.box.h / 2),
-  };
+  const m = Math.min(r.w / child.box.w, r.h / child.box.h) * 0.92;
+  return { rect: r, m, tx: r.x + r.w / 2 - m * (child.box.x + child.box.w / 2), ty: r.y + r.h / 2 - m * (child.box.y + child.box.h / 2) };
 }
+const toChild = (p: Cam, n: Nest): Cam => ({ k: p.k * n.m, x: p.x + p.k * n.tx, y: p.y + p.k * n.ty });
+const toParent = (c: Cam, n: Nest): Cam => {
+  const k = c.k / n.m;
+  return { k, x: c.x - k * n.tx, y: c.y - k * n.ty };
+};
 
 const TAGS: Record<string, string> = {
   if_wrapper: "Branch",
@@ -94,8 +94,7 @@ export function tagOf(n: GNode): string {
 export function toneOf(n: GNode): string {
   if (n.type === "call") return "call";
   if (n.type === "decision") return "decision";
-  if (n.kind === "for_wrapper" || n.kind === "while_wrapper") return "loop";
-  if (n.parent === ROOT) return "stage";
+  if (n.loop) return "loop";
   if (n.kind === "group") return "group";
   return "action";
 }
@@ -110,7 +109,7 @@ function litEdges(l: Layout, order: Map<string, number>): Set<string> {
     .map((n) => n.id);
   const lit = new Set<string>();
   const out = new Map<string, LEdge[]>();
-  for (const e of l.edges) (out.get(e.from) ?? out.set(e.from, []).get(e.from)!).push(e);
+  for (const e of l.edges) if (!e.skip) (out.get(e.from) ?? out.set(e.from, []).get(e.from)!).push(e);
   for (let i = 0; i < stops.length - 1; i++) {
     const from = stops[i], to = stops[i + 1];
     const prev = new Map<string, LEdge>();
@@ -136,6 +135,27 @@ function litEdges(l: Layout, order: Map<string, number>): Set<string> {
   return lit;
 }
 
+/** A miniature of the chart inside a step: its shape (sequence, branches, loops) before you zoom in. */
+const Mini = memo(function Mini({ id }: { id: string }) {
+  const target = enterTarget(id);
+  if (!target) return null;
+  const l = layoutOf(target);
+  return (
+    <svg className="mini" viewBox={`${l.box.x - 8} ${l.box.y - 8} ${l.box.w + 16} ${l.box.h + 16}`} preserveAspectRatio="xMidYMid meet" aria-hidden>
+      {l.edges.map((e) => (
+        <path key={e.id} d={pathOf(e.points)} className={`mini-edge${e.back ? " back" : ""}${e.skip ? " skip" : ""}`} />
+      ))}
+      {l.nodes.map((n) =>
+        n.port ? (
+          <circle key={n.id} cx={n.x + n.w / 2} cy={n.y + n.h / 2} r={n.w / 2} className={`mini-port ${n.port}`} />
+        ) : (
+          <rect key={n.id} x={n.x} y={n.y} width={n.w} height={n.h} rx={22} className={`mini-node tone-${toneOf(node(n.id))}`} />
+        ),
+      )}
+    </svg>
+  );
+});
+
 const Card = memo(function Card(props: {
   id: string;
   x: number;
@@ -156,11 +176,14 @@ const Card = memo(function Card(props: {
     height: props.h,
     "--i": props.index,
     "--hl": props.lit ?? 0,
-    "--lines": n.parent === ROOT ? 3 : labelLines(n.id),
+    "--lines": labelLines(n.id),
   } as React.CSSProperties;
+  const enterable = canEnter(n.id);
+  const named = n.kind === "group";
   const cls = [
     "card",
     `tone-${toneOf(n)}`,
+    enterable && "is-deep",
     props.selected && "is-selected",
     props.hovered && "is-hover",
     props.lit !== null && "is-lit",
@@ -168,23 +191,21 @@ const Card = memo(function Card(props: {
   ]
     .filter(Boolean)
     .join(" ");
-
-  const enterable = canEnter(n.id);
-  const stage = n.parent === ROOT;
-  const stageNo = stage ? node(ROOT).children.indexOf(n.id) + 1 : 0;
   return (
-    <div className={`${cls}${enterable ? " is-deep" : ""}`} style={style} data-id={n.id} tabIndex={0} role="button" aria-label={n.label}>
+    <div className={cls} style={style} data-id={n.id} tabIndex={0} role="button" aria-label={n.label}>
       <div className="card-tag">
         <span className="glyph" />
-        <span>{stage ? `Step ${stageNo}` : tagOf(n)}</span>
+        <span>{tagOf(n)}</span>
+        {n.loop && <span className="mark">repeats</span>}
+        {n.guard && <span className="mark" title={`runs only if ${n.guard}`}>conditional</span>}
         <span className="card-lines">{linesOf(n)}</span>
       </div>
-      <div className={stage ? "card-title stage-title" : n.kind === "group" ? "card-title named" : "card-title"}>{n.title}</div>
+      <div className={named ? "card-title named" : "card-title"}>{n.title}</div>
       <div className="card-label">{n.label}</div>
       {enterable && (
         <button className="card-open" data-open={n.id} tabIndex={-1}>
-          <span>Zoom in</span>
-          <span className="card-count">{leafCount(n.id)} statements</span>
+          <Mini id={n.id} />
+          <span className="card-count">{leafCount(n.id)}</span>
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
             <path d="M4 2.5 7.5 6 4 9.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -199,7 +220,6 @@ const ScopeLayer = memo(function ScopeLayer(props: {
   selected: string | null;
   hover: string | null;
   highlight: string[];
-  portal: string | null;
 }) {
   const { layout: l, selected, hover, highlight } = props;
   const order = useMemo(() => highlightOrder(highlight), [highlight]);
@@ -208,17 +228,13 @@ const ScopeLayer = memo(function ScopeLayer(props: {
   return (
     <>
       <svg className="edges" style={{ left: l.box.x, top: l.box.y }} width={l.box.w} height={l.box.h} viewBox={`${l.box.x} ${l.box.y} ${l.box.w} ${l.box.h}`}>
-        <defs>
-          <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-            <path d="M1.5 1.5 8.5 5 1.5 8.5" fill="none" stroke="context-stroke" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </marker>
-        </defs>
         {l.edges.map((e) => {
           const on = lit.has(e.id);
           const near = hover !== null && (e.from === hover || e.to === hover);
           const d = pathOf(e.points);
+          const cls = `edge${on ? " is-lit" : ""}${near ? " is-near" : ""}${anyLit && !on ? " is-dim" : ""}${e.back ? " is-back" : ""}${e.skip ? " is-skip" : ""}`;
           return (
-            <g key={e.id} className={`edge${on ? " is-lit" : ""}${near ? " is-near" : ""}${anyLit && !on ? " is-dim" : ""}${e.back ? " is-back" : ""}`}>
+            <g key={e.id} className={cls}>
               <path d={d} className="edge-line" markerEnd="url(#arr)" />
               {on && <path d={d} className="edge-flow" />}
             </g>
@@ -227,36 +243,41 @@ const ScopeLayer = memo(function ScopeLayer(props: {
       </svg>
       {l.edges.map((e) => {
         if (!e.label) return null;
-        const p = e.wrap ? { x: e.points[0].x, y: e.points[0].y + 13 } : e.points[Math.min(1, e.points.length - 1)];
+        const p = e.points[Math.floor(e.points.length / 2)];
         return (
-          <span key={e.id} className={`edge-label ${e.label === "Yes" ? "yes" : "no"}`} style={{ left: p.x, top: p.y }}>
+          <span key={e.id} className={`edge-label ${e.label === "Yes" ? "yes" : e.label === "No" ? "no" : "skip"}`} style={{ left: p.x, top: p.y }}>
             {e.label}
           </span>
         );
       })}
       {l.nodes.map((n, i) =>
         n.port ? (
-          <span key={n.id} className={`port ${n.port}`} style={{ left: n.x, top: n.y, width: n.w, height: n.h }} title={n.port === "in" ? "Enters here" : "Continues in the caller"} />
+          <span key={n.id} className={`port ${n.port}`} style={{ left: n.x, top: n.y, width: n.w, height: n.h }} title={n.port === "in" ? "Enters here" : "Continues in the level above"} />
         ) : (
-          <div key={n.id} className={props.portal === n.id ? "portal" : undefined}>
-            <Card
-              id={n.id}
-              x={n.x}
-              y={n.y}
-              w={n.w}
-              h={n.h}
-              index={i}
-              selected={selected === n.id}
-              hovered={hover === n.id}
-              lit={order.has(n.id) ? order.get(n.id)! : null}
-              dim={anyLit && !order.has(n.id)}
-            />
-          </div>
+          <Card
+            key={n.id}
+            id={n.id}
+            x={n.x}
+            y={n.y}
+            w={n.w}
+            h={n.h}
+            index={i}
+            selected={selected === n.id}
+            hovered={hover === n.id}
+            lit={order.has(n.id) ? order.get(n.id)! : null}
+            dim={anyLit && !order.has(n.id)}
+          />
         ),
       )}
     </>
   );
 });
+
+interface View {
+  cur: string;
+  /** the step being zoomed into, and the chart that is appearing inside it */
+  portal: { node: string; scope: string } | null;
+}
 
 export function Canvas() {
   const scope = useStore((s) => s.scope);
@@ -264,96 +285,200 @@ export function Canvas() {
   const hover = useStore((s) => s.hover);
   const highlight = useStore((s) => s.highlight);
   const focusTick = useStore((s) => s.focusTick);
-  const panelOn = useStore((s) => s.panel);
   const touched = useStore((s) => s.touched);
+  const panelOn = useStore((s) => s.panel);
 
   const wrap = useRef<HTMLDivElement>(null);
-  const curEl = useRef<HTMLDivElement>(null);
-  const prevEl = useRef<HTMLDivElement>(null);
   const panelEl = useRef<HTMLDivElement>(null);
+  const els = useRef(new Map<string, HTMLDivElement>());
   const [vp, setVp] = useState<Size>({ w: 0, h: 0 });
   const vpRef = useRef(vp);
   vpRef.current = vp;
-  // Level 0: whichever column count shows the stage cards largest
-  const cols = useMemo(() => {
-    if (!vp.w || !vp.h) return 4;
-    return [4, 3, 2].reduce((best, c) => (camFor(layoutOf(ROOT, c), vp).k > camFor(layoutOf(ROOT, best), vp).k + 0.02 ? c : best), 4);
-  }, [vp]);
 
-  const [layers, setLayers] = useState<{ cur: string; prev: string | null; mode: "in" | "out" | "fade" | null }>({ cur: scope, prev: null, mode: null });
+  const [view, setViewState] = useState<View>({ cur: scope, portal: null });
+  const viewRef = useRef(view);
+  const [busy, setBusy] = useState(false);
   const cam = useRef<Cam>({ x: 0, y: 0, k: 1 });
-  const baseK = useRef(1);
   const raf = useRef(0);
-  const pending = useRef<null | { end: Cam }>(null);
-  const quietUntil = useRef(0);
-  const zoomHint = useRef(0);
+  const glideDone = useRef<null | (() => void)>(null);
+  const navToken = useRef(0);
+  const settleTimer = useRef(0);
+  const revealed = useRef<HTMLElement[]>([]);
+
+  const setView = (v: View) => {
+    viewRef.current = v;
+    setViewState(v);
+  };
 
   /** The panel parks in the top-right corner when its node is not in the chart; keep the chart clear of it. */
   const usable = useCallback((l: Layout): Size => {
     const { w, h } = vpRef.current;
-    const sel = getState().selected;
-    const parked = sel !== null && getState().panel && !l.byId[sel] && w >= 900;
+    const st = getState();
+    const parked = st.selected !== null && st.panel && !l.byId[st.selected] && w >= 900;
     return { w: parked ? w - PANEL_W - 20 : w, h };
   }, []);
-
-  const layout = useCallback((s: string) => layoutOf(s, cols, vp), [cols, vp]);
-  const curLayout = layout(layers.cur);
-  const prevLayout = layers.prev ? layout(layers.prev) : null;
+  const fitCam = useCallback((s: string, focus?: Rect) => camFor(layoutOf(s), usable(layoutOf(s)), focus), [usable]);
+  const fitK = (s: string) => camFor(layoutOf(s), vpRef.current).k;
 
   const placePanel = useCallback(() => {
     const el = panelEl.current;
-    const { selected: sel } = getState();
+    const sel = getState().selected;
     if (!el || !sel) return;
-    const r = layoutOf(layers.cur, cols, vpRef.current).byId[sel];
+    const r = layoutOf(viewRef.current.cur).byId[sel];
     const { w, h } = vpRef.current;
-    const ph = el.offsetHeight, pw = el.offsetWidth;
     if (!r || w < 720) {
       el.dataset.mode = w < 720 ? "sheet" : "corner";
       el.style.transform = "";
       return;
     }
     el.dataset.mode = "float";
-    const c = cam.current;
+    const c = cam.current, ph = el.offsetHeight, pw = el.offsetWidth;
     const left = r.x * c.k + c.x, top = r.y * c.k + c.y, right = left + r.w * c.k;
     let x = right + 16;
     if (x + pw > w - 10) x = left - pw - 16;
     if (x < 10) x = clamp(right + 16, 10, w - pw - 10);
     const y = clamp(top - 6, 10, Math.max(10, h - ph - 10));
     el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
-  }, [layers.cur, cols]);
+  }, []);
 
+  /** Draw the current camera: place the three charts as one picture, fade them by zoom, flip when due. */
   const apply = useCallback(() => {
-    const c = cam.current;
-    if (curEl.current) curEl.current.style.transform = `translate(${c.x}px, ${c.y}px) scale(${c.k})`;
-    placePanel();
+    for (let guard = 0; guard < 4; guard++) {
+      const v = viewRef.current, c = cam.current;
+      const L = layoutOf(v.cur);
+      const parent = parentScope(v.cur);
+      const up = parent ? nestOf(layoutOf(parent), L, shownIn(parent, v.cur)) : null;
+      const down = v.portal ? nestOf(L, layoutOf(v.portal.scope), v.portal.node) : null;
+      const z = c.k / fitK(v.cur);
+      const cc = down ? toChild(c, down) : null;
+      const zc = cc && v.portal ? cc.k / fitK(v.portal.scope) : 0;
+
+      if (parent && up && z < FLIP_OUT) {
+        // zoomed out far enough: the surrounding chart becomes the current one
+        const st = getState();
+        cam.current = toParent(c, up);
+        setView({ cur: parent, portal: { node: shownIn(parent, v.cur)!, scope: v.cur } });
+        const drop = st.selected && !layoutOf(parent).byId[st.selected] && !st.driving;
+        if (st.scope !== parent) set({ scope: parent, ...(drop ? { selected: null } : {}) });
+        continue;
+      }
+      if (v.portal && cc && zc > FLIP_IN) {
+        // zoomed in far enough: the chart inside the step becomes the current one
+        cam.current = cc;
+        setView({ cur: v.portal.scope, portal: null });
+        if (getState().scope !== v.portal.scope) set({ scope: v.portal.scope, touched: true, ...(getState().driving ? {} : { selected: null }) });
+        continue;
+      }
+
+      const paint = (id: string, camera: Cam, opacity: number, live: boolean) => {
+        const el = els.current.get(id);
+        if (!el) return;
+        el.style.transform = css(camera);
+        el.style.opacity = String(opacity);
+        el.style.pointerEvents = live && opacity > 0.5 ? "auto" : "none";
+        el.style.visibility = opacity <= 0.001 ? "hidden" : "visible";
+        // level of detail: far away, a card shows its title large and nothing else
+        el.style.setProperty("--lod", String(clamp(0.78 / camera.k, 1, 2.3)));
+        el.classList.toggle("is-far", camera.k < 0.62);
+      };
+      const curOpacity = (parent && up ? ramp(z, SHOW[0], SHOW[1]) : 1) * (cc ? 1 - ramp(zc, HIDE[0], HIDE[1]) : 1);
+      paint(v.cur, c, curOpacity, true);
+      if (parent && up) paint(parent, toParent(c, up), 1 - ramp(z, HIDE[0], HIDE[1]), false);
+      if (v.portal && cc) paint(v.portal.scope, cc, ramp(zc, SHOW[0], SHOW[1]), false);
+
+      // the step being entered empties out as its chart appears inside it
+      for (const el of revealed.current) el.style.removeProperty("--reveal");
+      revealed.current = [];
+      const mark = (layer: string, id: string | null, amount: number) => {
+        const card = id ? els.current.get(layer)?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`) : null;
+        if (card && amount > 0) (card.style.setProperty("--reveal", String(amount)), revealed.current.push(card));
+      };
+      if (v.portal) mark(v.cur, v.portal.node, ramp(zc, 0.1, 0.3));
+      if (parent) mark(parent, shownIn(parent, v.cur), ramp(z, 0.1, 0.3));
+      placePanel();
+      return;
+    }
   }, [placePanel]);
 
-  const stop = () => {
+  const stopGlide = () => {
     cancelAnimationFrame(raf.current);
-    if (pending.current) {
-      cam.current = pending.current.end;
-      pending.current = null;
-    }
+    glideDone.current?.();
+    glideDone.current = null;
   };
 
-  const glide = useCallback(
-    (to: Cam, ms = 420) => {
-      stop();
-      const from = { ...cam.current };
+  /** Camera of the current chart, expressed in an adjacent chart's coordinates (or back). */
+  const convert = (c: Cam, from: string, to: string): Cam => {
+    if (from === to) return c;
+    if (parentScope(from) === to) {
+      const n = nestOf(layoutOf(to), layoutOf(from), shownIn(to, from));
+      return n ? toParent(c, n) : c;
+    }
+    const n = nestOf(layoutOf(from), layoutOf(to), shownIn(from, to));
+    return n ? toChild(c, n) : c;
+  };
+
+  /** Animate to a camera given in `target`'s coordinates. `target` is the current chart or next to it. */
+  const glideTo = useCallback(
+    (target: string, to: Cam, ms: number): Promise<void> => {
+      stopGlide();
+      const from = convert(cam.current, viewRef.current.cur, target);
+      const box = layoutOf(target).box;
+      const ax = box.x + box.w / 2, ay = box.y + box.h / 2;
+      const s0 = { x: from.x + from.k * ax, y: from.y + from.k * ay };
+      const s1 = { x: to.x + to.k * ax, y: to.y + to.k * ay };
+      const dur = Math.max(1, ms * motion());
       const t0 = performance.now();
-      pending.current = { end: to };
-      const dur = Math.min(ms, transitionMs());
-      const step = (now: number) => {
-        const e = ease(clamp((now - t0) / dur, 0, 1));
-        const k = from.k * Math.pow(to.k / from.k, e);
-        cam.current = { k, x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e };
-        apply();
-        if (e < 1) raf.current = requestAnimationFrame(step);
-        else pending.current = null;
-      };
-      raf.current = requestAnimationFrame(step);
+      return new Promise((resolve) => {
+        glideDone.current = resolve;
+        const step = (now: number) => {
+          const t = clamp((now - t0) / dur, 0, 1), e = ease(t);
+          const k = from.k * Math.pow(to.k / from.k, e);
+          const c: Cam = { k, x: s0.x + (s1.x - s0.x) * e - k * ax, y: s0.y + (s1.y - s0.y) * e - k * ay };
+          cam.current = convert(c, target, viewRef.current.cur);
+          apply();
+          if (t < 1) raf.current = requestAnimationFrame(step);
+          else {
+            if (viewRef.current.cur !== target) {
+              cam.current = to;
+              setView({ cur: target, portal: null });
+              if (getState().scope !== target) set({ scope: target });
+              apply();
+            }
+            glideDone.current = null;
+            resolve();
+          }
+        };
+        raf.current = requestAnimationFrame(step);
+      });
     },
     [apply],
+  );
+
+  /** Travel to any scope, one level at a time, as one continuous move. */
+  const travel = useCallback(
+    async (to: string) => {
+      const token = ++navToken.current;
+      const a = scopeTrail(viewRef.current.cur), b = scopeTrail(to);
+      let i = 0;
+      while (i < a.length && i < b.length && a[i] === b[i]) i++;
+      const hops = [...a.slice(i - 1, -1).reverse(), ...b.slice(i)];
+      const ms = clamp(1150 / Math.max(1, hops.length), 420, 760);
+      setBusy(true);
+      for (const hop of hops) {
+        const cur = viewRef.current.cur;
+        if (parentScope(cur) === hop) {
+          await glideTo(hop, fitCam(hop, layoutOf(hop).byId[shownIn(hop, cur) ?? ""]), ms * 0.85);
+        } else {
+          setView({ cur, portal: { node: shownIn(cur, hop)!, scope: hop } });
+          await new Promise((r) => requestAnimationFrame(r));
+          await glideTo(hop, fitCam(hop), ms);
+        }
+        if (token !== navToken.current) return;
+      }
+      setBusy(false);
+      arrived();
+    },
+    [glideTo, fitCam],
   );
 
   // viewport size
@@ -365,114 +490,30 @@ export function Canvas() {
     return () => ro.disconnect();
   }, []);
 
-  // refit when the viewport changes
   const sized = useRef(false);
   useLayoutEffect(() => {
     if (!vp.w || !vp.h) return;
-    const target = camFor(layoutOf(layers.cur, cols, vp), vp);
-    baseK.current = target.k;
     if (!sized.current) {
       sized.current = true;
-      cam.current = target;
+      cam.current = fitCam(viewRef.current.cur);
       apply();
-    } else if (!layers.prev) glide(target, 300);
+    } else if (!busy) void glideTo(viewRef.current.cur, fitCam(viewRef.current.cur), 300);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vp.w, vp.h, cols]);
+  }, [vp.w, vp.h]);
 
-  // a new scope in the store starts a level transition
-  useLayoutEffect(() => {
-    if (scope === layers.cur) return;
-    stop();
-    const from = layers.cur;
-    const mode = lineage(scope).includes(from) ? "in" : lineage(from).includes(scope) ? "out" : "fade";
-    setLayers({ cur: scope, prev: from, mode });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope]);
+  // newly mounted layers need their first paint
+  useLayoutEffect(apply, [view, apply]);
 
-  // run the transition once both layers are in the DOM
-  useLayoutEffect(() => {
-    if (!layers.prev || !prevLayout || !vp.w) return;
-    const size = usable(curLayout);
-    const oldCam = { ...cam.current };
-    const parent = layers.mode === "in" ? prevLayout : curLayout;
-    const child = layers.mode === "in" ? curLayout : prevLayout;
-    const rel = layers.mode === "fade" ? null : nest(parent, child);
-    const newEl = curEl.current!, oldEl = prevEl.current!;
-    const css = (c: Cam) => `translate(${c.x}px, ${c.y}px) scale(${c.k})`;
-    const toChild = (p: Cam): Cam => ({ k: p.k * rel!.m, x: p.x + p.k * rel!.tx, y: p.y + p.k * rel!.ty });
-    const toParent = (c: Cam): Cam => {
-      const k = c.k / rel!.m;
-      return { k, x: c.x - k * rel!.tx, y: c.y - k * rel!.ty };
-    };
-
-    let endCam: Cam;
-    let frame: (e: number) => void;
-    if (!rel) {
-      endCam = camFor(curLayout, size);
-      frame = (e) => {
-        cam.current = endCam;
-        newEl.style.transform = css(endCam);
-        newEl.style.opacity = String(e);
-        oldEl.style.transform = css(oldCam);
-        oldEl.style.opacity = String(1 - e);
-      };
-    } else {
-      // Both charts move as one rigid picture: the child chart is pinned inside its node.
-      const parentEnd = layers.mode === "out" ? camFor(parent, size, rel.rect) : null;
-      const c0 = layers.mode === "in" ? toChild(oldCam) : oldCam;
-      const c1 = layers.mode === "in" ? camFor(child, size) : toChild(parentEnd!);
-      endCam = layers.mode === "in" ? c1 : parentEnd!;
-      const ax = child.box.x + child.box.w / 2, ay = child.box.y + child.box.h / 2;
-      const s0 = { x: c0.x + c0.k * ax, y: c0.y + c0.k * ay };
-      const s1 = { x: c1.x + c1.k * ax, y: c1.y + c1.k * ay };
-      frame = (e) => {
-        const k = c0.k * Math.pow(c1.k / c0.k, e);
-        const c: Cam = { k, x: s0.x + (s1.x - s0.x) * e - k * ax, y: s0.y + (s1.y - s0.y) * e - k * ay };
-        const p = toParent(c);
-        const [childEl, parentEl] = layers.mode === "in" ? [newEl, oldEl] : [oldEl, newEl];
-        childEl.style.transform = css(c);
-        parentEl.style.transform = css(p);
-        if (layers.mode === "in") {
-          childEl.style.opacity = String(ramp(e, 0.28, 0.8));
-          parentEl.style.opacity = String(1 - ramp(e, 0.3, 0.85));
-        } else {
-          childEl.style.opacity = String(1 - ramp(e, 0.15, 0.6));
-          parentEl.style.opacity = String(ramp(e, 0.12, 0.6));
-        }
-        cam.current = layers.mode === "in" ? c : p;
-      };
-    }
-
-    baseK.current = camFor(curLayout, size).k;
-    pending.current = { end: endCam };
-    const dur = transitionMs();
-    const t0 = performance.now();
-    frame(0);
-    const step = (now: number) => {
-      const t = clamp((now - t0) / dur, 0, 1);
-      frame(ease(t));
-      if (t < 1) raf.current = requestAnimationFrame(step);
-      else {
-        pending.current = null;
-        cam.current = endCam;
-        newEl.style.opacity = "";
-        quietUntil.current = performance.now() + 380;
-        setLayers((s) => ({ cur: s.cur, prev: null, mode: null }));
-      }
-    };
-    raf.current = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layers.prev, layers.cur]);
-
-  useLayoutEffect(() => {
-    if (!layers.prev) apply();
-  }, [layers.prev, apply]);
+  // the store asked for another scope (breadcrumb, double-click, an answer driving the diagram)
+  useEffect(() => {
+    if (scope !== viewRef.current.cur) void travel(scope);
+    else arrived();
+  }, [scope, travel]);
 
   // keep the selected node and its panel in view
   useEffect(() => {
-    if (!selected || layers.prev) return;
-    const r = curLayout.byId[selected];
+    if (!selected || busy) return;
+    const r = layoutOf(viewRef.current.cur).byId[selected];
     if (!r) return;
     const id = requestAnimationFrame(() => {
       const c = cam.current, { w, h } = vpRef.current;
@@ -480,31 +521,73 @@ export function Canvas() {
       const left = r.x * c.k + c.x, top = r.y * c.k + c.y;
       const right = left + r.w * c.k, bottom = top + r.h * c.k;
       let dx = 0, dy = 0;
-      const fitsRight = right + room <= w - 8, fitsLeft = left - room >= 8;
-      if (!fitsRight && !fitsLeft) dx = w - 16 - room - right;
+      if (right + room > w - 8 && left - room < 8) dx = w - 16 - room - right;
       if (left + dx < 16) dx = 16 - left;
       const sheet = w < 720 ? Math.min(h * 0.5, 360) : 0;
       if (top < 20) dy = 20 - top;
       else if (bottom > h - 20 - sheet) dy = h - 20 - sheet - bottom;
-      if (dx || dy) glide({ k: c.k, x: c.x + dx, y: c.y + dy }, 380);
+      if (dx || dy) void glideTo(viewRef.current.cur, { k: c.k, x: c.x + dx, y: c.y + dy }, 360);
       else placePanel();
     });
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, focusTick, layers.prev, layers.cur]);
+  }, [selected, focusTick, busy, view.cur]);
 
-  // ---- direct manipulation -------------------------------------------------
-  const zoomAt = useCallback(
-    (factor: number, px: number, py: number) => {
-      const c = cam.current;
-      const lo = baseK.current * (getState().scope === ROOT ? 1 : 0.5);
-      const k = clamp(c.k * factor, lo, baseK.current * 3);
+  // ---- zooming by hand ---------------------------------------------------------
+  const cardAt = (x: number, y: number): string | null => {
+    const hit = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>("[data-id]");
+    return hit && els.current.get(viewRef.current.cur)?.contains(hit) ? hit.dataset.id! : null;
+  };
+
+  /** After the wheel stops: never rest half-way between two charts. */
+  const settle = useCallback(
+    (zoomingIn: boolean) => {
+      const v = viewRef.current, c = cam.current;
+      const z = c.k / fitK(v.cur);
+      const parent = parentScope(v.cur);
+      if (v.portal) {
+        const n = nestOf(layoutOf(v.cur), layoutOf(v.portal.scope), v.portal.node);
+        const zc = n ? toChild(c, n).k / fitK(v.portal.scope) : 0;
+        if (zoomingIn && zc >= SHOW[0]) return void glideTo(v.portal.scope, fitCam(v.portal.scope), 420);
+        if (zc < 0.08) setView({ cur: v.cur, portal: null });
+      }
+      if (parent && z < HIDE[1]) {
+        if (zoomingIn) void glideTo(v.cur, fitCam(v.cur), 380);
+        else void glideTo(parent, fitCam(parent, layoutOf(parent).byId[shownIn(parent, v.cur) ?? ""]), 420);
+      }
+    },
+    [glideTo, fitCam],
+  );
+
+  const zoomBy = useCallback(
+    (factor: number, px: number, py: number, clientX: number, clientY: number) => {
+      navToken.current++;
+      stopGlide();
+      if (busy) setBusy(false);
+      const v = viewRef.current, c = cam.current;
+      const zoomingIn = factor > 1;
+      if (zoomingIn) {
+        // the step under the cursor is the one we are zooming into
+        const id = cardAt(clientX, clientY);
+        const target = id && canEnter(id) ? enterTarget(id) : null;
+        if (id && target && v.portal?.node !== id) {
+          const old = v.portal ? nestOf(layoutOf(v.cur), layoutOf(v.portal.scope), v.portal.node) : null;
+          const shown = old && v.portal ? toChild(c, old).k / fitK(v.portal.scope) : 0;
+          if (shown < SHOW[0]) setView({ cur: v.cur, portal: { node: id, scope: target } });
+        }
+      }
+      const base = fitK(v.cur);
+      const lo = v.cur === ROOT ? base * 0.8 : 0;
+      const hi = viewRef.current.portal ? Infinity : base * 2.4;
+      const k = clamp(c.k * factor, lo, Math.max(hi, c.k));
       const f = k / c.k;
       cam.current = { k, x: px - (px - c.x) * f, y: py - (py - c.y) * f };
       apply();
-      return k;
+      if (!getState().touched) set({ touched: true });
+      window.clearTimeout(settleTimer.current);
+      settleTimer.current = window.setTimeout(() => settle(zoomingIn), 170);
     },
-    [apply],
+    [apply, settle, busy],
   );
 
   useEffect(() => {
@@ -512,32 +595,18 @@ export function Canvas() {
     const onWheel = (ev: WheelEvent) => {
       if ((ev.target as HTMLElement).closest(".node-panel")) return;
       const out = ev.deltaY > 0;
-      const state = getState();
-      // the page scrolls once the chart is fully zoomed out, or when the demo is not at the top
+      // the page scrolls once the top chart is fully zoomed out, or when the demo is not at the top
       if (window.scrollY > 4) return;
-      if (state.scope === ROOT && out && cam.current.k <= baseK.current * 1.001) return;
+      if (viewRef.current.cur === ROOT && out && cam.current.k <= fitK(ROOT) * 1.001) return;
       ev.preventDefault();
-      if (layers.prev || performance.now() < quietUntil.current) return;
-      stop();
       const rect = el.getBoundingClientRect();
-      const px = ev.clientX - rect.left, py = ev.clientY - rect.top;
       const unit = ev.deltaMode === 1 ? 16 : 1;
-      const k = zoomAt(Math.exp(-ev.deltaY * unit * (ev.ctrlKey ? 0.012 : 0.0024)), px, py);
-      if (!state.touched) set({ touched: true });
-      if (!out && k > baseK.current * 1.7) {
-        const hit = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest<HTMLElement>("[data-id]");
-        const id = hit?.dataset.id;
-        if (id && canEnter(id)) openNode(id);
-        else if (performance.now() - zoomHint.current > 2500) {
-          zoomHint.current = performance.now();
-          el.classList.add("nudge");
-          setTimeout(() => el.classList.remove("nudge"), 900);
-        }
-      } else if (out && state.scope !== ROOT && k < baseK.current * 0.64) goUp();
+      const factor = Math.exp(-ev.deltaY * unit * (ev.ctrlKey ? 0.012 : 0.0026));
+      zoomBy(factor, ev.clientX - rect.left, ev.clientY - rect.top, ev.clientX, ev.clientY);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [zoomAt, layers.prev]);
+  }, [zoomBy]);
 
   const drag = useRef<null | { id: number; x: number; y: number; moved: boolean; target: HTMLElement }>(null);
   const touches = useRef(new Map<number, { x: number; y: number }>());
@@ -552,23 +621,17 @@ export function Canvas() {
       drag.current = null;
       return;
     }
-    stop();
     drag.current = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, moved: false, target: ev.target as HTMLElement };
   };
   const onPointerMove = (ev: React.PointerEvent) => {
     if (touches.current.has(ev.pointerId)) touches.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-    if (pinch.current && touches.current.size === 2 && !layers.prev) {
+    if (pinch.current && touches.current.size === 2) {
       const [a, b] = [...touches.current.values()];
       const d = Math.hypot(a.x - b.x, a.y - b.y);
       const rect = wrap.current!.getBoundingClientRect();
       const cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
-      const k = zoomAt(d / pinch.current.d, cx - rect.left, cy - rect.top);
+      if (Math.abs(d - pinch.current.d) > 0.5) zoomBy(d / pinch.current.d, cx - rect.left, cy - rect.top, cx, cy);
       pinch.current.d = d;
-      if (performance.now() < quietUntil.current) return;
-      if (k > baseK.current * 1.7) {
-        const id = (document.elementFromPoint(cx, cy) as HTMLElement | null)?.closest<HTMLElement>("[data-id]")?.dataset.id;
-        if (id && canEnter(id)) openNode(id);
-      } else if (k < baseK.current * 0.64 && getState().scope !== ROOT) goUp();
       return;
     }
     const d = drag.current;
@@ -577,6 +640,8 @@ export function Canvas() {
     if (!d.moved && Math.hypot(dx, dy) < 5) return;
     if (!d.moved) {
       d.moved = true;
+      navToken.current++;
+      stopGlide();
       wrap.current!.setPointerCapture(ev.pointerId);
       wrap.current!.classList.add("is-panning");
     }
@@ -591,7 +656,7 @@ export function Canvas() {
     const d = drag.current;
     drag.current = null;
     wrap.current!.classList.remove("is-panning");
-    if (!d || d.moved || layers.prev) return;
+    if (!d || d.moved) return;
     const open = d.target.closest<HTMLElement>("[data-open]");
     if (open) return openNode(open.dataset.open!);
     const card = d.target.closest<HTMLElement>("[data-id]");
@@ -630,21 +695,19 @@ export function Canvas() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const center = () => ({ x: vpRef.current.w / 2, y: vpRef.current.h / 2 });
-  const zoomBy = (f: number) => {
-    const c = cam.current, p = center();
-    const k = clamp(c.k * f, baseK.current * (scope === ROOT ? 1 : 0.66), baseK.current * 2.6);
-    const r = k / c.k;
-    glide({ k, x: p.x - (p.x - c.x) * r, y: p.y - (p.y - c.y) * r }, 220);
+  const button = (f: number) => {
+    const { w, h } = vpRef.current;
+    const rect = wrap.current!.getBoundingClientRect();
+    zoomBy(f, w / 2, h / 2, rect.left + w / 2, rect.top + h / 2);
   };
-  const up = parentScope(scope);
-  const portal = layers.mode === "in" && layers.prev ? shownIn(layers.prev, layers.cur) : null;
-  const panelNode = selected && panelOn && !layers.prev ? selected : null;
+  const up = parentScope(view.cur);
+  const panelNode = selected && panelOn && !busy ? selected : null;
+  const layers = [up, view.cur, view.portal?.scope].filter((s): s is string => Boolean(s));
 
   return (
     <div
       ref={wrap}
-      className={`canvas${layers.prev ? " is-moving" : ""}`}
+      className={`canvas${busy ? " is-moving" : ""}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -654,14 +717,26 @@ export function Canvas() {
       onDoubleClick={onDoubleClick}
       onKeyDown={onKeyDown}
     >
-      {prevLayout && (
-        <div ref={prevEl} className="layer is-leaving" key={`${layers.prev}:old`}>
-          <ScopeLayer layout={prevLayout} selected={null} hover={null} highlight={highlight} portal={portal} />
+      {/* one arrowhead for every chart; a marker inside a hidden layer would not paint */}
+      <svg width="0" height="0" className="defs" aria-hidden>
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path d="M1 1 9 5 1 9z" fill="context-stroke" />
+          </marker>
+        </defs>
+      </svg>
+      {layers.map((s) => (
+        <div
+          key={s}
+          className="layer"
+          ref={(el) => {
+            if (el) els.current.set(s, el);
+            else els.current.delete(s);
+          }}
+        >
+          <ScopeLayer layout={layoutOf(s)} selected={s === view.cur ? selected : null} hover={s === view.cur ? hover : null} highlight={highlight} />
         </div>
-      )}
-      <div ref={curEl} className={`layer${layers.mode ? ` enter-${layers.mode}` : ""}`} key={layers.cur} style={layers.prev ? { opacity: 0 } : undefined}>
-        <ScopeLayer layout={curLayout} selected={selected} hover={hover} highlight={highlight} portal={null} />
-      </div>
+      ))}
 
       <div ref={panelEl} className={`panel-anchor${panelNode ? " is-open" : ""}`} data-mode="float">
         {panelNode && <NodePanel key={panelNode} id={panelNode} onResize={placePanel} />}
@@ -669,9 +744,9 @@ export function Canvas() {
 
       <div className="canvas-ui bottom-left">
         <div className="zoom">
-          <button onClick={() => zoomBy(1 / 1.3)} aria-label="Zoom out">−</button>
-          <button onClick={() => glide(camFor(curLayout, usable(curLayout)), 320)} aria-label="Fit to view" className="fit">Fit</button>
-          <button onClick={() => zoomBy(1.3)} aria-label="Zoom in">+</button>
+          <button onClick={() => button(1 / 1.35)} aria-label="Zoom out">−</button>
+          <button onClick={() => void glideTo(viewRef.current.cur, fitCam(viewRef.current.cur), 320)} aria-label="Fit to view" className="fit">Fit</button>
+          <button onClick={() => button(1.35)} aria-label="Zoom in">+</button>
         </div>
         {up && (
           <button className="up" onClick={goUp}>
@@ -689,10 +764,9 @@ export function Canvas() {
       )}
       {!touched && (
         <div className="canvas-ui hint">
-          <b>Click</b> a step to inspect it · <b>double-click</b> or <b>scroll</b> to zoom in
+          <b>Scroll</b> over a step to zoom into it · <b>click</b> to inspect and ask
         </div>
       )}
-      <div className="canvas-ui nudge-msg">Point at a step with “Zoom in” to go deeper</div>
     </div>
   );
 }

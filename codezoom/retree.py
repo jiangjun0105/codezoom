@@ -94,6 +94,7 @@ def expand(tree: Tree, scope: str, c: str) -> None:
         s.via.append(short_fn(node.callee))
     s.via.extend(node.via)
     tree.aliases[c] = node.entry
+    tree.expanded[c] = list(node.children)
     if node.callee:
         tree.fn_charts.setdefault(node.callee, node.entry)
     del tree.nodes[c]

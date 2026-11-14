@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { ROOT, displayOf, enterTarget, hasNode, isScope, lineage, parentScope, scopeTrail } from "./lib/graph";
+import { ROOT, chartFor, displayOf, enterTarget, hasNode, isScope, lineage, parentScope } from "./lib/graph";
 
 export type DockTab = "source" | "ask";
 
@@ -19,7 +19,7 @@ export interface State {
   touched: boolean;
 }
 
-const wide = typeof window !== "undefined" && window.innerWidth >= 1080;
+const wide = typeof window !== "undefined" && window.innerWidth >= 1500;
 
 let state: State = {
   scope: ROOT,
@@ -46,35 +46,24 @@ export function useStore<T>(pick: (s: State) => T): T {
   );
 }
 
-export const TRANSITION_MS = 760;
 const reduced =
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-export const transitionMs = () => (reduced ? 1 : TRANSITION_MS);
+/** Scale for animation durations: near zero when the visitor prefers reduced motion. */
+export const motion = () => (reduced ? 0.01 : 1);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-let navToken = 0;
+const waiters: (() => void)[] = [];
+/** The canvas calls this when it has finished travelling to the scope in the store. */
+export function arrived() {
+  waiters.splice(0).forEach((w) => w());
+}
 
-/**
- * Move the view to a scope. The canvas animates between a scope and one of its
- * ancestors or descendants; anything else goes up to the common ancestor first.
- */
+/** Ask the canvas to travel to a scope, and wait until it is there. */
 export async function goTo(target: string, keepSelection = false): Promise<void> {
   const scope = enterTarget(target) ?? displayOf(target).scope;
-  const from = state.scope;
-  if (scope === from) return;
-  const token = ++navToken;
-  const a = scopeTrail(from), b = scopeTrail(scope);
-  let i = 0;
-  while (i < a.length && i < b.length && a[i] === b[i]) i++;
-  const common = a[i - 1] ?? ROOT;
-  const patch = keepSelection ? {} : { selected: null };
-  if (common !== from && common !== scope) {
-    set({ scope: common, ...patch, touched: true });
-    await sleep(transitionMs() + 60);
-    if (token !== navToken) return;
-  }
-  set({ scope, ...patch, touched: true });
-  await sleep(transitionMs() + 60);
+  if (scope === state.scope) return;
+  set({ scope, ...(keepSelection ? {} : { selected: null }), touched: true });
+  await Promise.race([new Promise<void>((r) => waiters.push(r)), sleep(6000)]);
 }
 
 export const openNode = (id: string) => {
@@ -121,7 +110,8 @@ export type Action =
 /** The three UI tools an answer can call. */
 export async function runAction(a: Action, panel = true): Promise<void> {
   if (a.tool === "zoom_to_level") {
-    if (hasNode(a.id)) await goTo(isScope(a.id) ? a.id : (enterTarget(a.id) ?? displayOf(a.id).scope), true);
+    const id = chartFor(a.id);
+    if (hasNode(id)) await goTo(isScope(id) ? id : (enterTarget(id) ?? displayOf(id).scope), true);
   } else if (a.tool === "focus_node") {
     await focusNode(a.id, panel);
   } else {
