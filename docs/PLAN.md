@@ -50,6 +50,29 @@ frozen dump.
 7. Keyboard navigation between steps.
 8. Record the README GIF.
 9. Tune the phone layout; test pinch on a touch device.
+10. ~~Wheel zoom with inertia.~~ Still to tune on real hardware.
+11. ~~Search box (`/` or Cmd-K) that jumps to any step, function or line.~~
+12. ~~3D view (prototype): the current chart, the charts above it, and the charts inside
+    its steps as stacked sheets.~~ Open: frame around the side panel, touch gestures,
+    a smoother hand-over between the flat and 3D views.
+
+### Content review, 2026-11-13 (feeds Track 1)
+
+Read as a developer who wants to know how Auto-GPT works:
+
+- The top level follows code order and volume: 7 of 8 steps are start-up, and the agent
+  loop (170 of 439 statements, the part people come for) is one box at the far right.
+  Try weighting by importance: fold start-up into two or three steps and give the loop's
+  phases (think, parse, confirm, execute) their own top-level steps.
+- Top-level names mix named blocks with raw function names (`create_config()`,
+  `check_openai_api_key()`, which is five statements). Name every top-level step.
+- Statement labels from 2023 mostly restate the code ("Verify that `result` is not
+  empty"), and some are wrong (the `while` test is labelled as an `if`; one call is
+  labelled "Do nothing."). Re-label, or hide labels that add nothing over the code.
+- Coverage is one path: 38 of 820 functions. Commands, memory back ends and the model
+  client are reached through a registry or dynamic dispatch, which the static call graph
+  does not follow, so "Run the command" ends where the interesting part begins.
+- No view of data: what `config`, `agent` and `memory` hold and where they change.
 
 ## Track 4: ship
 

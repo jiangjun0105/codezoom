@@ -17,6 +17,10 @@ export interface State {
   /** true while an agent answer is moving the diagram */
   driving: boolean;
   touched: boolean;
+  /** flat: the zoomable chart. space: the levels stacked in 3D. */
+  mode: "flat" | "space";
+  /** the search box for jumping to any step */
+  jump: boolean;
 }
 
 const wide = typeof window !== "undefined" && window.innerWidth >= 1500;
@@ -31,6 +35,8 @@ let state: State = {
   focusTick: 0,
   driving: false,
   touched: false,
+  mode: "flat",
+  jump: false,
 };
 
 const listeners = new Set<() => void>();

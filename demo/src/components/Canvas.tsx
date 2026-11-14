@@ -215,7 +215,7 @@ const Card = memo(function Card(props: {
   );
 });
 
-const ScopeLayer = memo(function ScopeLayer(props: {
+export const ScopeLayer = memo(function ScopeLayer(props: {
   layout: Layout;
   selected: string | null;
   hover: string | null;
@@ -302,6 +302,8 @@ export function Canvas() {
   const raf = useRef(0);
   const glideDone = useRef<null | (() => void)>(null);
   const navToken = useRef(0);
+  /** true while travel() is passing through levels; the store's scope changes at each one */
+  const travelling = useRef(false);
   const settleTimer = useRef(0);
   const revealed = useRef<HTMLElement[]>([]);
 
@@ -458,12 +460,14 @@ export function Canvas() {
   const travel = useCallback(
     async (to: string) => {
       const token = ++navToken.current;
+      stopSpin();
       const a = scopeTrail(viewRef.current.cur), b = scopeTrail(to);
       let i = 0;
       while (i < a.length && i < b.length && a[i] === b[i]) i++;
       const hops = [...a.slice(i - 1, -1).reverse(), ...b.slice(i)];
       const ms = clamp(1150 / Math.max(1, hops.length), 420, 760);
       setBusy(true);
+      travelling.current = true;
       for (const hop of hops) {
         const cur = viewRef.current.cur;
         if (parentScope(cur) === hop) {
@@ -475,6 +479,7 @@ export function Canvas() {
         }
         if (token !== navToken.current) return;
       }
+      travelling.current = false;
       setBusy(false);
       arrived();
     },
@@ -507,7 +512,7 @@ export function Canvas() {
   // the store asked for another scope (breadcrumb, double-click, an answer driving the diagram)
   useEffect(() => {
     if (scope !== viewRef.current.cur) void travel(scope);
-    else arrived();
+    else if (!travelling.current) arrived();
   }, [scope, travel]);
 
   // keep the selected node and its panel in view
@@ -563,6 +568,7 @@ export function Canvas() {
     (factor: number, px: number, py: number, clientX: number, clientY: number) => {
       navToken.current++;
       stopGlide();
+      if (travelling.current) (travelling.current = false), arrived();
       if (busy) setBusy(false);
       const v = viewRef.current, c = cam.current;
       const zoomingIn = factor > 1;
@@ -590,6 +596,44 @@ export function Canvas() {
     [apply, settle, busy],
   );
 
+  /*
+   * Wheel input is not applied at once. It is added to a reserve that drains over a few
+   * frames, so a mouse wheel's coarse notches become a short glide and a trackpad keeps a
+   * little momentum.
+   */
+  const spin = useRef({ raf: 0, left: 0, t: 0, px: 0, py: 0, cx: 0, cy: 0 });
+  const zoomRef = useRef(zoomBy);
+  zoomRef.current = zoomBy;
+  const stopSpin = () => {
+    cancelAnimationFrame(spin.current.raf);
+    spin.current.raf = 0;
+    spin.current.left = 0;
+  };
+  const pump = useCallback((now: number) => {
+    const s = spin.current;
+    const dt = clamp(now - s.t, 1, 48);
+    s.t = now;
+    const take = Math.abs(s.left) < 0.004 ? s.left : s.left * (1 - Math.exp(-dt / 70));
+    s.left -= take;
+    zoomRef.current(Math.exp(take), s.px, s.py, s.cx, s.cy);
+    s.raf = s.left !== 0 ? requestAnimationFrame(pump) : 0;
+  }, []);
+  const spinBy = useCallback(
+    (log: number, px: number, py: number, cx: number, cy: number) => {
+      if (motion() < 1) return zoomRef.current(Math.exp(log), px, py, cx, cy);
+      const s = spin.current;
+      // a change of direction cancels what was left of the old one
+      s.left = Math.sign(s.left) === -Math.sign(log) ? log : clamp(s.left + log, -1.6, 1.6);
+      Object.assign(s, { px, py, cx, cy });
+      if (!s.raf) {
+        s.t = performance.now() - 16;
+        s.raf = requestAnimationFrame(pump);
+      }
+    },
+    [pump],
+  );
+  useEffect(() => stopSpin, []);
+
   useEffect(() => {
     const el = wrap.current!;
     const onWheel = (ev: WheelEvent) => {
@@ -601,12 +645,11 @@ export function Canvas() {
       ev.preventDefault();
       const rect = el.getBoundingClientRect();
       const unit = ev.deltaMode === 1 ? 16 : 1;
-      const factor = Math.exp(-ev.deltaY * unit * (ev.ctrlKey ? 0.012 : 0.0026));
-      zoomBy(factor, ev.clientX - rect.left, ev.clientY - rect.top, ev.clientX, ev.clientY);
+      spinBy(-ev.deltaY * unit * (ev.ctrlKey ? 0.012 : 0.0026), ev.clientX - rect.left, ev.clientY - rect.top, ev.clientX, ev.clientY);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [zoomBy]);
+  }, [spinBy]);
 
   const drag = useRef<null | { id: number; x: number; y: number; moved: boolean; target: HTMLElement }>(null);
   const touches = useRef(new Map<number, { x: number; y: number }>());
@@ -614,6 +657,7 @@ export function Canvas() {
 
   const onPointerDown = (ev: React.PointerEvent) => {
     if ((ev.target as HTMLElement).closest(".node-panel, .canvas-ui")) return;
+    stopSpin();
     touches.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     if (touches.current.size === 2) {
       const [a, b] = [...touches.current.values()];
@@ -642,6 +686,7 @@ export function Canvas() {
       d.moved = true;
       navToken.current++;
       stopGlide();
+      if (travelling.current) (travelling.current = false), arrived(), setBusy(false);
       wrap.current!.setPointerCapture(ev.pointerId);
       wrap.current!.classList.add("is-panning");
     }
@@ -687,7 +732,7 @@ export function Canvas() {
   // Escape closes the panel, then walks back up a level
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key !== "Escape") return;
+      if (ev.key !== "Escape" || getState().jump) return;
       if (getState().selected && getState().panel) (clearThread("panel"), select(null));
       else goUp();
     };
@@ -698,7 +743,7 @@ export function Canvas() {
   const button = (f: number) => {
     const { w, h } = vpRef.current;
     const rect = wrap.current!.getBoundingClientRect();
-    zoomBy(f, w / 2, h / 2, rect.left + w / 2, rect.top + h / 2);
+    spinBy(Math.log(f), w / 2, h / 2, rect.left + w / 2, rect.top + h / 2);
   };
   const up = parentScope(view.cur);
   const panelNode = selected && panelOn && !busy ? selected : null;
