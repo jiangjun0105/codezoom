@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { Breadcrumb } from "./components/Breadcrumb";
 import { Canvas } from "./components/Canvas";
 import { Dock } from "./components/Dock";
+import { Jump } from "./components/Jump";
+import { Space } from "./components/Space";
 import { Story } from "./components/Story";
 import { graph } from "./lib/graph";
 import { set, useStore } from "./store";
@@ -14,6 +16,7 @@ export const LINKS = {
 export default function App() {
   const dock = useStore((s) => s.dock);
   const driving = useStore((s) => s.driving);
+  const mode = useStore((s) => s.mode);
 
   useEffect(() => {
     document.documentElement.classList.toggle("is-driving", driving);
@@ -52,12 +55,19 @@ export default function App() {
             <Breadcrumb />
             <div className="bar-right">
               <span className="target">{graph.meta.repo} {graph.meta.version} · run_auto_gpt</span>
+              <button className="search" onClick={() => set({ jump: true })} title="Jump to any step">
+                Search <kbd>/</kbd>
+              </button>
+              <button className={mode === "space" ? "on" : ""} onClick={() => set({ mode: mode === "space" ? "flat" : "space", touched: true })} title="Show the levels stacked in 3D">
+                3D
+              </button>
               <button className={dock === "source" ? "on" : ""} onClick={() => set({ dock: dock === "source" ? null : "source" })}>Source</button>
               <button className={dock === "ask" ? "on" : ""} onClick={() => set({ dock: dock === "ask" ? null : "ask" })}>Ask</button>
             </div>
           </div>
-          <Canvas />
+          {mode === "space" ? <Space /> : <Canvas />}
           <Dock />
+          <Jump />
         </section>
       </main>
 
