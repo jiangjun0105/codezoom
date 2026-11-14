@@ -1,0 +1,81 @@
+{
+ "_about": "Groupings proposed by a language model (Claude Haiku 5.5, one prompt for all 11 charts, labels plus the first four code lines of each step). Kept so the comparison in evaluate.py can be re-run without a key.",
+ "program": [
+  0,
+  5,
+  7,
+  11,
+  14,
+  15,
+  19
+ ],
+ "/autogpt.app.main/run_auto_gpt:3:13:Call:call": [
+  0,
+  1,
+  4,
+  6,
+  8,
+  9,
+  11
+ ],
+ "/autogpt.app.main/run_auto_gpt:6:4:Call:call": [
+  0,
+  5,
+  6,
+  7,
+  8,
+  10,
+  12
+ ],
+ "/autogpt.app.setup/prompt_user:28:19:Call:call": [
+  0,
+  4,
+  6,
+  8,
+  12
+ ],
+ "/autogpt.app.main/run_auto_gpt:29:16:Call:call": [
+  0,
+  4,
+  5,
+  7,
+  12
+ ],
+ "/autogpt.app.main/run_auto_gpt:28:23:Call:call": [
+  0,
+  1,
+  4,
+  5,
+  7
+ ],
+ "/autogpt.app.main/update_user:11:4:Call:call": [
+  0,
+  3,
+  5,
+  7
+ ],
+ "/autogpt.plugins.plugins_config/PluginsConfig.deserialize_config_file:5:8:Call:call": [
+  0,
+  4,
+  6
+ ],
+ "/autogpt.agents.base/BaseAgent.think:11:27:Call:call": [
+  0,
+  2,
+  5
+ ],
+ "/autogpt.app.main/run_interaction_loop:31:8:Expr:nodes_wrapper": [
+  0,
+  1,
+  2,
+  3,
+  5,
+  6
+ ],
+ "/autogpt.app.main/run_auto_gpt:41:4:Call:call": [
+  0,
+  2,
+  4,
+  6
+ ]
+}

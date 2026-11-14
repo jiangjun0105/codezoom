@@ -23,7 +23,8 @@ npm run dev
 
 It is a static site with pre-computed answers, so it needs no key. Build, deploy and
 the optional live mode are covered in [demo/README.md](demo/README.md). What is
-generated and what is hand-written is in [demo/NOTES.md](demo/NOTES.md).
+generated and what is hand-written is in [demo/NOTES.md](demo/NOTES.md). Where the
+project is going is in [docs/PLAN.md](docs/PLAN.md).
 
 ## How it works
 
@@ -39,9 +40,12 @@ For one entry point of a Python program:
    per statement, then summarises each block from the labels inside it.
 4. **Linking.** `flowchart/link.py` attaches the callee's chart to each call node, which
    is what makes zooming from a call into its function possible.
-5. **Clustering (experimental).** `flowchart/customized_louvain.py` and `group.py` run
-   community detection over the chart, weighted by label embeddings, to fold long
-   functions into fewer steps. Unfinished.
+5. **Rebalancing.** The syntax-shaped tree is deep and thin: most charts hold one or two
+   steps, a few hold twenty. `codezoom/retree.py` expands thin levels and groups long
+   runs of steps into named blocks, so every level shows a handful of steps. A language
+   model proposes and names the groups; a dynamic-programming segmenter is the fallback.
+   The 2023 attempt at this (`flowchart/customized_louvain.py`, community detection) is
+   one of the baselines it is compared against in [docs/abstraction.md](docs/abstraction.md).
 6. **Agents.** `codebase_analyzer/bots/` has one question-answering agent per level:
    repository, package, module, function. Each answers from its own summaries and can
    ask the level below.
@@ -52,6 +56,9 @@ codebase_analyzer/
   flowchart/   syntax tree → flowchart nodes, labels, linking, clustering
   bots/        repo, package, module and function agents
   tools/       embedding search and bot-to-bot tools
+codezoom/      2026: loader, rebalancing pass, grouping experiments, exporter (stdlib Python)
+tests/         tests for codezoom
+docs/          the plan, and the write-up of the abstraction work
 convert_dump/  linked flowchart of Auto-GPT's run_auto_gpt (demo input)
 shared_cache/  cached codeinfo and call graph for Auto-GPT v0.4.7
 demo/          the demo site

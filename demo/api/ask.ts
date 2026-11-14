@@ -75,7 +75,7 @@ const line = (n: GNode) => `${n.id} | ${n.title} | ${n.label}`;
 const OUTLINE = (() => {
   const depth = (n: GNode) => lineage(n.id).length - 1;
   const landmarks = Object.values(nodes).filter(
-    (n) => n.kind === "stage" || (n.type === "call" && n.children.length > 0) || n.children.length >= 3,
+    (n) => n.kind === "group" || (n.type === "call" && n.children.length > 0) || n.children.length >= 3,
   );
   const order: string[] = [];
   const walk = (id: string) => {

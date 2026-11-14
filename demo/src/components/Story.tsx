@@ -41,9 +41,9 @@ const STEPS = [
     ),
   },
   {
-    name: "Clustering",
-    text: "Community detection over the graph, weighted by label embeddings, to fold long functions into a few higher-level steps. Experimental: the levels above come from code nesting and call links.",
-    file: "flowchart/customized_louvain.py",
+    name: "Rebalancing",
+    text: "Thin wrapper levels are expanded away and long runs of steps are grouped into named blocks, so every level shows a handful of steps.",
+    file: "codezoom/retree.py",
     art: (
       <svg viewBox="0 0 120 64" aria-hidden>
         <ellipse className="a-ring" cx="36" cy="32" rx="24" ry="22" />
@@ -70,8 +70,23 @@ const STEPS = [
 ];
 
 export function Story() {
-  const m = graph.meta as typeof graph.meta & { depth: number; repoCounts: Record<string, number> };
+  const m = graph.meta as typeof graph.meta & {
+    depth: number;
+    groups: number;
+    statementCount: number;
+    repoCounts: Record<string, number>;
+    shapeBefore: Record<string, number>;
+    shapeAfter: Record<string, number>;
+  };
   const fns = m.repoCounts.function + m.repoCounts.class_method;
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  const rows: [string, string, string][] = [
+    ["Deepest statement", `${m.shapeBefore.max_depth} levels`, `${m.shapeAfter.max_depth} levels`],
+    ["Average statement depth", m.shapeBefore.mean_depth.toFixed(1), m.shapeAfter.mean_depth.toFixed(1)],
+    ["Charts with 3 to 8 steps", pct(m.shapeBefore.share_3_to_8), pct(m.shapeAfter.share_3_to_8)],
+    ["Charts with 1 or 2 steps", String(m.shapeBefore.charts_with_2_or_fewer), String(m.shapeAfter.charts_with_2_or_fewer)],
+    ["Widest chart", `${m.shapeBefore.widest} steps`, `${m.shapeAfter.widest} steps`],
+  ];
   return (
     <div className="story" id="how">
       <section className="how">
@@ -94,27 +109,54 @@ export function Story() {
         </ol>
       </section>
 
+      <section className="rebalance">
+        <div>
+          <p className="eyebrow">Step 4, up close</p>
+          <h2>Code nests deep and thin. Understanding wants a few steps at a time.</h2>
+          <p className="lede">
+            Straight from the syntax tree, most charts hold one or two steps and the entry function holds {m.shapeBefore.widest}. The
+            rebalancing pass keeps every statement and every edge and changes only how they are bundled: it expands a step when a chart is
+            too small or lopsided, and groups a run of steps when a chart is too full. A group must have one way in and one way out, so it
+            can be drawn as a single box.
+          </p>
+          <p className="lede">
+            A language model proposes the groups and names them; a dynamic-programming segmenter takes over when its answer breaks that
+            rule. The {m.groups} named groups in the diagram above were all made this way.
+          </p>
+        </div>
+        <table>
+          <thead>
+            <tr><th /><th>Syntax tree</th><th>Rebalanced</th></tr>
+          </thead>
+          <tbody>
+            {rows.map(([name, before, after]) => (
+              <tr key={name}><th>{name}</th><td>{before}</td><td className="after">{after}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
       <section className="facts">
         <div className="numbers">
-          <div><b>{m.nodeCount}</b><span>flowchart nodes on this one run</span></div>
+          <div><b>{m.statementCount}</b><span>statements on this one run</span></div>
           <div><b>{m.chartedFunctions}</b><span>functions with their own chart</span></div>
-          <div><b>{m.depth}</b><span>levels from overview to deepest statement</span></div>
+          <div><b>{m.groups}</b><span>named groups made by the rebalancing pass</span></div>
           <div><b>{fns}</b><span>functions indexed across {m.repoCounts.module} modules</span></div>
         </div>
         <div className="cols">
           <div>
-            <h3>What the 2023 pipeline produced</h3>
+            <h3>From the 2023 prototype</h3>
             <ul>
-              <li>The call graph, the nested flowchart of each function on this run's path, and the links from call sites into callees.</li>
-              <li>The label on every node and the summary of every function, written by a language model.</li>
+              <li>The call graph, the flowchart of each function on this run's path, and the links from call sites into callees.</li>
+              <li>The label on every statement and the summary of every function, written by a language model.</li>
               <li>A hierarchy of question-answering agents over the same index. They are not running on this page.</li>
             </ul>
           </div>
           <div>
-            <h3>What was added for this demo</h3>
+            <h3>Added since</h3>
             <ul>
-              <li>This viewer, and the eight hand-grouped steps at the top level.</li>
-              <li>Code snippets re-attached to nodes from the cached source.</li>
+              <li>The rebalancing pass, its named groups, and the comparison of grouping methods behind it.</li>
+              <li>This viewer, with code snippets re-attached to nodes from the cached source.</li>
               <li>Pre-computed answers, so the page needs no model and no key.</li>
             </ul>
           </div>

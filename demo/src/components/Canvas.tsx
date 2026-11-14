@@ -87,6 +87,7 @@ const TAGS: Record<string, string> = {
   except: "Except",
 };
 export function tagOf(n: GNode): string {
+  if (n.kind === "group") return "Steps";
   if (n.type === "call") return "Call";
   return TAGS[n.kind] ?? (n.type === "decision" ? "If" : "Action");
 }
@@ -94,7 +95,8 @@ export function toneOf(n: GNode): string {
   if (n.type === "call") return "call";
   if (n.type === "decision") return "decision";
   if (n.kind === "for_wrapper" || n.kind === "while_wrapper") return "loop";
-  if (n.kind === "stage") return "stage";
+  if (n.parent === ROOT) return "stage";
+  if (n.kind === "group") return "group";
   return "action";
 }
 export const linesOf = (n: GNode) =>
@@ -154,7 +156,7 @@ const Card = memo(function Card(props: {
     height: props.h,
     "--i": props.index,
     "--hl": props.lit ?? 0,
-    "--lines": n.kind === "stage" ? 2 : labelLines(n.id),
+    "--lines": n.parent === ROOT ? 3 : labelLines(n.id),
   } as React.CSSProperties;
   const cls = [
     "card",
@@ -167,18 +169,9 @@ const Card = memo(function Card(props: {
     .filter(Boolean)
     .join(" ");
 
-  if (n.type === "start" || n.type === "end") {
-    return (
-      <div className={`${cls} pill`} style={style} data-id={n.id}>
-        <span className={`dot ${n.type}`} />
-        <span className="pill-title">{n.title}</span>
-        <span className="pill-sub">{n.label}</span>
-      </div>
-    );
-  }
   const enterable = canEnter(n.id);
-  const stage = n.kind === "stage";
-  const stageNo = stage ? node(ROOT).children.filter((c) => node(c).kind === "stage").indexOf(n.id) + 1 : 0;
+  const stage = n.parent === ROOT;
+  const stageNo = stage ? node(ROOT).children.indexOf(n.id) + 1 : 0;
   return (
     <div className={`${cls}${enterable ? " is-deep" : ""}`} style={style} data-id={n.id} tabIndex={0} role="button" aria-label={n.label}>
       <div className="card-tag">
@@ -186,8 +179,8 @@ const Card = memo(function Card(props: {
         <span>{stage ? `Step ${stageNo}` : tagOf(n)}</span>
         <span className="card-lines">{linesOf(n)}</span>
       </div>
-      <div className={stage ? "card-title stage-title" : "card-title"}>{n.title}</div>
-      <div className="card-label">{stage ? (n.blurb ?? n.label) : n.label}</div>
+      <div className={stage ? "card-title stage-title" : n.kind === "group" ? "card-title named" : "card-title"}>{n.title}</div>
+      <div className="card-label">{n.label}</div>
       {enterable && (
         <button className="card-open" data-open={n.id} tabIndex={-1}>
           <span>Zoom in</span>

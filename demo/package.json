@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "export-data": "python3 scripts/export_data.py"
+    "export-data": "cd .. && python3 -m codezoom.export"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

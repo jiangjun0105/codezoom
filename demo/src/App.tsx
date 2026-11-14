@@ -30,7 +30,7 @@ export default function App() {
           </svg>
           Codezoom
         </a>
-        <span className="badge">2023 research prototype</span>
+        <span className="badge">research prototype · since 2023</span>
         <nav>
           <a href="#how">How it works</a>
           <a href={LINKS.writeup} target="_blank" rel="noreferrer">Write-up</a>

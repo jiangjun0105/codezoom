@@ -201,6 +201,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .tone-decision { --tone: var(--decision); }
 .tone-loop { --tone: var(--loop); }
 .tone-stage { --tone: var(--accent); }
+.tone-group { --tone: #7fd6b5; }
 
 .card.is-deep { box-shadow: 0 5px 0 -1px var(--panel), 0 5px 0 0 var(--line-2), 0 10px 0 -2px var(--panel), 0 10px 0 -1px var(--line); }
 .card:hover, .card.is-hover { border-color: var(--line-3); background: var(--panel-2); translate: 0 -2px; }
@@ -237,6 +238,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
   text-overflow: ellipsis;
 }
 .tone-call .card-title { color: var(--call); }
+.card-title.named { font: 600 13px/18px var(--sans); color: var(--text); letter-spacing: -0.005em; }
 .card-title.stage-title { height: auto; max-height: 50px; margin-top: 8px; font: 400 22px/25px var(--serif); color: var(--text); letter-spacing: -0.005em; white-space: normal; text-wrap: balance; }
 .card-label {
   margin-top: 4px;
@@ -466,6 +468,15 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .pipeline p { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-wrap: pretty; }
 .pipeline code { font-size: 10.5px; color: var(--faint); word-break: break-all; }
 
+.rebalance { margin-top: 72px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 48px; align-items: center; }
+.rebalance h2 { font-size: clamp(26px, 2.8vw, 36px); }
+.rebalance table { width: 100%; border-collapse: collapse; border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; border-style: hidden; box-shadow: 0 0 0 1px var(--line-2); font-size: 13.5px; }
+.rebalance th, .rebalance td { padding: 13px 16px; text-align: left; border-bottom: 1px solid var(--line); }
+.rebalance tr:last-child th, .rebalance tr:last-child td { border-bottom: 0; }
+.rebalance thead th { font: 600 11px var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); background: var(--panel); }
+.rebalance tbody th { font-weight: 500; color: var(--muted); }
+.rebalance td { font-family: var(--mono); font-size: 13px; color: var(--muted); white-space: nowrap; }
+.rebalance td.after { color: var(--text); font-weight: 600; }
 .facts { margin-top: 64px; }
 .numbers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; }
 .numbers > div { padding: 20px 22px; border-left: 1px solid var(--line); }
@@ -502,6 +513,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
     border-radius: 16px 16px 0 0; box-shadow: 0 -24px 60px -20px #000; animation: sheet 0.28s cubic-bezier(0.2, 0.9, 0.3, 1) both;
   }
   .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rebalance { grid-template-columns: 1fr; gap: 24px; }
   .pipeline li::after { display: none; }
   .numbers { grid-template-columns: 1fr 1fr; }
   .numbers > div:nth-child(3) { border-left: 0; }

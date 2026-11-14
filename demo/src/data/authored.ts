@@ -1,3 +1,4 @@
+import { ROOT, node } from "../lib/graph";
 import type { Action } from "../store";
 
 /**
@@ -31,16 +32,7 @@ export const N = {
   promptUser: `${M}construct_main_ai_config:24:4:If:if_wrapper`,
 };
 
-const STAGES = [
-  "stage:config",
-  "stage:options",
-  "stage:notices",
-  "stage:workspace",
-  "stage:commands",
-  "stage:profile",
-  "stage:agent",
-  "stage:loop",
-];
+const top = () => node(ROOT).children;
 
 export interface Authored {
   q: string;
@@ -81,20 +73,20 @@ export const PROGRAM_QUESTIONS: Authored[] = [
   },
   {
     q: "What happens before the agent starts running?",
-    actions: [
-      { tool: "zoom_to_level", id: "program" },
-      { tool: "highlight_path", ids: STAGES },
-    ],
-    text:
-      "Seven setup steps, all inside `run_auto_gpt()`, before the loop begins:\n" +
-      "- [[stage:config|load configuration]] from the environment and check the API key;\n" +
-      "- [[stage:options|apply the command-line flags]];\n" +
-      "- [[stage:notices|print notices]]: legal warning, news, git branch, Python version;\n" +
-      "- [[stage:workspace|prepare the workspace]] and scan for plugins;\n" +
-      "- [[stage:commands|register the commands]] the agent may call;\n" +
-      "- [[stage:profile|choose the AI profile]]: name, role and goals;\n" +
-      "- [[stage:agent|assemble the agent]] from memory, commands and profile.\n\n" +
-      "Only then does [[stage:loop|the interaction loop]] start.",
+    get actions(): Action[] {
+      return [
+        { tool: "zoom_to_level", id: ROOT },
+        { tool: "highlight_path", ids: top() },
+      ];
+    },
+    get text() {
+      const steps = top();
+      return (
+        `Everything before the last of the ${steps.length} top-level steps is setup, all of it inside \`run_auto_gpt()\`:\n` +
+        steps.slice(0, -1).map((id) => `- [[${id}|${node(id).title}]]: ${node(id).label.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase())};`).join("\n") +
+        `\n\nOnly then does [[${steps[steps.length - 1]}|${node(steps[steps.length - 1]).title.replace(/^./, (c) => c.toLowerCase())}]] begin.`
+      );
+    },
   },
   {
     q: "Where are commands actually executed?",
@@ -111,7 +103,7 @@ export const PROGRAM_QUESTIONS: Authored[] = [
   {
     q: "What does continuous mode change?",
     actions: [
-      { tool: "zoom_to_level", id: "program" },
+      { tool: "zoom_to_level", id: ROOT },
       { tool: "highlight_path", ids: [N.continuousFlag, N.legalWarning, N.cycleBudget] },
     ],
     text:
@@ -130,6 +122,6 @@ export const PROGRAM_QUESTIONS: Authored[] = [
       "- each function's syntax tree is walked into start, action, call, decision and end nodes;\n" +
       "- a language model writes the plain-English label on every node;\n" +
       "- nested blocks and call sites are linked, so a call node opens the callee's own chart.\n\n" +
-      "For this demo, the eight top-level steps were grouped by hand and the code snippets were re-attached from the cached source. The section below the diagram has the details.",
+      "The 2023 output is deep and thin, so a rebalancing pass regroups it for zooming: it folds wrapper levels away and bundles long runs of steps into named groups. The section below the diagram has the details.",
   },
 ];
