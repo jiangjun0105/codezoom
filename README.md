@@ -1,68 +1,72 @@
-# Ichigen Coder: A Cluster of Coding Bots
+# Ichigen Coder
 
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+**A codebase you can zoom into.** Ichigen Coder reads a Python repository and draws it
+as one hierarchical flowchart: what the program does at the top, every branch and call
+at the bottom. A hierarchy of agents answers questions about the code at each level.
 
+> **Status:** 2023 research prototype, not maintained as a product.
+> **Demo:** _link to be added once deployed on junbot.dev_ · **Write-up:** <https://www.junbot.dev/article/repo-understanding-tool>
 
-## Introduction
-Ichigen Coder is an assembly of AI bots, driven by Large Language Model technology, designed to augment the capabilities of human developers, simplifying the coding process and boosting efficiency in software development. It's still at very inital stage and currently focuses on `codebase analyzer`.
+![The demo: an answer has zoomed into Auto-GPT's interaction loop and highlighted one cycle](demo/docs/demo.jpg)
 
-## Codebase Analyzer
-This module is to help a human developer quickly understand a large codebase by asking questions to a chatbot.
+The demo shows Auto-GPT v0.4.7, analysed from its CLI entry point. Click a step to read
+its code and ask about it; double-click or scroll to zoom in. Answers can move the
+diagram to the place they talk about.
 
-The main chatbot will ask its chatbot buddies to collect necessary info using various tools in order to give a accurate and in-depth answer. They might interact for several time before the main chatbot gives the final answer.
+## Run the demo
 
-## How to run
-1. Install `poetry` following their [official docs](https://python-poetry.org/docs/#installation). If you have an old version of poetry, please install `1.5.1` or newer.
-
-1. Install dependencies
 ```bash
-poetry install
+cd demo
+npm install
+npm run dev
 ```
-If encountered any error run `poetry lock`.
 
-1. Create an OpenAI account and [create an API key](https://help.openai.com/en/articles/4936850-where-do-i-find-my-secret-api-key). If you don't have access to GPT-4, change the model [here](https://github.com/jiangjun0105/ichigen-coder/blob/main/codebase_analyzer/bots/file/config.py#L9C9-L9C9) (TODO: Make model configurable.)
+It is a static site with pre-computed answers, so it needs no key. Build, deploy and
+the optional live mode are covered in [demo/README.md](demo/README.md). What is
+generated and what is hand-written is in [demo/NOTES.md](demo/NOTES.md).
 
-1. Setup OpenAI API key
-```bash
-cp .env.example .env
-# Then add your key to .env file
-cp config.yaml.example config.yaml
-# Then adjust the config (Recommend gpt-4 for package)
-```
-1. `poetry run python ./codebase_analyzer/main.py  --help` to check if it works.
+## How it works
 
-1. For asking questions again Auto-GPT repo, first check out the repo to local. Assuming checked it out at `../Auto-GPT` path.
-```bash
-poetry run python ./codebase_analyzer/main.py \
-    --repo-root ../Auto-GPT/ \
-    --entry-point ../Auto-GPT/autogpt/app/cli.py \
-    --cache-root ./shared_cache/Auto-GPT/ \
-    --config-path ./config.yaml
-```
-Where `./shared_cache/Auto-GPT/` has the cache I generated for Auto-GPT at [release v0.4.7](https://github.com/Significant-Gravitas/Auto-GPT/tree/release-v0.4.7)
+For one entry point of a Python program:
 
-## Run using Docker
-```bash
-docker run --rm -it -v ./.env:/app/.env -v ./config.yaml:/app/config.yaml -v ~/Projects/Auto-GPT/:/app/Auto-GPT/ codebase_analyzer:0.0.3
+1. **Call graph.** [PyCG](https://github.com/vitsalis/PyCG) builds the call graph from
+   the entry point. `codebase_analyzer/parser/` merges it with the definition tree
+   (package → module → class → function) into `codeinfo.json`.
+2. **Syntax-tree flowcharts.** `codebase_analyzer/flowchart/ast_process.py` walks each
+   function's syntax tree into start, action, call, decision and end nodes, nested the
+   way the code is. `if`, `for`, `while`, `try` and `with` each have their own shape.
+3. **Labels.** `flowchart/label.py` has a language model write one plain-English line
+   per statement, then summarises each block from the labels inside it.
+4. **Linking.** `flowchart/link.py` attaches the callee's chart to each call node, which
+   is what makes zooming from a call into its function possible.
+5. **Clustering (experimental).** `flowchart/customized_louvain.py` and `group.py` run
+   community detection over the chart, weighted by label embeddings, to fold long
+   functions into fewer steps. Unfinished.
+6. **Agents.** `codebase_analyzer/bots/` has one question-answering agent per level:
+   repository, package, module, function. Each answers from its own summaries and can
+   ask the level below.
+
 ```
-## Sample questions
+codebase_analyzer/
+  parser/      call graph + definition tree → codeinfo.json
+  flowchart/   syntax tree → flowchart nodes, labels, linking, clustering
+  bots/        repo, package, module and function agents
+  tools/       embedding search and bot-to-bot tools
+convert_dump/  linked flowchart of Auto-GPT's run_auto_gpt (demo input)
+shared_cache/  cached codeinfo and call graph for Auto-GPT v0.4.7
+demo/          the demo site
 ```
-q1 = "Which url does the ChatBot send request to after a user ask question to it?"
-q2 = "How is the authentication done in the ChatBot?"
-q3 = "What is the purpose of the ChatBot?"
-q4 = "What is parent id?"
-q5 = "What is conversation_id?"
-q6 = "How can I see if I will use proxy or not?"
-q7 = "How can I use this chatbot?"
-q8 = "Why the chat generatd by this bot doesn't have title?"
-q9 = "Can I download the chat history?"
-q10 = "What will happen if user input `!continue`?"
-q11 = "What is the main functionality of this file?" # Hard to answer
-q12 = "What is the main function of this file?"
-q13 = "What is the main functionality of this file?" # NG for 1st time
-q14 = "Can you descibe how human can interact with this Chatbot in deatil?"
-q15 = "Can you describe what will be executed after the user run this file?"
-q16 = "List the names in order of functions that will be called after a user start the bot and send a message to it." # Hard, only focus on details obtain from a certain function, not the whole file. Mainly because the main tool is to focus on the function level, not the file level.
-```
-## Contribute
-See [contributing doc](./CONTRIBUTING)
+
+## Running the 2023 pipeline
+
+The Python CLI is kept as it was and is not needed for the demo. It was built against
+mid-2023 versions of its dependencies (Poetry 1.5, Python 3.10, PyCG, pygraphviz and
+the LLM client libraries of that time) and has not been updated since, so expect to pin
+old versions to run it. `pyproject.toml` and `poetry.lock` record the exact set. It reads
+its model key from `.env` and its settings from `config.yaml`; both are git-ignored, with
+`.env.example` and `config.yaml.example` as templates.
+
+## License
+
+See [LICENSE](LICENSE). Auto-GPT is MIT-licensed; the code excerpts shown in the demo
+belong to its contributors.
