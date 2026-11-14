@@ -143,3 +143,13 @@ def test_aliases_resolve_to_surviving_steps(tree):
             seen.add(new)
             new = tree.aliases[new]
         assert new in tree.nodes, f"{old} has no surviving stand-in"
+
+
+def test_top_level_hides_no_more_than_its_share():
+    cfg = Config()
+    tree = retree(load(), cfg)
+    total = tree.weight(ROOT)
+    for step in tree[ROOT].children:
+        node = tree[step]
+        if node.children:
+            assert tree.weight(step) <= cfg.root_share * total, node.title

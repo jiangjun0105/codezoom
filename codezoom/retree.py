@@ -37,6 +37,9 @@ class Config:
     leaf_budget: int = (
         10  # a chart with at most this many statements is shown in full
     )
+    # the top level is the overview: no step there may hide more than this share of the
+    # program, so a heavy call is opened up and its phases become top-level steps
+    root_share: float = 0.3
     balance: float = 0.5
     signals: tuple[float, float, float] = (1.0, 1.0, 1.0)  # flow, data, lexical
 
@@ -146,8 +149,20 @@ def group(
     steps = tree.flow_order(scope)
     limit = cfg.root_fan if scope == ROOT else cfg.max_fan
     valid = sese(tree, steps)
+    cap = None
+    if scope == ROOT:
+        # a group over the cap is not allowed; a single step always is
+        total = tree.weight(scope)
+        cap = max(1, int(cfg.root_share * total))
+        acc = [0]
+        for step in steps:
+            acc.append(acc[-1] + tree.weight(step))
+        for i in range(len(steps)):
+            for j in range(i + 2, len(steps) + 1):
+                if acc[j] - acc[i] > cap:
+                    valid[i][j] = False
     text: dict[int, tuple[str, str]] = {}
-    answer = oracle.grouping(tree, scope, steps, limit) if oracle else None
+    answer = oracle.grouping(tree, scope, steps, limit, cap) if oracle else None
     if answer:
         starts = [g["start"] for g in answer]
         ends = starts[1:] + [len(steps)]
@@ -239,10 +254,8 @@ def normalize(
         if not open_steps:
             break
         heaviest = max(open_steps, key=tree.weight)
-        if (
-            len(s.children) < cfg.min_fan
-            or tree.weight(heaviest) / total > cfg.dominant
-        ):
+        share = cfg.root_share if scope == ROOT else cfg.dominant
+        if len(s.children) < cfg.min_fan or tree.weight(heaviest) / total > share:
             expand(tree, scope, heaviest)
         else:
             break

@@ -46,13 +46,19 @@ def key_of(steps: list[str], limit: int) -> str:
     return hashlib.sha1(("|".join(steps) + f"#{limit}").encode()).hexdigest()[:16]
 
 
-def render(tree: Tree, scope: str, steps: list[str], limit: int) -> str:
+def render(
+    tree: Tree, scope: str, steps: list[str], limit: int, cap: int | None = None
+) -> str:
     trail = [tree[a].title for a in tree.lineage(scope) if tree[a].title]
     lines = [
         f"### chart {key_of(steps, limit)}",
         f"Inside: {' › '.join(trail) or 'Program'}",
         f"Max groups: {limit}",
     ]
+    if cap:
+        lines.append(
+            f"Largest group: the statement counts of a group of two or more steps must add up to at most {cap}"
+        )
     for i, s in enumerate(steps):
         n = tree[s]
         code = (n.code or "").split("\n")
@@ -71,12 +77,17 @@ class Oracle:
         self.hits = 0
 
     def grouping(
-        self, tree: Tree, scope: str, steps: list[str], limit: int
+        self,
+        tree: Tree,
+        scope: str,
+        steps: list[str],
+        limit: int,
+        cap: int | None = None,
     ) -> list[dict] | None:
         key = key_of(steps, limit)
         groups = self.cache.get(key)
         if groups is None:
-            self.pending[key] = render(tree, scope, steps, limit)
+            self.pending[key] = render(tree, scope, steps, limit, cap)
             return None
         starts = [g.get("start") for g in groups]
         ok = (

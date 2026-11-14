@@ -294,6 +294,7 @@ def load(entry_fn: str = "/autogpt.app.main/run_auto_gpt") -> Tree:
             node.code = src.line_text(lo, hi)
 
     # repairs for labels where the 2023 LLM call failed or a string template leaked
+    uuid_of = {id(n): u for u, n in nodes.items()}
     for node in nodes.values():
         code, label = node.code or "", node.label
         loop = re.match(r"for (.+?) in (.+):$", code.split("\n")[0])
@@ -312,6 +313,19 @@ def load(entry_fn: str = "/autogpt.app.main/run_auto_gpt") -> Tree:
                 label = "Stop the spinner (leave the `with` block)."
             elif node.kind == "glue" and loop:
                 label = f"Evaluate `{loop.group(2)}` to get the items to loop over."
+        parent = nodes.get(node.parent or "")
+        if (
+            node.kind == "check_value"
+            and parent is not None
+            and parent.kind == "while_wrapper"
+            and parent.entry == uuid_of[id(node)]
+        ):
+            # the test of a `while` was recovered as an `if`
+            node.code = "while " + code[3:]
+            label = f"Loop test: keep going while `{code[3:-1]}`."
+        assign = re.match(r"([\w.\[\]'\"]+) = ", code)
+        if node.kind == "glue" and label.strip() == "Do nothing." and assign:
+            label = f"Store the result in `{assign.group(1)}`."
         if label != node.label:
             node.label, node.label_repaired = label, True
 

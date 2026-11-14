@@ -259,6 +259,28 @@
    "title": "Return the updated prompt"
   }
  ],
+ "3935e787d2b8e9d5": [
+  {
+   "start": 0,
+   "summary": "Adds plugins that handle reports to the chat logger.",
+   "title": "Hook chat report plugins"
+  },
+  {
+   "start": 1,
+   "summary": "Gets and clears the memory, then logs the memory type and browser.",
+   "title": "Set up memory and logs"
+  },
+  {
+   "start": 5,
+   "summary": "Creates the agent, takes its config, and logs the system prompt.",
+   "title": "Create the agent"
+  },
+  {
+   "start": 8,
+   "summary": "Sets the cycle budget, the spinner, and the graceful interrupt handler.",
+   "title": "Set cycle budget and interrupts"
+  }
+ ],
  "3c5c01c02306fd59": [
   {
    "start": 0,
@@ -274,6 +296,38 @@
    "start": 7,
    "summary": "Displays the AI's self-criticism.",
    "title": "Show criticism"
+  }
+ ],
+ "3d8eb02aa2eb7c63": [
+  {
+   "start": 0,
+   "summary": "Logs the cycle budget, starts the spinner, and sets the default instruction.",
+   "title": "Start the think cycle"
+  },
+  {
+   "start": 3,
+   "summary": "Constructs the prompt and runs the before-think hooks on it.",
+   "title": "Build the prompt"
+  },
+  {
+   "start": 5,
+   "summary": "Sends the prompt for a chat completion and counts the cycle.",
+   "title": "Request chat completion"
+  },
+  {
+   "start": 7,
+   "summary": "Passes the raw response on to the response handler.",
+   "title": "Process the response"
+  },
+  {
+   "start": 8,
+   "summary": "Leaves the spinner's context block.",
+   "title": "Stop the spinner"
+  },
+  {
+   "start": 9,
+   "summary": "Records the command and the assistant's reply for the user.",
+   "title": "Update user information"
   }
  ],
  "3f4b16aa3438430f": [
@@ -357,6 +411,48 @@
    "title": "Ask for budget and finish"
   }
  ],
+ "4e408e507727e6ba": [
+  {
+   "start": 0,
+   "summary": "Sets the log level, builds configuration from environment variables, checks the API key, and creates the run config.",
+   "title": "Load configuration and verify key"
+  },
+  {
+   "start": 5,
+   "summary": "Shows continuous-mode and news notices, installs plugin dependencies, sets up the workspace, and scans plugins.",
+   "title": "Show notices and set workspace"
+  },
+  {
+   "start": 11,
+   "summary": "Builds the command registry and the AI configuration, then attaches the registry to the AI config.",
+   "title": "Create registry and AI config"
+  },
+  {
+   "start": 14,
+   "summary": "Sets up chat plugins, memory, the agent, the cycle budget, the spinner, and the interrupt handler.",
+   "title": "Create memory and agent"
+  },
+  {
+   "start": 26,
+   "summary": "Checks whether any interaction cycles remain before running the loop body.",
+   "title": "Check cycles remain"
+  },
+  {
+   "start": 27,
+   "summary": "Logs the cycle budget and runs the agent's think step under the spinner.",
+   "title": "Run agent thinking step"
+  },
+  {
+   "start": 29,
+   "summary": "Updates user information, then handles feedback when only one cycle remains.",
+   "title": "Update user and handle feedback"
+  },
+  {
+   "start": 31,
+   "summary": "Decrements the cycle count, runs the command, and prints its result or a failure message.",
+   "title": "Execute the chosen command"
+  }
+ ],
  "5b111fefc8f7d9bd": [
   {
    "start": 0,
@@ -438,6 +534,33 @@
    "title": "Set logger config and check key"
   }
  ],
+ "61153a933ecafaf4": [
+  {
+   "start": 0,
+   "summary": "Builds the settings dictionary and parses command and shell lists from environment variables.",
+   "title": "Read settings from environment"
+  },
+  {
+   "start": 5,
+   "summary": "Chooses a default text-to-speech provider, parses plugin allow and deny lists, and sets the image size.",
+   "title": "Set defaults and plugin lists"
+  },
+  {
+   "start": 9,
+   "summary": "Loads Azure settings or the API base URL, and reads the OpenAI organization.",
+   "title": "Set API endpoint settings"
+  },
+  {
+   "start": 11,
+   "summary": "Loads the plugins config file, applying the denylist and allowlist.",
+   "title": "Load plugin configuration"
+  },
+  {
+   "start": 12,
+   "summary": "Returns the configuration settings.",
+   "title": "Return the finished config"
+  }
+ ],
  "65ebf1df49ec946e": [
   {
    "start": 0,
@@ -492,6 +615,38 @@
    "title": "Append the cycle instruction"
   }
  ],
+ "748481a78b3d8559": [
+  {
+   "start": 0,
+   "summary": "Imports the speech helper and strips escape codes from the thoughts text.",
+   "title": "Strip formatting from thoughts"
+  },
+  {
+   "start": 2,
+   "summary": "Removes escape codes from the reasoning, plan, and criticism fields when thoughts are present.",
+   "title": "Clean reasoning, plan, criticism"
+  },
+  {
+   "start": 3,
+   "summary": "Prints the assistant's thoughts and reasoning in yellow.",
+   "title": "Show thoughts and reasoning"
+  },
+  {
+   "start": 5,
+   "summary": "Prints the plan in yellow, formatting list plans into lines.",
+   "title": "Show the plan"
+  },
+  {
+   "start": 6,
+   "summary": "Prints the criticism in yellow.",
+   "title": "Show the criticism"
+  },
+  {
+   "start": 7,
+   "summary": "Speaks the thoughts aloud when speak mode is on, otherwise displays them.",
+   "title": "Speak the thoughts"
+  }
+ ],
  "7de0a2736fddb475": [
   {
    "start": 0,
@@ -507,6 +662,33 @@
    "start": 9,
    "summary": "Registers each module attribute that is marked as a command or subclasses Command.",
    "title": "Register commands from attributes"
+  }
+ ],
+ "86061c73203e6766": [
+  {
+   "start": 0,
+   "summary": "Requires a cycle instruction and counts its tokens.",
+   "title": "Check instruction and count tokens"
+  },
+  {
+   "start": 2,
+   "summary": "Creates the message list and adds response format instructions as a system message.",
+   "title": "Prepare response format message"
+  },
+  {
+   "start": 5,
+   "summary": "Builds the system prompt, reserves token space, and records where history starts.",
+   "title": "Start prompt with reserved tokens"
+  },
+  {
+   "start": 9,
+   "summary": "Adds as much history as fits the token limit and inserts a summary if trimmed.",
+   "title": "Add history within token limit"
+  },
+  {
+   "start": 11,
+   "summary": "Adds the cycle instruction message to the end of the prompt.",
+   "title": "Append the cycle instruction"
   }
  ],
  "92f583caaf3476a9": [
@@ -549,6 +731,38 @@
    "start": 20,
    "summary": "Runs the agent's main interaction loop until it stops.",
    "title": "Run the interaction loop"
+  }
+ ],
+ "9ce6e64e1965eff1": [
+  {
+   "start": 0,
+   "summary": "Shows the legal warning when continuous mode is on.",
+   "title": "Show continuous mode warning"
+  },
+  {
+   "start": 1,
+   "summary": "Checks the skip-news setting, fetches the bulletin, and displays its text.",
+   "title": "Fetch and show bulletin"
+  },
+  {
+   "start": 4,
+   "summary": "Warns about unsupported Git branches and Python versions older than 3.10.",
+   "title": "Check git branch and Python"
+  },
+  {
+   "start": 7,
+   "summary": "Installs required plugin dependencies when the install flag is set.",
+   "title": "Install plugin dependencies"
+  },
+  {
+   "start": 8,
+   "summary": "Initializes the workspace directory and points the file logger into it.",
+   "title": "Set up workspace and logger"
+  },
+  {
+   "start": 10,
+   "summary": "Scans for plugins and stores them on the config.",
+   "title": "Scan for plugins"
   }
  ],
  "b3c724b3a586c64d": [
@@ -823,6 +1037,33 @@
    "title": "Execute command and show result"
   }
  ],
+ "f9fea22c218d331c": [
+  {
+   "start": 0,
+   "summary": "Sets the log level and builds the settings dictionary from environment variables.",
+   "title": "Read settings from environment"
+  },
+  {
+   "start": 2,
+   "summary": "Parses command, shell, and plugin lists, and sets a default text-to-speech provider.",
+   "title": "Parse list and default settings"
+  },
+  {
+   "start": 10,
+   "summary": "Loads Azure or base URL settings and reads the OpenAI organization.",
+   "title": "Set API endpoint settings"
+  },
+  {
+   "start": 12,
+   "summary": "Loads the plugins config file, applying the denylist and allowlist.",
+   "title": "Load plugin configuration"
+  },
+  {
+   "start": 13,
+   "summary": "Returns the configuration, attaches it to the logger, and checks the OpenAI API key.",
+   "title": "Finish and validate config"
+  }
+ ],
  "fa5e9e9e3af5d45f": [
   {
    "start": 0,
@@ -844,6 +1085,14 @@
   "summary": "Returns the trimmed messages and inserts a summary of dropped history into the prompt.",
   "title": "Finish history trimming"
  },
+ "n07dc4fdb5c5d199c": {
+  "summary": "Strips escape codes from the thoughts and fields, then prints the thoughts and reasoning in yellow.",
+  "title": "Show thoughts and reasoning"
+ },
+ "n0a6d7d7f60aa1020": {
+  "summary": "Creates the command registry and the AI configuration, then attaches the registry to the AI config.",
+  "title": "Create registry and AI config"
+ },
  "n0aa92ce9565abc62": {
   "summary": "Logs invalid plugin config errors and falls back to empty config, or applies the settings to the logger.",
   "title": "Recover from invalid plugin config"
@@ -860,9 +1109,33 @@
   "summary": "Logs the cycle budget, then asks the agent to think and return its next command under a spinner.",
   "title": "Get the agent's next command"
  },
+ "n1cf4da0c57432f6f": {
+  "summary": "Fetches and shows the bulletin, then warns about unsupported Git branches and older Python versions.",
+  "title": "Show news and version warnings"
+ },
  "n2bdc93f47b8d38d0": {
   "summary": "Gathers the response format instruction as a system message when one applies.",
   "title": "Collect format instructions"
+ },
+ "n2cd3c1f33829016e": {
+  "summary": "Warns that the plugins config file is missing and logs the legacy plugin denylist and allowlist.",
+  "title": "Log missing plugin config"
+ },
+ "n310faaa7b828bc17": {
+  "summary": "Creates the agent, takes its config, logs the system prompt, and sets the cycle budget.",
+  "title": "Create the agent"
+ },
+ "n3400493b05eb1fb1": {
+  "summary": "Loads Azure settings or the API base URL, and reads the OpenAI organization setting.",
+  "title": "Set API endpoint settings"
+ },
+ "n34bf87ed7fdd8cca": {
+  "summary": "Chooses a default text-to-speech provider, parses plugin allow and deny lists, and sets the image size.",
+  "title": "Set defaults and plugin lists"
+ },
+ "n35395420bf78fd48": {
+  "summary": "Prints the plan, formatting list plans into lines, and then the criticism, all in yellow.",
+  "title": "Show plan and criticism"
  },
  "n37cb656c56343dbf": {
   "summary": "Walks the history from the newest cycle, adding each one that fits the token limit.",
@@ -876,6 +1149,22 @@
   "summary": "Reserves room for the history summary and any appended messages.",
   "title": "Reserve tokens for prompt"
  },
+ "n3cecc0f2e6d8e9cb": {
+  "summary": "Returns the configuration and attaches it to the logger.",
+  "title": "Return the finished config"
+ },
+ "n40d33d4b21358f17": {
+  "summary": "Builds a base plugin configuration from the denylist, logs it, and writes it to the plugins config file.",
+  "title": "Write base plugin config"
+ },
+ "n4c0429b56a9fd093": {
+  "summary": "Creates the message list, adds response format instructions, and starts the prompt with the system prompt.",
+  "title": "Assemble the base prompt"
+ },
+ "n53e214f412f3cad1": {
+  "summary": "Shows legal and news messages, installs plugin dependencies, sets up the workspace and file logger, and scans plugins.",
+  "title": "Show notices and set workspace"
+ },
  "n6867b3fc1e37e178": {
   "summary": "Uses manual setup when requested or templated, otherwise generates the config automatically and falls back to manual on error.",
   "title": "Generate the AI configuration"
@@ -884,9 +1173,21 @@
   "summary": "Logs the cycle budget and starts the spinner shown while the agent works.",
   "title": "Start the agent cycle"
  },
+ "n92b5ce19113b5d00": {
+  "summary": "Initializes the workspace directory and points the file logger at a file inside it.",
+  "title": "Set up workspace and logger"
+ },
  "n97f1d705192948c7": {
   "summary": "Applies plugin pre-command hooks, runs the command, and replaces output that exceeds the token limit with a failure message.",
   "title": "Run the command"
+ },
+ "n9e00339120b7e275": {
+  "summary": "Builds the settings dictionary from environment variables and parses the command category and shell lists.",
+  "title": "Read settings from environment"
+ },
+ "na0eaf0863f3b62a3": {
+  "summary": "Parses the allowlisted and denylisted plugin settings and sets the image size from the environment.",
+  "title": "Parse plugin lists"
  },
  "nae84b166be79de35": {
   "summary": "Sorts the schema errors, logs them, and returns failure with the errors when any exist.",
@@ -895,6 +1196,10 @@
  "naf4df21e526be20c": {
   "summary": "Stores the agent's configs, logs the system prompt, and sets the cycle budget from continuous mode settings.",
   "title": "Set up the cycle budget"
+ },
+ "nb40af68e65102fbe": {
+  "summary": "Logs the cycle budget, sets the default instruction, builds the prompt, runs before-think hooks, and requests a completion.",
+  "title": "Build prompt and request reply"
  },
  "nb42bdf6937ee8c4c": {
   "summary": "Registers a handler so that pressing Ctrl+C shuts the agent down gracefully.",
@@ -908,6 +1213,10 @@
   "summary": "Builds the prompt, runs the before-think hooks, sends it to the chat model, and counts the cycle.",
   "title": "Request the model's reply"
  },
+ "nbbb12340e8f9d24b": {
+  "summary": "Logs the cycle budget, runs the agent's think step under the spinner, and updates user information.",
+  "title": "Run agent thinking step"
+ },
  "nbe3b7d1ef39f937d": {
   "summary": "Collects the response format instruction, builds the base prompt, and appends the cycle instruction.",
   "title": "Build the agent prompt"
@@ -915,6 +1224,18 @@
  "nc7b585e30c9b6483": {
   "summary": "Goes through the plugins and inserts each planning response that fits the token limit.",
   "title": "Add plugin planning messages"
+ },
+ "nd4c3914a7994f81e": {
+  "summary": "Sets the log level, loads configuration from environment variables, and checks the OpenAI API key.",
+  "title": "Load configuration and verify key"
+ },
+ "ndc6858020703a9f2": {
+  "summary": "Sets up chat report plugins, memory, the agent, its cycle budget, the spinner, and the interrupt handler.",
+  "title": "Create memory and agent"
+ },
+ "ndf69e0f13fe73434": {
+  "summary": "Gets the memory backend, clears it, and logs the memory type and browser in use.",
+  "title": "Set up and clear memory"
  },
  "ne1b637d0a535571f": {
   "summary": "Loads the LLM response schema and creates a Draft 7 validator for it.",
@@ -931,6 +1252,10 @@
  "nebab8dee5371826f": {
   "summary": "Reserves tokens, appends as much history as fits, and inserts a summary of any trimmed history.",
   "title": "Add history within token limit"
+ },
+ "nf123308c8ccafc21": {
+  "summary": "Handles user feedback at the last cycle, decrements remaining cycles, runs the command, and prints its result.",
+  "title": "Handle feedback and run command"
  },
  "nf792450c2cde9e58": {
   "summary": "Prompts for the AI's name and role, falling back to defaults when none are entered.",
