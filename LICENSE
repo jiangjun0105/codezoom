@@ -1,25 +1,21 @@
-Ichigen Tech License v1.0
+MIT License
 
-Copyright (C) 2023 Jun Jiang
+Copyright (c) 2023 Jun Jiang
 
-Permission is hereby granted to the employees of Ichigen Tech and permitted researchers from academic institutions, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-1. USAGE: The software in this repository is provided for internal use by Ichigen Tech and for research purposes by approved academic researchers only. Any commercial use or distribution of this software is strictly prohibited without the express written consent of the copyright holder.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-2. RESEARCH USE: Permitted researchers from academic institutions may use the software for research purposes only. Any publication or dissemination of research findings using this software must acknowledge the copyright holder and must be approved in writing.
-
-3. SHARING: Redistribution of the software, in whole or in part, in any form, is strictly prohibited without the express written consent of the copyright holder.
-
-4. MODIFICATIONS: Modifications to the software are allowed, but any modified versions must be kept within the confines of Ichigen Tech or the permitted researchers, and may not be distributed externally without written permission.
-
-5. WARRANTY: This software is provided "as is" without any warranty of any kind, express or implied.
-
-6. VIOLATION: Any violation of this license may result in legal action.
-
-7. OTHER TERMS: Additional terms and conditions may apply, as specified in writing by the copyright holder.
-
-By accessing, using, or copying any part of this software, you agree to be bound by the terms and conditions of this license. If you do not agree to these terms, you must not use or access this software.
-
-For inquiries or to seek permission for additional use, please contact:
-
-jiangjun0105@gmail.com
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

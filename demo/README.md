@@ -1,4 +1,4 @@
-# Ichigen Coder demo site
+# Codezoom demo site
 
 A static site that shows one repository, Auto-GPT v0.4.7 from `run_auto_gpt`, as a
 zoomable flowchart with a question box on every node. It needs no backend and no key.
@@ -24,20 +24,20 @@ npm run preview    # serves demo/dist locally
 
 ## Deploy to junbot.dev (Vercel)
 
-**As a subdomain (simplest), e.g. `ichigen.junbot.dev`:**
+**As a subdomain (simplest), e.g. `codezoom.junbot.dev`:**
 
 1. In Vercel, create a project from this repository and set **Root Directory** to `demo`.
    `vercel.json` already declares the Vite build and the `dist` output.
 2. Add the domain under Project → Settings → Domains.
 
-**As a subpath, e.g. `junbot.dev/ichigen`:**
+**As a subpath, e.g. `junbot.dev/codezoom`:**
 
-1. Deploy the project as above, with the environment variable `DEMO_BASE=/ichigen/`
+1. Deploy the project as above, with the environment variable `DEMO_BASE=/codezoom/`
    so asset URLs carry the prefix.
 2. In this project's `vercel.json`, strip the prefix:
-   `"rewrites": [{ "source": "/ichigen/:path*", "destination": "/:path*" }]`
+   `"rewrites": [{ "source": "/codezoom/:path*", "destination": "/:path*" }]`
 3. In the main junbot.dev project, forward the path to this deployment:
-   `"rewrites": [{ "source": "/ichigen/:path*", "destination": "https://<this-deployment>/ichigen/:path*" }]`
+   `"rewrites": [{ "source": "/codezoom/:path*", "destination": "https://<this-deployment>/codezoom/:path*" }]`
 
 If the name changes, only `DEMO_BASE` and those two rewrites change. Nothing in the
 source hard-codes the path.
@@ -54,9 +54,9 @@ client and never in git:
 | Variable | Purpose |
 | --- | --- |
 | `ANTHROPIC_API_KEY` | The model key. Read only inside the function. |
-| `ICHIGEN_LIVE=1` | Switches the endpoint on. Without it the function answers `{"live": false}`. |
-| `ICHIGEN_MODEL` | Optional. Defaults to `claude-haiku-5-5`. |
-| `ICHIGEN_DAILY_CAP` | Optional. Requests per day per function instance, default 400. |
+| `CODEZOOM_LIVE=1` | Switches the endpoint on. Without it the function answers `{"live": false}`. |
+| `CODEZOOM_MODEL` | Optional. Defaults to `claude-haiku-5-5`. |
+| `CODEZOOM_DAILY_CAP` | Optional. Requests per day per function instance, default 400. |
 
 Locally: `cp .env.example .env.local`, fill in the key, `npm run dev`. The dev server
 mounts the same function at `/api/ask`.

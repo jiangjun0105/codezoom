@@ -7,7 +7,7 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
  */
 function devApi(): Plugin {
   return {
-    name: "ichigen-dev-api",
+    name: "codezoom-dev-api",
     apply: "serve",
     configureServer(server) {
       server.middlewares.use("/api/ask", async (req, res) => {
@@ -37,7 +37,7 @@ export default defineConfig(({ mode }) => {
   // make .env.local visible to the dev API handler; nothing here reaches the client bundle
   Object.assign(process.env, loadEnv(mode, process.cwd(), ""));
   return {
-    // DEMO_BASE=/ichigen/ when the site is served from a subpath
+    // DEMO_BASE=/codezoom/ when the site is served from a subpath
     base: process.env.DEMO_BASE || "/",
     plugins: [react(), devApi()],
     build: { outDir: "dist", chunkSizeWarningLimit: 1200 },
