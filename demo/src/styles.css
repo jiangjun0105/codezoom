@@ -146,14 +146,15 @@ code { font-family: var(--mono); font-size: 0.9em; }
     var(--bg-2);
 }
 .canvas.is-panning { cursor: grabbing; }
-.layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform, opacity; }
-.layer.is-leaving { pointer-events: none; }
-.canvas.is-moving .layer { pointer-events: none; }
+.layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform, opacity; opacity: 0; --lod: 1; }
+.canvas.is-moving .layer { pointer-events: none !important; }
 
+.defs { position: absolute; }
 .edges { position: absolute; overflow: visible; pointer-events: none; }
-.edge-line { fill: none; stroke: var(--line-3); stroke-width: 1.5; transition: stroke 0.25s, stroke-width 0.25s, opacity 0.25s; }
-.edge.is-back .edge-line { stroke-dasharray: 5 5; }
-.edge.is-near .edge-line { stroke: #7f8b9b; stroke-width: 2; }
+.edge-line { fill: none; stroke: #5b6777; stroke-width: 1.9; transition: stroke 0.25s, stroke-width 0.25s, opacity 0.25s; }
+.edge.is-back .edge-line { stroke-dasharray: 6 5; stroke: var(--loop); }
+.edge.is-skip .edge-line { stroke-dasharray: 2 6; stroke-linecap: round; stroke: #7b8696; }
+.edge.is-near .edge-line { stroke: #b4bfcd; stroke-width: 2.4; }
 .edge.is-dim .edge-line { opacity: 0.35; }
 .edge.is-lit .edge-line { stroke: var(--accent); stroke-width: 2.25; stroke-dasharray: none; }
 .edge-flow {
@@ -179,6 +180,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
 }
 .edge-label.yes { color: var(--yes); }
 .edge-label.no { color: var(--no); }
+.edge-label.skip { color: var(--muted); font-weight: 500; }
 
 .port { position: absolute; border-radius: 50%; border: 2px solid var(--line-3); background: var(--bg-2); }
 .port.in { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--bg-2), inset 0 0 0 9px var(--accent); }
@@ -200,7 +202,6 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .tone-call { --tone: var(--call); }
 .tone-decision { --tone: var(--decision); }
 .tone-loop { --tone: var(--loop); }
-.tone-stage { --tone: var(--accent); }
 .tone-group { --tone: #7fd6b5; }
 
 .card.is-deep { box-shadow: 0 5px 0 -1px var(--panel), 0 5px 0 0 var(--line-2), 0 10px 0 -2px var(--panel), 0 10px 0 -1px var(--line); }
@@ -239,7 +240,6 @@ code { font-family: var(--mono); font-size: 0.9em; }
 }
 .tone-call .card-title { color: var(--call); }
 .card-title.named { font: 600 13px/18px var(--sans); color: var(--text); letter-spacing: -0.005em; }
-.card-title.stage-title { height: auto; max-height: 50px; margin-top: 8px; font: 400 22px/25px var(--serif); color: var(--text); letter-spacing: -0.005em; white-space: normal; text-wrap: balance; }
 .card-label {
   margin-top: 4px;
   font-size: 13px;
@@ -250,10 +250,9 @@ code { font-family: var(--mono); font-size: 0.9em; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.tone-stage .card-label { color: var(--muted); margin-top: 6px; line-height: 18px; }
 .card-open {
   margin: auto -14px 0;
-  height: 30px;
+  height: 50px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -266,25 +265,36 @@ code { font-family: var(--mono); font-size: 0.9em; }
   transition: 0.15s;
 }
 .card-open .card-count { margin-left: auto; font: 500 10.5px var(--mono); color: var(--faint); }
+.mini { flex: 1; min-width: 0; height: 36px; overflow: visible; }
+.mini-node { fill: color-mix(in srgb, var(--tone, var(--muted)) 34%, var(--panel)); stroke: color-mix(in srgb, var(--tone, var(--muted)) 70%, transparent); stroke-width: 1.5; vector-effect: non-scaling-stroke; --tone: var(--muted); }
+.mini-node.tone-call { --tone: var(--call); } .mini-node.tone-decision { --tone: var(--decision); } .mini-node.tone-loop { --tone: var(--loop); } .mini-node.tone-group { --tone: #7fd6b5; }
+.mini-edge { fill: none; stroke: #6b7787; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.mini-edge.back { stroke: var(--loop); stroke-dasharray: 3 2; }
+.mini-edge.skip { stroke-dasharray: 1 3; }
+.mini-port { fill: none; stroke: #6b7787; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.mini-port.in { fill: var(--accent); stroke: none; }
 .card:hover .card-open, .card-open:hover { color: var(--text); }
 .card-open:hover { background: color-mix(in srgb, var(--tone) 12%, transparent); }
 .card-open svg { transition: translate 0.15s; }
 .card-open:hover svg { translate: 3px 0; }
 
-.pill { flex-direction: row; align-items: center; gap: 9px; padding: 0 14px; border-radius: 999px; cursor: default; background: var(--bg-2); }
-.pill:hover { translate: none; background: var(--bg-2); }
-.pill .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--yes); flex: none; }
-.pill .dot.end { background: none; border: 2px solid var(--faint); }
-.pill-title { font-weight: 600; font-size: 12.5px; }
-.pill-sub { font: 11px var(--mono); color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the step being zoomed into empties out as its own chart appears inside it */
+.card > * { opacity: calc(1 - var(--reveal, 0)); }
+.card[style*="--reveal"] { background: rgb(18 22 28 / calc(1 - var(--reveal, 0) * 0.9)); border-color: var(--tone); box-shadow: none; translate: none; }
 
-/* level transitions */
-.layer.enter-in .card, .layer.enter-in .port, .layer.enter-in .edge-label { animation: pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; animation-delay: calc(var(--i, 0) * 24ms + 260ms); }
-.layer.enter-in .edges { animation: fade 0.5s 0.45s both; }
-@keyframes pop { from { opacity: 0; scale: 0.9; } to { opacity: 1; scale: 1; } }
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-.portal .card { border-color: var(--tone); background: color-mix(in srgb, var(--tone) 7%, var(--bg-2)); box-shadow: none; }
-.portal .card > * { opacity: 0; transition: opacity 0.2s; }
+/* level of detail: zoomed out, a card is its title, drawn large enough to read */
+.mark { font-weight: 500; letter-spacing: 0.02em; text-transform: none; color: var(--muted); border: 1px solid var(--line-2); border-radius: 999px; padding: 2px 6px; margin-left: 2px; }
+.layer.is-far .card-label, .layer.is-far .card-lines, .layer.is-far .mark, .layer.is-far .card-count, .layer.is-far .card-open > svg:last-child { display: none; }
+.layer.is-far .card-open { border-top-color: transparent; }
+.layer.is-far .card-tag { font-size: calc(8px * var(--lod)); height: auto; }
+.layer.is-far .card-title {
+  height: auto; margin-top: calc(4px * var(--lod)); white-space: normal; overflow: hidden;
+  font-size: calc(12.5px * var(--lod)); line-height: 1.22;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow-wrap: anywhere;
+}
+.layer.is-far .card-title.named { font-size: calc(13.5px * var(--lod)); }
+.layer.is-far .edge-label { font-size: calc(9px * var(--lod)); }
+.layer.is-far .edge-line { stroke-width: calc(1.9px * var(--lod)); }
 
 /* canvas chrome */
 .canvas-ui { position: absolute; z-index: 5; cursor: default; }

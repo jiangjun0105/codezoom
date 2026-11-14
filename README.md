@@ -9,8 +9,9 @@ at the bottom. A hierarchy of agents answers questions about the code at each le
 
 ![The demo: an answer has zoomed into Auto-GPT's interaction loop and highlighted one cycle](demo/docs/demo.jpg)
 
-The demo shows Auto-GPT v0.4.7, analysed from its CLI entry point. Click a step to read
-its code and ask about it; double-click or scroll to zoom in. Answers can move the
+The demo shows Auto-GPT v0.4.7, analysed from its CLI entry point. Scroll over a step to zoom
+into it: its inner chart appears inside it as it grows. Click a step to read its code and
+ask about it. Answers can move the
 diagram to the place they talk about.
 
 ## Run the demo

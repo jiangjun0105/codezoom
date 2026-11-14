@@ -19,6 +19,10 @@ export interface GNode {
   fn: string;
   lines?: [number, number];
   code?: string;
+  /** runs only when this test holds; otherwise the step is skipped */
+  guard?: string;
+  /** a for / while block */
+  loop?: boolean;
   /** functions whose call step was expanded into this chart */
   via?: string[];
   /** a group made by the abstraction pass, and who named it */
@@ -56,6 +60,8 @@ interface Graph {
   functions: Record<string, GFunction>;
   /** ids of steps the abstraction pass folded away -> where their content went */
   aliases: Record<string, string>;
+  /** id of an expanded step -> the smallest chart that now holds all of its content */
+  covers: Record<string, string>;
 }
 
 export const graph = raw as unknown as Graph;
@@ -63,6 +69,8 @@ export const ROOT = graph.meta.root;
 
 /** Ids from the 2023 dumps may name a step that was folded into another; follow it. */
 export const canon = (id: string): string => (id in graph.nodes ? id : (graph.aliases[id] ?? id));
+/** The chart to show for an id: itself, or the chart that absorbed it. */
+export const chartFor = (id: string): string => graph.covers[id] ?? id;
 export const node = (id: string): GNode => graph.nodes[canon(id)];
 export const hasNode = (id: string) => canon(id) in graph.nodes;
 export const fnInfo = (uri: string): GFunction | undefined => graph.functions[uri];

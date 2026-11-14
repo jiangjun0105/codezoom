@@ -63,6 +63,10 @@ class Node:
     via: list[str] = field(default_factory=list)
     generated: bool = False
     named_by: str | None = None
+    # a one-armed `if`: the test under which this step runs at all (otherwise it is skipped)
+    guard: str | None = None
+    # a `for` or `while` block
+    loop: bool = False
 
     def links(self) -> list[tuple[str, str]]:
         return [(k, v) for k in ("next", "yes", "no") if (v := getattr(self, k))]
@@ -121,6 +125,8 @@ class Tree:
         # id of a step that was folded or expanded away -> the step or chart that absorbed it
         self.aliases: dict[str, str] = {}
         self.grouped_by: dict[str, str] = {}
+        # id of an expanded step -> the steps that were inside it
+        self.expanded: dict[str, list[str]] = {}
         # callee uri -> first step of its chart, for callees whose call step was expanded away
         self.fn_charts: dict[str, str] = {}
 
@@ -308,6 +314,15 @@ def load(entry_fn: str = "/autogpt.app.main/run_auto_gpt") -> Tree:
                 label = f"Evaluate `{loop.group(2)}` to get the items to loop over."
         if label != node.label:
             node.label, node.label_repaired = label, True
+
+    # steps that may be skipped or repeated, so charts above statement level can still show branching
+    for node in nodes.values():
+        if node.kind in ("for_wrapper", "while_wrapper"):
+            node.loop = True
+        if node.kind == "if_wrapper" and node.entry:
+            test = nodes[node.entry]
+            if test.type == "decision" and test.yes and not test.no and test.code:
+                node.guard = test.code[3:].rstrip(":")
 
     # The dump's root is Start -> one "process of N nodes" block -> End. Make that block the root.
     body = next(

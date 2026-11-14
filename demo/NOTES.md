@@ -45,7 +45,10 @@
   steps and is built from the data.
 - **Reference groupings** for 11 charts (`codezoom/gold/segments.json`), used only to
   compare grouping methods.
-- **The viewer.**
+- **The viewer.** Its display rules are not in the data: every chart is laid out left to
+  right; zoom is continuous, with a step's inner chart drawn inside it as it grows; a
+  step that runs only under a one-armed `if` gets a dotted "skip" edge around it; each
+  card carries a miniature of the chart inside it.
 
 ## Computed in the browser
 
@@ -92,4 +95,7 @@ needs its 2023 toolchain. Porting that is Track 2 in [../docs/PLAN.md](../docs/P
   boundary.
 - Live mode was written against the API documentation and type-checked, but not run
   against a real key.
-- Phone layout is usable, not tuned.
+- Phone layout is usable, not tuned, and pinch-zoom was not tested on a touch device.
+- Charts above statement level are mostly straight sequences, because a group is by
+  construction one way in, one way out. Their branching shows in the miniatures and one
+  level down, not as edges at that level.

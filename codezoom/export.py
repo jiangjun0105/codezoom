@@ -79,6 +79,10 @@ def build(tree: Tree, before: dict, mode: str) -> dict:
                 out["code"] = src.line_text(*got[1])
             out["generated"] = True
             out["namedBy"] = node.named_by
+        if node.guard:
+            out["guard"] = node.guard
+        if node.loop:
+            out["loop"] = True
         if node.via:
             out["via"] = list(dict.fromkeys(node.via))
         if node.label_repaired:
@@ -96,6 +100,31 @@ def build(tree: Tree, before: dict, mode: str) -> dict:
         return node_id if node_id in nodes else None
 
     aliases = {old: new for old in tree.aliases if (new := resolve(old))}
+
+    # an expanded step no longer has a chart of its own: point at the smallest chart that holds all of it
+    def pieces(node_id: str) -> list[str]:
+        if node_id in tree.expanded:
+            return [p for k in tree.expanded[node_id] for p in pieces(k)]
+        got = resolve(node_id)
+        return [got] if got else []
+
+    covers = {}
+    for old in tree.expanded:
+        paths = [tree.lineage(p) for p in pieces(old)]
+        if not paths:
+            continue
+        common = 0
+        while (
+            all(len(p) > common for p in paths)
+            and len({p[common] for p in paths}) == 1
+        ):
+            common += 1
+        holder = paths[0][common - 1]
+        covers[old] = holder if tree[holder].children else tree[holder].parent
+    # a call folded into its `x = f()` wrapper shares the wrapper's fate
+    for old, new in tree.aliases.items():
+        if old not in covers and new in covers:
+            covers[old] = covers[new]
 
     wanted = {n["fn"] for n in nodes.values()} | {
         n["callee"] for n in nodes.values() if n.get("callee")
@@ -158,6 +187,7 @@ def build(tree: Tree, before: dict, mode: str) -> dict:
         nodes=nodes,
         functions=functions,
         aliases=aliases,
+        covers=covers,
     )
 
 

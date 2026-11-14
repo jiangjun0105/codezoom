@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { Suggestion } from "../lib/answers";
 import { ask, useLive, useThread, type Msg, type ThreadName } from "../lib/ask";
-import { hasNode, node } from "../lib/graph";
+import { chartFor, hasNode, node } from "../lib/graph";
 import { runAction, useStore, type Action } from "../store";
 import { Rich } from "./Rich";
 
 function actionText(a: Action): string {
   if (a.tool === "highlight_path") return `highlight_path(${a.ids.length} node${a.ids.length === 1 ? "" : "s"})`;
-  return `${a.tool}(${hasNode(a.id) ? node(a.id).title : a.id})`;
+  const id = a.tool === "zoom_to_level" ? chartFor(a.id) : a.id;
+  return `${a.tool}(${hasNode(id) ? node(id).title : id})`;
 }
 
 const SOURCE: Record<string, string> = {

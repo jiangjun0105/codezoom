@@ -64,7 +64,7 @@ export const PROGRAM_QUESTIONS: Authored[] = [
       { tool: "highlight_path", ids: [N.constructPrompt, N.beforeThink, N.completion, N.onResponse] },
     ],
     text:
-      "One call to `BaseAgent.think()` per cycle, shown here with its four steps lit:\n" +
+      "One call to `BaseAgent.think()` per cycle. Its steps are lit in the diagram:\n" +
       "- [[" + N.constructPrompt + "|`construct_prompt()`]] builds the system prompt and adds as much message history as fits in the token limit;\n" +
       "- [[" + N.beforeThink + "|`on_before_think()`]] lets enabled plugins add their planning output to the prompt, while it still fits the token limit;\n" +
       "- [[" + N.completion + "|`create_chat_completion()`]] sends it to the model, with the command list as function specs when that option is on;\n" +
