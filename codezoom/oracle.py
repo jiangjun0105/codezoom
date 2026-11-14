@@ -27,9 +27,9 @@ Each step has a one-line description, its statement count in brackets, and the f
 "Inside" says where the chart sits in the program.
 
 For each chart, group the steps into consecutive runs that each do one job a programmer would name. \
-Rules: groups are consecutive steps; every step belongs to exactly one group; use at least 3 groups and at most \
-the chart's "max groups"; a single step may be its own group when it is a job of its own, and a step with a large \
-statement count usually is. Judge by what the code does.
+Rules: groups are consecutive steps; every step belongs to exactly one group; use at least the chart's "min groups" \
+and at most its "max groups"; a single step may be its own group when it is a job of its own, and a step with a large \
+statement count usually is. Judge by what the code does. "Min groups" is 3 unless the chart says otherwise.
 
 Answer with one JSON object. Keys are the chart keys. Each value is the list of groups in order: \
 {"start": <index of the group's first step>, "title": "<2 to 5 words, sentence case, no trailing period>", \
@@ -47,7 +47,12 @@ def key_of(steps: list[str], limit: int) -> str:
 
 
 def render(
-    tree: Tree, scope: str, steps: list[str], limit: int, cap: int | None = None
+    tree: Tree,
+    scope: str,
+    steps: list[str],
+    limit: int,
+    cap: int | None = None,
+    least: int | None = None,
 ) -> str:
     trail = [tree[a].title for a in tree.lineage(scope) if tree[a].title]
     lines = [
@@ -55,6 +60,8 @@ def render(
         f"Inside: {' › '.join(trail) or 'Program'}",
         f"Max groups: {limit}",
     ]
+    if least and least != 3:
+        lines.append(f"Min groups: {least}")
     if cap:
         lines.append(
             f"Largest group: the statement counts of a group of two or more steps must add up to at most {cap}"
@@ -63,7 +70,8 @@ def render(
         n = tree[s]
         code = (n.code or "").split("\n")
         head = "\n      ".join(code[:4]) + (" …" if len(code) > 4 else "")
-        lines.append(f"  {i}. [{tree.weight(s)}] {n.label or n.title}\n      {head}")
+        what = f"{n.title}: {n.label}" if n.kind == "group" else (n.label or n.title)
+        lines.append(f"  {i}. [{tree.weight(s)}] {what}\n      {head}")
     return "\n".join(lines)
 
 
@@ -83,11 +91,12 @@ class Oracle:
         steps: list[str],
         limit: int,
         cap: int | None = None,
+        least: int | None = None,
     ) -> list[dict] | None:
         key = key_of(steps, limit)
         groups = self.cache.get(key)
         if groups is None:
-            self.pending[key] = render(tree, scope, steps, limit, cap)
+            self.pending[key] = render(tree, scope, steps, limit, cap, least)
             return None
         starts = [g.get("start") for g in groups]
         ok = (

@@ -561,6 +561,18 @@
    "title": "Return the finished config"
   }
  ],
+ "6148df80933ae45f": [
+  {
+   "start": 0,
+   "summary": "Loads configuration, shows startup notices, builds the command registry and AI config, and creates the agent.",
+   "title": "Set up the program"
+  },
+  {
+   "start": 4,
+   "summary": "Repeats while cycles remain: the agent thinks, the user is updated, and the chosen command runs.",
+   "title": "Run the agent loop"
+  }
+ ],
  "65ebf1df49ec946e": [
   {
    "start": 0,
@@ -1224,6 +1236,14 @@
  "nc7b585e30c9b6483": {
   "summary": "Goes through the plugins and inserts each planning response that fits the token limit.",
   "title": "Add plugin planning messages"
+ },
+ "nc8456af4d42f0d67": {
+  "summary": "Creates the memory and agent, then loops over thinking, updating the user, and running commands while cycles remain.",
+  "title": "Create agent and run loop"
+ },
+ "nc97771dff5c9e723": {
+  "summary": "Shows startup notices, sets up the workspace, and builds the command registry and AI configuration.",
+  "title": "Prepare workspace and AI config"
  },
  "nd4c3914a7994f81e": {
   "summary": "Sets the log level, loads configuration from environment variables, and checks the OpenAI API key.",

@@ -63,6 +63,8 @@ Read as a developer who wants to know how Auto-GPT works:
 Done since: the top level is balanced by weight (the loop's phases are top-level steps),
 every top-level step is named, the `while` test and the "Do nothing." label are repaired.
 Still open: the rest of this list.
+Also done: two layers above the processes (a one-box system level and a 2–3 phase main flow),
+with a caption on every level saying what it shows. 3D view: next, show every layer, not two.
 
 - The top level follows code order and volume: 7 of 8 steps are start-up, and the agent
   loop (170 of 439 statements, the part people come for) is one box at the far right.

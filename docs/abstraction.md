@@ -119,16 +119,36 @@ loop's back edge drawn at the top level.
 The rule is a proxy. Statement count stands in for importance, which holds here and will
 not hold everywhere (a long argument parser is heavy and dull).
 
+## Layers: system, main flow, processes, parts
+
+Balancing alone made every level look alike: the first screen was already eight steps.
+Reading a system top-down wants a few distinct layers, each answering one question:
+
+| Level | Shows | Answers | How it is made |
+| --- | --- | --- | --- |
+| 0 · System | the program as one box | what is this? | `export.py` adds a root above the program |
+| 1 · Main flow | 2 or 3 phases | what are its big phases? | `retree.phase`: the top level grouped again, at most `Config.phases` groups, no share cap |
+| 2 · Processes | the steps of one phase | what does this phase do? | the balanced top level from the previous section |
+| 3 · Parts | the steps of one process | how does this process work? | ordinary grouping and expansion |
+| 4+ · Steps, then Code | down to statements | what exactly runs? | the 2023 statement charts |
+
+For Auto-GPT, level 1 is "Set up the program" and "Run the agent loop" (the second marked
+as repeating). The viewer shows a caption on every level naming the level and what the
+chart in view is, so zooming reads as a narrative: system, then phases, then processes.
+
+Every phase must still be single-entry, single-exit, so a phase is a run of consecutive
+top-level steps. The phase names come from the model, like every other group name.
+
 ## What it does to the tree
 
 `python3 -m codezoom.export` prints these for Auto-GPT's `run_auto_gpt`:
 
 | | 2023 tree | Rebalanced |
 | --- | --- | --- |
-| Deepest statement (levels) | 21 | 6 |
-| Average statement depth | 8.1 | 4.3 |
+| Deepest statement (levels) | 21 | 7 |
+| Average statement depth | 8.1 | 5.3 |
 | Charts with 3 to 8 steps | 39% | 76% |
-| Charts with 1 or 2 steps | 158 | 18 |
+| Charts with 1 or 2 steps | 158 | 19 |
 | Widest chart | 21 | 10 |
 
 For this build the model's grouping was used for 15 charts and the segmenter's for 4,

@@ -27,6 +27,12 @@ PROGRAM_LABEL = (
     "then runs it in a think → approve → execute loop."
 )
 
+SYSTEM = "system"
+SYSTEM_LABEL = (
+    "What runs when you start Auto-GPT from the command line: one agent, set up from "
+    "your settings, that works towards your goals one command at a time."
+)
+
 
 def build(tree: Tree, before: dict, mode: str) -> dict:
     sources: dict[str, FnSource | None] = {}
@@ -81,7 +87,10 @@ def build(tree: Tree, before: dict, mode: str) -> dict:
             out["namedBy"] = node.named_by
         if node.guard:
             out["guard"] = node.guard
-        if node.loop:
+        if node.loop or (
+            node.kind == "group"
+            and any((tree[k].code or "").startswith("while ") for k in node.children)
+        ):
             out["loop"] = True
         if node.via:
             out["via"] = list(dict.fromkeys(node.via))
@@ -89,7 +98,24 @@ def build(tree: Tree, before: dict, mode: str) -> dict:
             out["labelRepaired"] = True
         nodes[node.id] = out
     nodes[ROOT].update(
-        label=PROGRAM_LABEL, authored=True, pipelineSummary=tree.pipeline_summary
+        title="Auto-GPT",
+        label=PROGRAM_LABEL,
+        authored=True,
+        pipelineSummary=tree.pipeline_summary,
+        parent=SYSTEM,
+    )
+    # the first scene: the whole system as one box, before any of its flow
+    nodes[SYSTEM] = dict(
+        id=SYSTEM,
+        type="action",
+        kind="system",
+        label=SYSTEM_LABEL,
+        title="Overview",
+        parent=None,
+        children=[ROOT],
+        entry=ROOT,
+        fn=tree.entry_fn,
+        authored=True,
     )
 
     def resolve(node_id: str) -> str | None:
@@ -166,7 +192,8 @@ def build(tree: Tree, before: dict, mode: str) -> dict:
             repo="Auto-GPT",
             version="v0.4.7",
             entry="autogpt/app/cli.py → run_auto_gpt",
-            root=ROOT,
+            root=SYSTEM,
+            main=ROOT,
             entryFn=tree.entry_fn,
             mode=mode,
             nodeCount=len(nodes),
