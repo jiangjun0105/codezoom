@@ -8,9 +8,9 @@
  *
  * Environment:
  *   ANTHROPIC_API_KEY   required for live mode
- *   ICHIGEN_LIVE=1      required; lets you deploy the key without opening the endpoint
- *   ICHIGEN_MODEL       optional, default claude-haiku-5-5
- *   ICHIGEN_DAILY_CAP   optional, max requests per day per instance, default 400
+ *   CODEZOOM_LIVE=1      required; lets you deploy the key without opening the endpoint
+ *   CODEZOOM_MODEL       optional, default claude-haiku-5-5
+ *   CODEZOOM_DAILY_CAP   optional, max requests per day per instance, default 400
  */
 import Anthropic from "@anthropic-ai/sdk";
 import graph from "../src/data/graph.json" with { type: "json" };
@@ -40,8 +40,8 @@ interface GFn {
 const nodes = graph.nodes as unknown as Record<string, GNode>;
 const functions = graph.functions as unknown as Record<string, GFn>;
 
-const MODEL = process.env.ICHIGEN_MODEL || "claude-haiku-5-5";
-const enabled = () => Boolean(process.env.ANTHROPIC_API_KEY) && process.env.ICHIGEN_LIVE === "1";
+const MODEL = process.env.CODEZOOM_MODEL || "claude-haiku-5-5";
+const enabled = () => Boolean(process.env.ANTHROPIC_API_KEY) && process.env.CODEZOOM_LIVE === "1";
 
 const TOOLS: Anthropic.Tool[] = [
   {
@@ -131,7 +131,7 @@ let day = "", today = 0;
 function allowed(ip: string): boolean {
   const now = Date.now(), d = new Date().toISOString().slice(0, 10);
   if (d !== day) (day = d), (today = 0);
-  if (++today > Number(process.env.ICHIGEN_DAILY_CAP || 400)) return false;
+  if (++today > Number(process.env.CODEZOOM_DAILY_CAP || 400)) return false;
   const recent = (perIp.get(ip) ?? []).filter((t) => now - t < 10 * 60_000);
   recent.push(now);
   perIp.set(ip, recent);

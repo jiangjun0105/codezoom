@@ -28,7 +28,7 @@ export default function App() {
             <rect x="9" y="9" width="14" height="14" rx="3" fill="none" stroke="var(--muted)" strokeWidth="2" />
             <rect x="13.500" y="13.500" width="5" height="5" rx="1.2" fill="var(--accent)" />
           </svg>
-          Ichigen Coder
+          Codezoom
         </a>
         <span className="badge">2023 research prototype</span>
         <nav>
@@ -42,7 +42,7 @@ export default function App() {
         <div className="hero">
           <h1>A codebase you can zoom into.</h1>
           <p>
-            Ichigen Coder reads a Python repository and draws it as one flowchart: what the program does at the top, every branch and call at
+            Codezoom reads a Python repository and draws it as one flowchart: what the program does at the top, every branch and call at
             the bottom, and an agent on each node that answers questions. Below is {graph.meta.repo} {graph.meta.version}, analysed automatically.
           </p>
         </div>
