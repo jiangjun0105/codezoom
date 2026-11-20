@@ -333,6 +333,20 @@ export function Canvas() {
   /** set when a zoom gesture carried us into a new level; the gesture then ends on a fitted view */
   const crossed = useRef(false);
   const settleTimer = useRef(0);
+  /** levels entered by zooming; the pointer tip retires after a few */
+  const dives = useRef(0);
+  /** zooming in is held until this time, just after entering a level */
+  const detent = useRef(0);
+  const tipEl = useRef<HTMLDivElement>(null);
+  /** time of the last wheel event the canvas used, so trailing momentum never scrolls the page */
+  const lastWheel = useRef(0);
+  const [nudge, setNudge] = useState<string | null>(null);
+  const nudgeTimer = useRef(0);
+  const say = useCallback((msg: string) => {
+    setNudge(msg);
+    window.clearTimeout(nudgeTimer.current);
+    nudgeTimer.current = window.setTimeout(() => setNudge(null), 2600);
+  }, []);
   const revealed = useRef<HTMLElement[]>([]);
 
   const setView = (v: View) => {
@@ -396,6 +410,10 @@ export function Canvas() {
         // zoomed in far enough: the chart inside the step becomes the current one
         cam.current = cc;
         crossed.current = true;
+        dives.current++;
+        // a short detent at each new level: leftover momentum is dropped, not carried past it
+        spin.current.left = 0;
+        detent.current = performance.now() + 280;
         setView({ cur: v.portal.scope, portal: null });
         if (getState().scope !== v.portal.scope) set({ scope: v.portal.scope, touched: true, ...(getState().driving ? {} : { selected: null }) });
         continue;
@@ -620,6 +638,8 @@ export function Canvas() {
       const lo = v.cur === ROOT ? base * 0.8 : 0;
       const hi = viewRef.current.portal ? Infinity : base * 2.4;
       const k = clamp(c.k * factor, lo, Math.max(hi, c.k));
+      if (zoomingIn && !crossed.current && !viewRef.current.portal && k >= hi * 0.999)
+        say(cardAt(clientX, clientY) ? "This step has nothing inside · its code is in the panel when you click it" : "Put the pointer on a box, then scroll, to zoom into it");
       const f = k / c.k;
       cam.current = { k, x: px - (px - c.x) * f, y: py - (py - c.y) * f };
       apply();
@@ -627,7 +647,7 @@ export function Canvas() {
       window.clearTimeout(settleTimer.current);
       settleTimer.current = window.setTimeout(() => settle(zoomingIn), 170);
     },
-    [apply, settle, busy],
+    [apply, settle, busy, say],
   );
 
   /*
@@ -673,17 +693,30 @@ export function Canvas() {
     const onWheel = (ev: WheelEvent) => {
       if ((ev.target as HTMLElement).closest(".node-panel")) return;
       const out = ev.deltaY > 0;
-      // the page scrolls once the top chart is fully zoomed out, or when the demo is not at the top
-      if (window.scrollY > 4) return;
-      if (viewRef.current.cur === ROOT && out && cam.current.k <= fitK(ROOT) * 1.001) return;
+      const now = performance.now();
+      // a wheel event within a moment of the last one belongs to the same gesture (or its momentum)
+      const fresh = now - lastWheel.current > 320;
+      // the page scrolls when the demo is not at the top of the page, unless a zoom is still going
+      if (window.scrollY > 4 && fresh) return;
+      if (viewRef.current.cur === ROOT && out && cam.current.k <= fitK(ROOT) * 1.001) {
+        // fully zoomed out: outside the box the page scrolls; inside it, the wheel only zooms
+        const onCard = cardAt(ev.clientX, ev.clientY) !== null;
+        if (fresh && !onCard) return;
+        ev.preventDefault();
+        lastWheel.current = now;
+        if (fresh) say("Scroll up to zoom in · scroll outside the box to move down the page");
+        return;
+      }
       ev.preventDefault();
+      lastWheel.current = now;
+      if (!out && now < detent.current) return;
       const rect = el.getBoundingClientRect();
       const unit = ev.deltaMode === 1 ? 16 : 1;
       spinBy(-ev.deltaY * unit * (ev.ctrlKey ? 0.012 : 0.0026), ev.clientX - rect.left, ev.clientY - rect.top, ev.clientX, ev.clientY);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [spinBy]);
+  }, [spinBy, say]);
 
   const drag = useRef<null | { id: number; x: number; y: number; moved: boolean; target: HTMLElement }>(null);
   const touches = useRef(new Map<number, { x: number; y: number }>());
@@ -702,6 +735,11 @@ export function Canvas() {
     drag.current = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, moved: false, target: ev.target as HTMLElement };
   };
   const onPointerMove = (ev: React.PointerEvent) => {
+    const tip = tipEl.current;
+    if (tip && ev.pointerType !== "touch") {
+      const rect = wrap.current!.getBoundingClientRect();
+      tip.style.transform = `translate(${ev.clientX - rect.left + 16}px, ${ev.clientY - rect.top + 18}px)`;
+    }
     if (touches.current.has(ev.pointerId)) touches.current.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     if (pinch.current && touches.current.size === 2) {
       const [a, b] = [...touches.current.values()];
@@ -782,6 +820,8 @@ export function Canvas() {
   const up = parentScope(view.cur);
   const level = levelOf(scope);
   const panelNode = selected && panelOn && !busy ? selected : null;
+  // the pointer tip: over a box that opens, until the visitor has zoomed in a few times
+  const tipFor = hover && !busy && dives.current < 3 && canEnter(hover) && layoutOf(view.cur).byId[hover] ? hover : null;
   const layers = [up, view.cur, view.portal?.scope].filter((s): s is string => Boolean(s));
 
   return (
@@ -850,10 +890,23 @@ export function Canvas() {
           <span className="x">Clear</span>
         </button>
       )}
-      {!touched && (
-        <div className="canvas-ui hint">
-          <b>Scroll</b> over a step to zoom into it · <b>click</b> to inspect and ask
-        </div>
+      <div ref={tipEl} className={`zoom-tip${tipFor ? " is-on" : ""}`} aria-hidden>
+        <svg width="12" height="16" viewBox="0 0 12 16">
+          <rect x="1" y="1" width="10" height="14" rx="5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+          <path className="wheel" d="M6 4v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+        <span>
+          <b>Scroll up</b> to zoom into {tipFor && isSystemCard(tipFor) ? "the system" : "this"}
+        </span>
+      </div>
+      {nudge ? (
+        <div className="canvas-ui hint now" key={nudge}>{nudge}</div>
+      ) : (
+        !touched && (
+          <div className="canvas-ui hint">
+            Point at a box and <b>scroll up</b> to zoom into it · <b>click</b> to inspect and ask
+          </div>
+        )
       )}
     </div>
   );
