@@ -101,13 +101,13 @@ def generate_codeinfo_from_repo(
 # TODO: Organize the following tests into a test file.
 # if __name__ == "__main__":
 #     repo_root = Path(
-#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data"
+#         "codebase_analyzer/tests/data"
 #     )
 #     entry_point = Path(
-#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/short.py"
+#         "codebase_analyzer/tests/data/short.py"
 #     )
 #     output_path = Path(
-#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/data/fasten.json"
+#         "codebase_analyzer/tests/data/fasten.json"
 #     )
 #     uri_prefix = "/codebase_analyzer.tests.data"
 #     codeinfo = generate_nodes_from_repo(

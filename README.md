@@ -4,7 +4,7 @@
 as one hierarchical flowchart: what the program does at the top, every branch and call
 at the bottom. A hierarchy of agents answers questions about the code at each level.
 
-> **Status:** started in 2023 as the research prototype Ichigen Coder; the demo and the abstraction work are from 2026.
+> **Status:** started in 2023 as a research prototype; the demo and the abstraction work are from 2026.
 > **Demo:** _link to be added once deployed on junbot.dev_ · **Write-up:** <https://www.junbot.dev/article/repo-understanding-tool>
 
 ![The demo: an answer has zoomed into Auto-GPT's interaction loop and highlighted one cycle](demo/docs/demo.jpg)

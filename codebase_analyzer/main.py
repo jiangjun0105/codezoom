@@ -63,7 +63,7 @@ def main(
     update_cache: bool = False,
     **kwargs: Any,
 ) -> None:
-    """Ichigen Coder - A cluster of coding bots
+    """Codezoom - A cluster of coding bots
     Codebase Analyzer module
     """
     cache_root = cache_root or get_cache_root(repo_root)
@@ -156,8 +156,8 @@ def cli(
 ## TODO: Make the following a test
 # repo_root = Path("/Users/jun/Projects/ChatGPT/src/only_v1").resolve()
 # entry_point = Path("/Users/jun/Projects//ChatGPT/src/only_v1/V1.py").resolve()
-# cache_root = Path("/Users/jun/Projects/ichigen-coder/shared_cache/ChatGPT_V1/").resolve()
-# config_path = Path("/Users/jun/Projects/ichigen-coder/config.yaml").resolve()
+# cache_root = Path("shared_cache/ChatGPT_V1/").resolve()
+# config_path = Path("config.yaml").resolve()
 # main(
 #     repo_root=repo_root,
 #     entry_point=entry_point,

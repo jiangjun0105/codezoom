@@ -169,6 +169,6 @@ def extract_call_info(
 
 
 # TODO: Organize the following tests into a test file.
-# p = "/Users/jun/Projects/ichigen-coder/codebase_analyzer/main.py"
-# extract_call_info(p, "/Users/jun/Projects/ichigen-coder/codebase_analyzer/main.json")
+# p = "codebase_analyzer/main.py"
+# extract_call_info(p, "codebase_analyzer/main.json")
 # pass

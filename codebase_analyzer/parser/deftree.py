@@ -431,7 +431,7 @@ def generate_def_tree(repo_root: Path, uri_prefix: str = "", **kwargs) -> CodeIn
 # TODO: Organize the following tests into a test file.
 # if __name__ == "__main__":
 #     p = Path(
-#         "/Users/jun/Projects/ichigen-coder/codebase_analyzer/tests/"
+#         "codebase_analyzer/tests/"
 #     ).expanduser()
 
 #     root_node, uri2node = generate_def_tree(repo_root=p)
