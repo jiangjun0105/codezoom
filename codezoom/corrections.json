@@ -1,0 +1,6 @@
+{
+ "_why": "Hand-written fixes for model text that is true of the code line but wrong in effect. The cycle budget is 1 unless the user pre-authorises commands (y -N) or runs in continuous mode, so 'cycles_remaining == 1' means 'approval needed', which is every cycle by default; the loop ends when the user exits. The models saw run_interaction_loop but not _get_cycle_budget.",
+ "group:6903b8d9a1": {"label": "Repeats until you exit: the agent thinks, shows its plan, you approve, and the command runs."},
+ "group:d72381ca78": {"label": "Unless commands were pre-authorised, asks you to approve; then uses up a cycle, runs the command and shows the result."},
+ "/autogpt.app.main/run_interaction_loop:35:11:Compare:check_value": {"label": "Does the user need to approve? Yes by default; no while a y -N allowance or continuous mode lasts."}
+}

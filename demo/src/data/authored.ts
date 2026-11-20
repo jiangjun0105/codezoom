@@ -32,9 +32,9 @@ export const N = {
   promptUser: `${M}construct_main_ai_config:24:4:If:if_wrapper`,
 };
 
-/** The main flow's phases; the first one is setup, the agent loop comes after it. */
+/** The main flow's phases: every one before the last sets up; the last is the agent loop. */
 const phases = () => node(MAIN).children;
-const setup = () => phases()[0];
+const setupPhases = () => phases().slice(0, -1);
 
 export interface Authored {
   q: string;
@@ -57,7 +57,7 @@ export const PROGRAM_QUESTIONS: Authored[] = [
       "- `y -N` authorises the next N commands without asking;\n" +
       "- the exit key quits;\n" +
       "- anything else is sent back to the agent as `human_feedback`.\n\n" +
-      "When more than one authorised cycle is left, the branch is skipped and no input is read.",
+      "With the default settings this happens every cycle: nothing runs until you answer. Only when more than one authorised cycle is left (after `y -N`, or in continuous mode) is the branch skipped and no input read.",
   },
   {
     q: "How does the agent decide what to do next?",
@@ -77,17 +77,19 @@ export const PROGRAM_QUESTIONS: Authored[] = [
     q: "What happens before the agent starts running?",
     get actions(): Action[] {
       return [
-        { tool: "zoom_to_level", id: setup() },
-        { tool: "highlight_path", ids: node(setup()).children },
+        { tool: "zoom_to_level", id: MAIN },
+        { tool: "highlight_path", ids: setupPhases().flatMap((p) => node(p).children) },
       ];
     },
     get text() {
-      const steps = node(setup()).children;
-      const next = phases()[1];
+      const loop = phases()[phases().length - 1];
+      const lower = (t: string) => t.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase());
       return (
-        `The whole first phase, [[${setup()}|${node(setup()).title.toLowerCase()}]]. Its ${steps.length} processes run once, in this order:\n` +
-        steps.map((id) => `- [[${id}|${node(id).title}]]: ${node(id).label.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase())};`).join("\n") +
-        (next ? `\n\nOnly then does [[${next}|${node(next).title.toLowerCase()}]] begin, and that part repeats once per cycle.` : "")
+        `Everything before [[${loop}|the agent loop]] runs once, in ${setupPhases().length} phases:\n` +
+        setupPhases()
+          .map((p) => `- [[${p}|${node(p).title}]]: ` + node(p).children.map((id) => `[[${id}|${lower(node(id).title)}]]`).join(" → ") + ";")
+          .join("\n") +
+        `\n\nOnly then does the loop begin, and that part repeats once per command.`
       );
     },
   },
@@ -107,16 +109,16 @@ export const PROGRAM_QUESTIONS: Authored[] = [
     q: "What does continuous mode change?",
     get actions(): Action[] {
       return [
-        { tool: "zoom_to_level", id: setup() },
+        { tool: "zoom_to_level", id: MAIN },
         { tool: "highlight_path", ids: [N.continuousFlag, N.legalWarning, N.cycleBudget] },
       ];
     },
     text:
-      "Three places, all during setup, which is why three of its processes light up:\n" +
+      "Three places, all before the loop starts:\n" +
       "- [[" + N.continuousFlag + "|`create_config()`]] turns the `--continuous` flag into `config.continuous_mode` and stores the optional limit;\n" +
       "- [[" + N.legalWarning + "|`run_auto_gpt()`]] prints the legal warning when the mode is on;\n" +
       "- [[" + N.cycleBudget + "|`_get_cycle_budget()`]], just before the loop starts, sets how many commands may run without approval: the limit, or infinity when there is none.\n\n" +
-      "With a budget above one, the loop skips the approval prompt until the budget is used up.",
+      "With a budget above one, the loop skips the approval prompt until the budget is used up, then asks again. Ctrl-C during the run quits at once when there is no limit; with a limit, the agent stops and asks before the next command.",
   },
   {
     q: "How was this diagram made?",
@@ -127,6 +129,6 @@ export const PROGRAM_QUESTIONS: Authored[] = [
       "- each function's syntax tree is walked into start, action, call, decision and end nodes;\n" +
       "- a language model writes the plain-English label on every node;\n" +
       "- nested blocks and call sites are linked, so a call node opens the callee's own chart.\n\n" +
-      "The 2023 output is deep and thin, so a rebalancing pass regroups it for zooming: it folds wrapper levels away and bundles long runs of steps into named groups. The section below the diagram has the details.",
+      "The 2023 output is deep and thin, so a rebalancing pass regroups it for zooming: it folds wrapper levels away and bundles long runs of steps into named groups. A second model pass rewrites the labels with each function's whole source in view, so they say what a step is for, not just what its syntax is. The section below the diagram has the details.",
   },
 ];
