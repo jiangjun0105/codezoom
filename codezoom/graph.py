@@ -58,6 +58,9 @@ class Node:
     code: str | None = None
     title: str = ""
     label_repaired: bool = False
+    # rewritten by the relabel pass, with the 2023 label kept
+    relabeled: bool = False
+    old_label: str | None = None
     # filled by the abstraction step
     blurb: str | None = None
     via: list[str] = field(default_factory=list)

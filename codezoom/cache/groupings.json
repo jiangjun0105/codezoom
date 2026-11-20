@@ -1,1288 +1,542 @@
 {
- "146f47629720e084": [
+ "048bfb725febf388": [
   {
    "start": 0,
-   "summary": "Sets the default instruction and checks it is present, counting its tokens.",
-   "title": "Check the cycle instruction"
-  },
-  {
-   "start": 3,
-   "summary": "Builds the response format instruction and adds it as a system message.",
-   "title": "Prepare response format instructions"
-  },
-  {
-   "start": 6,
-   "summary": "Builds the base prompt with history and reserved tokens for the instruction.",
-   "title": "Build the base prompt"
-  },
-  {
-   "start": 7,
-   "summary": "Appends the cycle instruction and runs the before-think hooks.",
-   "title": "Attach instruction and run hook"
-  },
-  {
-   "start": 9,
-   "summary": "Calls the chat model with the prompt and increments the agent's cycle count.",
-   "title": "Call the model and count cycle"
-  }
- ],
- "1770c23ad37caf44": [
-  {
-   "start": 0,
-   "summary": "Turns debug mode on or off and records the setting in the configuration.",
-   "title": "Set debug mode"
+   "summary": "Loads the expected reply format and builds a validator for it.",
+   "title": "Load the response schema"
   },
   {
    "start": 2,
-   "summary": "Enables continuous mode with its warning and checks that the limit is only used with it.",
-   "title": "Enable continuous mode"
-  },
-  {
-   "start": 4,
-   "summary": "Turns on speak mode and shows a confirmation.",
-   "title": "Enable speak mode"
-  },
-  {
-   "start": 5,
-   "summary": "Restricts the agent to GPT-3 or GPT-4 models when requested.",
-   "title": "Pick the GPT model"
-  },
-  {
-   "start": 6,
-   "summary": "Chooses the memory backend and turns on skipping repeated prompts when asked.",
-   "title": "Set memory and reprompt"
+   "summary": "Collects any format errors, logs them, and returns whether the reply is valid.",
+   "title": "Check the reply"
   },
   {
    "start": 8,
-   "summary": "Checks the AI and prompt settings files and stops if they are invalid.",
-   "title": "Validate settings files"
+   "summary": "Raises an error listing the problems when the reply does not match the format.",
+   "title": "Reject a malformed reply"
+  }
+ ],
+ "094359f90e4d2c7c": [
+  {
+   "start": 0,
+   "summary": "Turns debug, continuous and speak modes off, then enables debug if requested.",
+   "title": "Reset and apply debug mode"
+  },
+  {
+   "start": 2,
+   "summary": "Enables continuous mode with its warning and limit, rejects a stray limit, and enables speak mode.",
+   "title": "Continuous and speak modes"
+  },
+  {
+   "start": 5,
+   "summary": "Selects GPT-3.5 only, GPT-4 only, or the validated configured models.",
+   "title": "Choose language models"
+  },
+  {
+   "start": 6,
+   "summary": "Applies a chosen supported memory backend and the skip re-prompt option.",
+   "title": "Memory backend and re-prompt"
+  },
+  {
+   "start": 8,
+   "summary": "Validates and applies the AI settings and prompt settings files, exiting if invalid.",
+   "title": "Apply settings files"
   },
   {
    "start": 10,
-   "summary": "Applies the browser, file download, and skip-news options to the configuration.",
-   "title": "Set browser and downloads"
+   "summary": "Sets the browser, enables downloads with a warning, and records skipping the news.",
+   "title": "Browser, downloads and news"
   }
  ],
- "18e12df09f15e418": [
+ "11068138b5279b94": [
   {
    "start": 0,
-   "summary": "Raises if the response is empty, otherwise parses it into a dictionary.",
-   "title": "Check content and extract reply"
+   "summary": "Creates an empty plugins configuration to return if loading fails.",
+   "title": "Prepare fallback config"
+  },
+  {
+   "start": 1,
+   "summary": "Writes a base plugins config file when none exists yet.",
+   "title": "Create default file if missing"
   },
   {
    "start": 2,
-   "summary": "Loads the LLM response schema and creates a JSON Schema validator for it.",
-   "title": "Build the schema validator"
-  },
-  {
-   "start": 4,
-   "summary": "Collects validation errors, logs them, and returns the failure in debug mode.",
-   "title": "Collect and log errors"
-  },
-  {
-   "start": 6,
-   "summary": "Logs that the JSON is valid and returns success.",
-   "title": "Confirm the JSON is valid"
-  },
-  {
-   "start": 8,
-   "summary": "Raises a syntax error when the reply fails validation.",
-   "title": "Raise on invalid reply"
-  }
- ],
- "1e0c4d03da4b6ad9": [
-  {
-   "start": 0,
-   "summary": "Reserves tokens for the summary and appended messages and sets up the trimming counters.",
-   "title": "Prepare history trimming"
-  },
-  {
-   "start": 4,
-   "summary": "Walks the history from the newest cycle, adding each one that fits the token limit.",
-   "title": "Add recent cycles within limit"
-  },
-  {
-   "start": 8,
-   "summary": "Hands back the list of history messages that were kept.",
-   "title": "Return trimmed messages"
-  },
-  {
-   "start": 9,
-   "summary": "Adds a summary of the trimmed history to the prompt when any history was dropped.",
-   "title": "Insert the history summary"
-  }
- ],
- "2e43f6d754e04852": [
-  {
-   "start": 0,
-   "summary": "Imports speech and strips ANSI codes from the thought text, reasoning, plan, and criticism.",
-   "title": "Clean the assistant's thoughts"
-  },
-  {
-   "start": 3,
-   "summary": "Prints the thoughts, reasoning, plan, and criticism in yellow.",
-   "title": "Display the thoughts and plan"
-  },
-  {
-   "start": 7,
-   "summary": "Speaks the assistant's message aloud in speak mode, or shows it otherwise.",
-   "title": "Speak the assistant's message"
-  },
-  {
-   "start": 8,
-   "summary": "Shows the chosen command, or an error when the agent failed to select one.",
-   "title": "Report the chosen command"
-  }
- ],
- "2ede9a2e7d7052eb": [
-  {
-   "start": 0,
-   "summary": "Logs the remaining cycle budget and defaults the instruction when none is given.",
-   "title": "Start the thinking cycle"
-  },
-  {
-   "start": 3,
-   "summary": "Constructs the prompt and runs the before-think hooks on it.",
-   "title": "Build the prompt"
+   "summary": "Reads the YAML file and turns each entry into a plugin config by name.",
+   "title": "Read plugin entries"
   },
   {
    "start": 5,
-   "summary": "Sends the prompt to the chat model and counts the completed cycle.",
-   "title": "Request the model's reply"
+   "summary": "Returns an empty config if the data is not a dictionary, otherwise the loaded settings.",
+   "title": "Return the plugin settings"
   },
   {
    "start": 7,
-   "summary": "Passes the raw response to the response handler and returns its result.",
-   "title": "Handle the model response"
+   "summary": "If loading fails, logs the error and continues with an empty plugins configuration.",
+   "title": "Fall back on any error"
+  },
+  {
+   "start": 9,
+   "summary": "Hands the finished configuration back to the caller.",
+   "title": "Return finished config"
   }
  ],
- "324d51ca6ba39abe": [
+ "13d3dc2e80d75148": [
   {
    "start": 0,
-   "summary": "Sets the logger level to DEBUG or INFO based on debug mode.",
-   "title": "Set logging level"
+   "summary": "In continuous mode, warns the user line by line about running unattended.",
+   "title": "Warn about continuous mode"
   },
   {
    "start": 1,
-   "summary": "Builds the configuration dictionary from environment variables and defaults.",
-   "title": "Read environment settings"
+   "summary": "Unless news is skipped, fetches the bulletin and shows it, waiting for acknowledgement when new.",
+   "title": "Show the news bulletin"
+  },
+  {
+   "start": 4,
+   "summary": "Warns when not on the stable branch or when Python is older than 3.10.",
+   "title": "Warn on branch or Python"
+  },
+  {
+   "start": 7,
+   "summary": "Installs plugin dependencies if asked, sets up the workspace and log path, and finds plugins.",
+   "title": "Install plugins, prepare workspace"
+  }
+ ],
+ "39520b3db587957c": [
+  {
+   "start": 0,
+   "summary": "Notes where history starts and sets the prompt length, limit flag and trimmed list.",
+   "title": "Set up history fitting"
   },
   {
    "start": 2,
-   "summary": "Splits denylist, allowlist and search engine settings into the configuration.",
-   "title": "Parse list settings"
+   "summary": "Goes through history cycles from most recent, counting tokens and flagging the limit.",
+   "title": "Walk cycles newest first"
   },
   {
    "start": 6,
-   "summary": "Picks a text-to-speech provider from the available API keys when none is set.",
-   "title": "Choose default TTS provider"
+   "summary": "Returns the older messages that did not fit within the token limit.",
+   "title": "Return dropped messages"
   },
   {
    "start": 7,
-   "summary": "Reads plugin allowlist and denylist and optional numeric settings.",
-   "title": "Parse plugin and numeric settings"
-  },
-  {
-   "start": 10,
-   "summary": "Loads Azure configuration or the OpenAI base URL and organization.",
-   "title": "Apply Azure and OpenAI settings"
-  },
-  {
-   "start": 12,
-   "summary": "Loads the plugins configuration file, returns the config and attaches it to the logger.",
-   "title": "Load plugin config and finish"
+   "summary": "If older history was dropped, inserts an updated summary at the start of the history.",
+   "title": "Summarize dropped history"
   }
  ],
- "33966ffb107491a5": [
+ "48920383c8179c5c": [
   {
    "start": 0,
-   "summary": "Turns an error command into a failure result and records the outcome in history.",
-   "title": "Record a command error"
+   "summary": "Ends the spinner and prepares the thought text, reasoning, plan, criticism and speech.",
+   "title": "Stop spinner, clean thoughts"
   },
   {
-   "start": 3,
-   "summary": "Records the user's feedback as the result when the command is human_feedback.",
-   "title": "Handle human feedback"
+   "start": 4,
+   "summary": "Shows the agent's main thought and reasoning in yellow.",
+   "title": "Show thought and reasoning"
   },
   {
-   "start": 5,
-   "summary": "Applies pre-command plugins and runs the command, storing its output.",
-   "title": "Run the command with plugins"
+   "start": 6,
+   "summary": "Prints the plan as bullets and shows the agent's self-criticism.",
+   "title": "Show plan and criticism"
   },
   {
-   "start": 7,
-   "summary": "Formats the command output as a result and counts its tokens.",
-   "title": "Format the command result"
-  },
-  {
-   "start": 9,
-   "summary": "Replaces the result with a failure message if it exceeds the token limit, else applies post-command plugins.",
-   "title": "Check output size"
+   "start": 8,
+   "summary": "Voices or prints the spoken summary, then shows the chosen command, an error, or no action.",
+   "title": "Speak summary, show command"
   }
  ],
- "36318f32ed16cd24": [
+ "4eb2203abdce7698": [
   {
    "start": 0,
-   "summary": "Reads the plugins config file, creating a default one if it is missing.",
-   "title": "Load plugins config file"
-  },
-  {
-   "start": 3,
-   "summary": "Creates plugin config entries from the file contents and returns them.",
-   "title": "Build plugin entries"
-  },
-  {
-   "start": 5,
-   "summary": "Falls back to an empty config when the file is not a dictionary, otherwise wraps it.",
-   "title": "Check config is a dict"
-  },
-  {
-   "start": 7,
-   "summary": "Logs an invalid plugin configuration error and continues with no plugins.",
-   "title": "Recover from invalid config"
-  }
- ],
- "38d1f850aafd7a6b": [
-  {
-   "start": 0,
-   "summary": "Stores how many tokens the prompt uses before plugin responses are added.",
-   "title": "Record the prompt token count"
+   "summary": "When chat messages are enabled, connects report-capable plugins to the logger.",
+   "title": "Connect chat plugins"
   },
   {
    "start": 1,
-   "summary": "Inserts each planning plugin's response into the prompt while it fits the token limit.",
-   "title": "Add plugin planning messages"
-  },
-  {
-   "start": 7,
-   "summary": "Hands back the prompt with any plugin planning messages added.",
-   "title": "Return the updated prompt"
-  }
- ],
- "3935e787d2b8e9d5": [
-  {
-   "start": 0,
-   "summary": "Adds plugins that handle reports to the chat logger.",
-   "title": "Hook chat report plugins"
-  },
-  {
-   "start": 1,
-   "summary": "Gets and clears the memory, then logs the memory type and browser.",
-   "title": "Set up memory and logs"
+   "summary": "Creates the chosen memory backend, wipes it, and tells the user the memory and browser.",
+   "title": "Set up fresh memory"
   },
   {
    "start": 5,
-   "summary": "Creates the agent, takes its config, and logs the system prompt.",
+   "summary": "Builds the agent from memory, commands, triggering prompt and configuration.",
    "title": "Create the agent"
   },
   {
-   "start": 8,
-   "summary": "Sets the cycle budget, the spinner, and the graceful interrupt handler.",
-   "title": "Set cycle budget and interrupts"
-  }
- ],
- "3c5c01c02306fd59": [
-  {
-   "start": 0,
-   "summary": "Displays the AI's thoughts and reasoning in yellow text.",
-   "title": "Show thoughts and reasoning"
-  },
-  {
-   "start": 2,
-   "summary": "Shows the plan lines in green when a plan is present.",
-   "title": "Display the plan"
-  },
-  {
-   "start": 7,
-   "summary": "Displays the AI's self-criticism.",
-   "title": "Show criticism"
-  }
- ],
- "3d8eb02aa2eb7c63": [
-  {
-   "start": 0,
-   "summary": "Logs the cycle budget, starts the spinner, and sets the default instruction.",
-   "title": "Start the think cycle"
-  },
-  {
-   "start": 3,
-   "summary": "Constructs the prompt and runs the before-think hooks on it.",
-   "title": "Build the prompt"
-  },
-  {
-   "start": 5,
-   "summary": "Sends the prompt for a chat completion and counts the cycle.",
-   "title": "Request chat completion"
-  },
-  {
-   "start": 7,
-   "summary": "Passes the raw response on to the response handler.",
-   "title": "Process the response"
-  },
-  {
-   "start": 8,
-   "summary": "Leaves the spinner's context block.",
-   "title": "Stop the spinner"
-  },
-  {
-   "start": 9,
-   "summary": "Records the command and the assistant's reply for the user.",
-   "title": "Update user information"
-  }
- ],
- "3f4b16aa3438430f": [
-  {
-   "start": 0,
-   "summary": "Checks cycles remain and enters the spinner context.",
-   "title": "Check cycles and start spinner"
-  },
-  {
-   "start": 3,
-   "summary": "Sets the default instruction, builds the prompt, runs before-think hooks, and calls the model.",
-   "title": "Build prompt and call model"
-  },
-  {
-   "start": 8,
-   "summary": "Passes the raw model response to the response handler and stops the spinner.",
-   "title": "Process the model response"
-  }
- ],
- "422da35b5ddcb1d4": [
-  {
-   "start": 0,
-   "summary": "Checks that an instruction was given and counts its tokens.",
-   "title": "Validate and size the instruction"
-  },
-  {
-   "start": 2,
-   "summary": "Adds the response format instruction as a system message when one applies.",
-   "title": "Add response format instruction"
-  },
-  {
-   "start": 5,
-   "summary": "Builds the base prompt with the history and reserved tokens.",
-   "title": "Construct the base prompt"
-  },
-  {
    "start": 6,
-   "summary": "Adds the cycle instruction message to the end of the prompt.",
-   "title": "Append the cycle instruction"
-  },
-  {
-   "start": 7,
-   "summary": "Passes the prompt through the before-think event so plugins can change it.",
-   "title": "Run the before-think hook"
+   "summary": "Sets the cycle budget, spinner and the Ctrl+C handler, and logs the system prompt.",
+   "title": "Prepare the interaction loop"
   }
  ],
- "4434a232b59e0955": [
+ "5a9c6d07b3558690": [
   {
    "start": 0,
-   "summary": "Uses manual setup when requested or when a template is provided.",
-   "title": "Choose manual or automatic"
-  },
-  {
-   "start": 2,
-   "summary": "Saves the settings file and generates the AI configuration from the user's request.",
-   "title": "Generate AI config automatically"
-  },
-  {
-   "start": 4,
-   "summary": "Reports a failed automatic generation and logs the error before falling back.",
-   "title": "Handle automatic setup failure"
-  },
-  {
-   "start": 7,
-   "summary": "Asks for the AI's name, using the template or a default name.",
-   "title": "Ask for the AI's name"
-  },
-  {
-   "start": 11,
-   "summary": "Asks for the AI's role, using the template or a default role.",
-   "title": "Ask for the AI's role"
-  },
-  {
-   "start": 13,
-   "summary": "Asks for up to five goals, using the template or default goals.",
-   "title": "Ask for the AI's goals"
-  },
-  {
-   "start": 15,
-   "summary": "Asks for an API budget, parses it and returns the completed AI configuration.",
-   "title": "Ask for budget and finish"
-  }
- ],
- "4e408e507727e6ba": [
-  {
-   "start": 0,
-   "summary": "Sets the log level, builds configuration from environment variables, checks the API key, and creates the run config.",
-   "title": "Load configuration and verify key"
-  },
-  {
-   "start": 5,
-   "summary": "Shows continuous-mode and news notices, installs plugin dependencies, sets up the workspace, and scans plugins.",
-   "title": "Show notices and set workspace"
-  },
-  {
-   "start": 11,
-   "summary": "Builds the command registry and the AI configuration, then attaches the registry to the AI config.",
-   "title": "Create registry and AI config"
-  },
-  {
-   "start": 14,
-   "summary": "Sets up chat plugins, memory, the agent, the cycle budget, the spinner, and the interrupt handler.",
-   "title": "Create memory and agent"
-  },
-  {
-   "start": 26,
-   "summary": "Checks whether any interaction cycles remain before running the loop body.",
-   "title": "Check cycles remain"
-  },
-  {
-   "start": 27,
-   "summary": "Logs the cycle budget and runs the agent's think step under the spinner.",
-   "title": "Run agent thinking step"
-  },
-  {
-   "start": 29,
-   "summary": "Updates user information, then handles feedback when only one cycle remains.",
-   "title": "Update user and handle feedback"
-  },
-  {
-   "start": 31,
-   "summary": "Decrements the cycle count, runs the command, and prints its result or a failure message.",
-   "title": "Execute the chosen command"
-  }
- ],
- "5b111fefc8f7d9bd": [
-  {
-   "start": 0,
-   "summary": "Checks whether name, role and goals are already set and shows them if so.",
-   "title": "Check existing AI details"
-  },
-  {
-   "start": 3,
-   "summary": "Greets the user and asks what they want the AI to do, unless a template is given.",
-   "title": "Ask what to build"
-  },
-  {
-   "start": 6,
-   "summary": "Switches to manual mode when requested or templated and fills in the AI configuration.",
-   "title": "Run manual setup"
-  },
-  {
-   "start": 8,
-   "summary": "Saves the AI settings file and generates the AI configuration from the user's request.",
-   "title": "Save and generate automatically"
-  },
-  {
-   "start": 10,
-   "summary": "Reports an automatic generation error and switches to manual configuration.",
-   "title": "Fall back to manual setup"
-  }
- ],
- "5def1eee04f15dec": [
-  {
-   "start": 0,
-   "summary": "Adds the last prompt message to the conversation history.",
-   "title": "Record prompt in history"
+   "summary": "Starts an empty command registry.",
+   "title": "Create empty registry"
   },
   {
    "start": 1,
-   "summary": "Checks the reply has content, extracts it as a dictionary and validates it.",
-   "title": "Parse and validate the reply"
-  },
-  {
-   "start": 5,
-   "summary": "Extracts the command from the reply and logs the cycle.",
-   "title": "Extract command and log"
-  },
-  {
-   "start": 7,
-   "summary": "Logs a parse error and tells the model to follow the required format.",
-   "title": "Handle unparseable reply"
-  },
-  {
-   "start": 9,
-   "summary": "Stops the spinner by leaving the with-block.",
-   "title": "Stop the spinner"
-  }
- ],
- "5e5ab83f9329bebc": [
-  {
-   "start": 0,
-   "summary": "Reads the configuration values from environment variables into a dictionary.",
-   "title": "Read settings from environment"
-  },
-  {
-   "start": 1,
-   "summary": "Parses list-valued settings and fills in defaults for optional values such as TTS and image size.",
-   "title": "Parse list and optional settings"
-  },
-  {
-   "start": 9,
-   "summary": "Loads Azure settings when enabled, otherwise reads the custom OpenAI API base URL.",
-   "title": "Load Azure or API base settings"
-  },
-  {
-   "start": 10,
-   "summary": "Reads the organization and plugin settings, then returns the configuration.",
-   "title": "Finish reading the config"
-  },
-  {
-   "start": 13,
-   "summary": "Attaches the config to the logger and verifies the OpenAI API key.",
-   "title": "Set logger config and check key"
-  }
- ],
- "61153a933ecafaf4": [
-  {
-   "start": 0,
-   "summary": "Builds the settings dictionary and parses command and shell lists from environment variables.",
-   "title": "Read settings from environment"
-  },
-  {
-   "start": 5,
-   "summary": "Chooses a default text-to-speech provider, parses plugin allow and deny lists, and sets the image size.",
-   "title": "Set defaults and plugin lists"
-  },
-  {
-   "start": 9,
-   "summary": "Loads Azure settings or the API base URL, and reads the OpenAI organization.",
-   "title": "Set API endpoint settings"
-  },
-  {
-   "start": 11,
-   "summary": "Loads the plugins config file, applying the denylist and allowlist.",
-   "title": "Load plugin configuration"
-  },
-  {
-   "start": 12,
-   "summary": "Returns the configuration settings.",
-   "title": "Return the finished config"
-  }
- ],
- "6148df80933ae45f": [
-  {
-   "start": 0,
-   "summary": "Loads configuration, shows startup notices, builds the command registry and AI config, and creates the agent.",
-   "title": "Set up the program"
+   "summary": "Logs and keeps only the command categories the settings have not disabled.",
+   "title": "Pick enabled categories"
   },
   {
    "start": 4,
-   "summary": "Repeats while cycles remain: the agent thinks, the user is updated, and the chosen command runs.",
-   "title": "Run the agent loop"
-  }
- ],
- "65ebf1df49ec946e": [
-  {
-   "start": 0,
-   "summary": "Tries automatic generation and falls back to manual prompts with an error message on failure.",
-   "title": "Fall back from automatic setup"
-  },
-  {
-   "start": 4,
-   "summary": "Prompts for the AI's name and role, using defaults when none are given.",
-   "title": "Ask for AI name and role"
-  },
-  {
-   "start": 10,
-   "summary": "Prompts for up to five goals and applies defaults when none are given.",
-   "title": "Ask for AI goals"
-  },
-  {
-   "start": 12,
-   "summary": "Prompts for an API budget and converts the answer into a number.",
-   "title": "Ask for API budget"
-  },
-  {
-   "start": 16,
-   "summary": "Creates the AI configuration from the name, role, goals, and budget.",
-   "title": "Build the AI config object"
-  }
- ],
- "6d22794b0f310337": [
-  {
-   "start": 0,
-   "summary": "Gathers the response format instruction as a system message when one applies.",
-   "title": "Collect extra system messages"
-  },
-  {
-   "start": 3,
-   "summary": "Starts the prompt with the system prompt and reserves room for the history summary and extra messages.",
-   "title": "Start prompt and reserve tokens"
-  },
-  {
-   "start": 6,
-   "summary": "Appends as much recent history as fits after the reserved tokens.",
-   "title": "Add history within token limit"
-  },
-  {
-   "start": 8,
-   "summary": "Adds a summary of the trimmed history to the prompt when any history was dropped.",
-   "title": "Insert the history summary"
-  },
-  {
-   "start": 9,
-   "summary": "Adds the cycle instruction message to the end of the prompt.",
-   "title": "Append the cycle instruction"
-  }
- ],
- "748481a78b3d8559": [
-  {
-   "start": 0,
-   "summary": "Imports the speech helper and strips escape codes from the thoughts text.",
-   "title": "Strip formatting from thoughts"
-  },
-  {
-   "start": 2,
-   "summary": "Removes escape codes from the reasoning, plan, and criticism fields when thoughts are present.",
-   "title": "Clean reasoning, plan, criticism"
-  },
-  {
-   "start": 3,
-   "summary": "Prints the assistant's thoughts and reasoning in yellow.",
-   "title": "Show thoughts and reasoning"
+   "summary": "Imports every enabled category into the registry.",
+   "title": "Import command categories"
   },
   {
    "start": 5,
-   "summary": "Prints the plan in yellow, formatting list plans into lines.",
-   "title": "Show the plan"
-  },
-  {
-   "start": 6,
-   "summary": "Prints the criticism in yellow.",
-   "title": "Show the criticism"
-  },
-  {
-   "start": 7,
-   "summary": "Speaks the thoughts aloud when speak mode is on, otherwise displays them.",
-   "title": "Speak the thoughts"
+   "summary": "Removes commands the current settings make unusable and returns the registry.",
+   "title": "Drop incompatible commands"
   }
  ],
- "7de0a2736fddb475": [
+ "5dcbaf569a5c8251": [
   {
    "start": 0,
-   "summary": "Logs and filters the command modules down to the enabled ones.",
-   "title": "Filter enabled command modules"
-  },
-  {
-   "start": 3,
-   "summary": "Imports each enabled module and registers its category and attributes.",
-   "title": "Import and categorize modules"
-  },
-  {
-   "start": 9,
-   "summary": "Registers each module attribute that is marked as a command or subclasses Command.",
-   "title": "Register commands from attributes"
-  }
- ],
- "86061c73203e6766": [
-  {
-   "start": 0,
-   "summary": "Requires a cycle instruction and counts its tokens.",
-   "title": "Check instruction and count tokens"
-  },
-  {
-   "start": 2,
-   "summary": "Creates the message list and adds response format instructions as a system message.",
-   "title": "Prepare response format message"
-  },
-  {
-   "start": 5,
-   "summary": "Builds the system prompt, reserves token space, and records where history starts.",
-   "title": "Start prompt with reserved tokens"
-  },
-  {
-   "start": 9,
-   "summary": "Adds as much history as fits the token limit and inserts a summary if trimmed.",
-   "title": "Add history within token limit"
-  },
-  {
-   "start": 11,
-   "summary": "Adds the cycle instruction message to the end of the prompt.",
-   "title": "Append the cycle instruction"
-  }
- ],
- "92f583caaf3476a9": [
-  {
-   "start": 0,
-   "summary": "Sets the log level, builds the configuration from environment variables, and attaches it to the logger.",
-   "title": "Set up logging and config"
-  },
-  {
-   "start": 3,
-   "summary": "Checks that the configured OpenAI API key is valid.",
-   "title": "Verify the OpenAI API key"
-  },
-  {
-   "start": 4,
-   "summary": "Builds the run configuration from the command-line options and settings.",
-   "title": "Create the run configuration"
-  },
-  {
-   "start": 5,
-   "summary": "Shows the continuous mode legal warning and fetches the latest bulletin and version warnings.",
-   "title": "Show legal and news notices"
-  },
-  {
-   "start": 7,
-   "summary": "Installs plugin dependencies, creates the workspace, and scans for plugins.",
-   "title": "Install plugins and workspace"
-  },
-  {
-   "start": 11,
-   "summary": "Builds the command registry and the main AI configuration with its name, role, and goals.",
-   "title": "Build commands and AI config"
-  },
-  {
-   "start": 14,
-   "summary": "Enables chat report plugins, sets up and clears memory, and creates the agent.",
-   "title": "Set up memory and agent"
-  },
-  {
-   "start": 20,
-   "summary": "Runs the agent's main interaction loop until it stops.",
-   "title": "Run the interaction loop"
-  }
- ],
- "9ce6e64e1965eff1": [
-  {
-   "start": 0,
-   "summary": "Shows the legal warning when continuous mode is on.",
-   "title": "Show continuous mode warning"
-  },
-  {
-   "start": 1,
-   "summary": "Checks the skip-news setting, fetches the bulletin, and displays its text.",
-   "title": "Fetch and show bulletin"
-  },
-  {
-   "start": 4,
-   "summary": "Warns about unsupported Git branches and Python versions older than 3.10.",
-   "title": "Check git branch and Python"
-  },
-  {
-   "start": 7,
-   "summary": "Installs required plugin dependencies when the install flag is set.",
-   "title": "Install plugin dependencies"
-  },
-  {
-   "start": 8,
-   "summary": "Initializes the workspace directory and points the file logger into it.",
-   "title": "Set up workspace and logger"
-  },
-  {
-   "start": 10,
-   "summary": "Scans for plugins and stores them on the config.",
-   "title": "Scan for plugins"
-  }
- ],
- "b3c724b3a586c64d": [
-  {
-   "start": 0,
-   "summary": "Creates an empty plugin config and a default plugins file when none exists.",
-   "title": "Ensure plugins config exists"
-  },
-  {
-   "start": 2,
-   "summary": "Reads the plugins file and builds a PluginConfig for each plugin entry.",
-   "title": "Load plugin settings"
-  },
-  {
-   "start": 5,
-   "summary": "Falls back to an empty config with an error when the data is not a dictionary, otherwise wraps it.",
-   "title": "Check the config type"
-  },
-  {
-   "start": 7,
-   "summary": "Logs the validation error and continues with an empty configuration.",
-   "title": "Recover from invalid config"
-  },
-  {
-   "start": 9,
-   "summary": "Returns the settings and sets them as the logger's configuration.",
-   "title": "Apply the logging settings"
-  }
- ],
- "bce3011b5bffde9f": [
-  {
-   "start": 0,
-   "summary": "Reports a failed automatic generation and logs the error before falling back.",
-   "title": "Handle automatic setup failure"
-  },
-  {
-   "start": 2,
-   "summary": "Asks for the AI's name, using the template or a default name.",
-   "title": "Ask for the AI's name"
-  },
-  {
-   "start": 6,
-   "summary": "Asks for the AI's role, using the template or a default role.",
-   "title": "Ask for the AI's role"
-  }
- ],
- "bdd7fcdabaa3eb48": [
-  {
-   "start": 0,
-   "summary": "Builds the system prompt and reserves token space for history and extra messages.",
-   "title": "Prepare the base prompt"
-  },
-  {
-   "start": 5,
-   "summary": "Walks back through history cycles, keeping those that fit the token limit.",
-   "title": "Add history cycles that fit"
-  },
-  {
-   "start": 9,
-   "summary": "Returns the trimmed messages and inserts their summary into the prompt.",
-   "title": "Insert trimmed history summary"
-  }
- ],
- "bed723384208d011": [
-  {
-   "start": 0,
-   "summary": "Creates the command registry from the command categories and configuration.",
+   "summary": "Creates the registry of commands the agent may run.",
    "title": "Build the command registry"
   },
   {
    "start": 1,
-   "summary": "Loads the saved AI settings and applies any name passed in.",
-   "title": "Load AI settings from file"
+   "summary": "Loads the saved profile, applies command-line overrides, and shows it if fully specified.",
+   "title": "Load the saved AI profile"
   },
   {
-   "start": 3,
-   "summary": "Shows the AI details when complete, otherwise prompts for them and saves the settings.",
-   "title": "Fill in missing AI details"
+   "start": 4,
+   "summary": "If name, role or goals are missing, asks the user and saves the new profile.",
+   "title": "Prompt for missing profile"
   },
   {
    "start": 5,
-   "summary": "Shows the workspace note and sets up the API manager with its budget.",
-   "title": "Note workspace and set budget"
+   "summary": "Tells the user the restricted workspace path and sets the API spending limit.",
+   "title": "Note workspace, set budget"
   },
   {
    "start": 8,
-   "summary": "Announces the AI's name, role, and goals in the log.",
-   "title": "Log the AI's details"
+   "summary": "Shows the agent's name, role and goals, then returns the profile.",
+   "title": "Announce the new agent"
   },
   {
-   "start": 13,
-   "summary": "Returns the AI configuration and attaches the command registry to it.",
-   "title": "Return config with registry"
+   "start": 14,
+   "summary": "Gives the AI profile the command registry so the prompt can list commands.",
+   "title": "Attach registry to profile"
   }
  ],
- "c43023998378938e": [
+ "92900b83b9713212": [
   {
    "start": 0,
-   "summary": "Prepares config, cycle budget, spinner and the graceful interrupt handler.",
-   "title": "Set up loop state"
+   "summary": "Adds one to the cycle count and records the instruction in history.",
+   "title": "Count cycle, record instruction"
+  },
+  {
+   "start": 2,
+   "summary": "Rejects empty replies and turns the reply text into a dictionary.",
+   "title": "Read reply as data"
+  },
+  {
+   "start": 4,
+   "summary": "Checks the reply against the schema and raises an error if it does not match.",
+   "title": "Validate reply format"
   },
   {
    "start": 6,
-   "summary": "Confirms cycles remain and logs the cycle budget before each cycle.",
-   "title": "Check remaining cycles"
+   "summary": "Extracts the command and arguments and saves the reply to the log.",
+   "title": "Extract command, log it"
   },
   {
    "start": 8,
-   "summary": "Runs the model with a spinner to get the next command and arguments.",
-   "title": "Ask the model for a reply"
-  },
-  {
-   "start": 9,
-   "summary": "Displays the AI's reply and asks the user to authorise when cycles run out.",
-   "title": "Show reply and get approval"
-  },
-  {
-   "start": 11,
-   "summary": "Counts down the cycle, executes the command and prints its result.",
-   "title": "Run the chosen command"
-  }
- ],
- "c43b1c2347bc3f8b": [
-  {
-   "start": 0,
-   "summary": "Records the prompt, checks the response has content, and parses it into a dictionary.",
-   "title": "Extract the reply dict"
-  },
-  {
-   "start": 3,
-   "summary": "Validates the reply dictionary against the format and raises an error if invalid.",
-   "title": "Validate the reply"
-  },
-  {
-   "start": 5,
-   "summary": "Extracts the command and arguments from the reply and logs the cycle.",
-   "title": "Build command and log cycle"
-  },
-  {
-   "start": 7,
-   "summary": "Logs the parse error and tells the assistant to respond in the required format.",
+   "summary": "On a syntax error, logs it and tells the model to use the correct format.",
    "title": "Handle unparseable reply"
   }
  ],
- "cba685a7680cc668": [
+ "9ca917f7967515d6": [
   {
    "start": 0,
-   "summary": "Checks whether the plugins config file exists and warns when it does not.",
-   "title": "Warn about missing plugin config"
+   "summary": "Returns an automatically generated profile, or reports failure and moves to manual mode.",
+   "title": "Auto-generate or fall back"
   },
   {
-   "start": 3,
-   "summary": "Builds a base plugin config from the legacy denylist and writes it to file.",
-   "title": "Create base plugin config"
+   "start": 4,
+   "summary": "Takes the name and role from the template or the user, with defaults when blank.",
+   "title": "Ask for name and role"
   },
   {
    "start": 10,
-   "summary": "Reads the plugins configuration from the existing YAML file.",
-   "title": "Load existing plugin config"
-  }
- ],
- "d230b98187ef7a7e": [
-  {
-   "start": 0,
-   "summary": "Welcomes the user and asks what they want the AI to do, switching to manual mode on request.",
-   "title": "Ask what the user wants"
-  },
-  {
-   "start": 6,
-   "summary": "Runs manual setup or saves the config and generates it automatically from the user's request.",
-   "title": "Run manual or automatic setup"
-  },
-  {
-   "start": 9,
-   "summary": "Reports a failed automatic generation and switches to manual setup.",
-   "title": "Handle automatic generation failure"
+   "summary": "Takes goals from the template or asks for up to five, with three defaults.",
+   "title": "Ask for goals"
   },
   {
    "start": 12,
-   "summary": "Prompts for the AI's name and role, using defaults when none are given.",
-   "title": "Ask for AI name and role"
-  },
-  {
-   "start": 18,
-   "summary": "Prompts for up to five goals and applies defaults when none are given.",
-   "title": "Ask for AI goals"
-  },
-  {
-   "start": 20,
-   "summary": "Prompts for an API budget and converts the answer into a number.",
-   "title": "Ask for API budget"
-  },
-  {
-   "start": 24,
-   "summary": "Creates the AI configuration from the name, role, goals, and budget.",
-   "title": "Build the AI config object"
+   "summary": "Asks for an API budget, treating blank as unlimited, and returns the AI profile.",
+   "title": "Ask for budget, build profile"
   }
  ],
- "d601d652972f73e2": [
+ "a17dbbcd125e3e4c": [
   {
    "start": 0,
-   "summary": "Creates a registry and drops disabled command categories from the module list.",
-   "title": "Filter enabled command categories"
+   "summary": "Uses DEBUG logging when debug mode was requested, otherwise INFO.",
+   "title": "Set logging level"
   },
   {
-   "start": 4,
-   "summary": "Imports each enabled command module into the new registry.",
-   "title": "Import enabled command modules"
-  },
-  {
-   "start": 5,
-   "summary": "Removes incompatible commands from the registry and logs each removal.",
-   "title": "Unregister incompatible commands"
-  },
-  {
-   "start": 7,
-   "summary": "Returns the populated command registry.",
-   "title": "Return the new registry"
-  }
- ],
- "d957393988d07dd1": [
-  {
-   "start": 0,
-   "summary": "Loads the response schema and creates a Draft 7 validator for it.",
-   "title": "Build the schema validator"
-  },
-  {
-   "start": 2,
-   "summary": "Sorts the validation errors, logs them, and returns failure when any exist.",
-   "title": "Collect schema errors"
-  },
-  {
-   "start": 6,
-   "summary": "Logs that the object passed validation and returns success.",
-   "title": "Confirm the object is valid"
-  },
-  {
-   "start": 8,
-   "summary": "Raises a syntax error listing the validation failures.",
-   "title": "Reject an invalid reply"
-  }
- ],
- "e4ba5992ec4d7099": [
-  {
-   "start": 0,
-   "summary": "Creates the agent, reads its config, and works out how many cycles to run.",
-   "title": "Create agent and cycle budget"
-  },
-  {
-   "start": 4,
-   "summary": "Sets up the thinking spinner and interrupt handler, then checks remaining cycles.",
-   "title": "Set up spinner and interrupts"
-  },
-  {
-   "start": 9,
-   "summary": "Runs the agent's think step under the spinner to get the next command.",
-   "title": "Run one agent think cycle"
-  },
-  {
-   "start": 10,
-   "summary": "Shows the agent's thoughts and chosen command to the user.",
-   "title": "Update the user with the reply"
-  },
-  {
-   "start": 11,
-   "summary": "Asks for user feedback on the last cycle and decrements the remaining cycles.",
-   "title": "Handle feedback and cycle count"
-  },
-  {
-   "start": 13,
-   "summary": "Runs the chosen command and prints its result or a failure message.",
-   "title": "Execute command and show result"
-  }
- ],
- "f9fea22c218d331c": [
-  {
-   "start": 0,
-   "summary": "Sets the log level and builds the settings dictionary from environment variables.",
+   "start": 1,
+   "summary": "Reads keys, models, memory, browser and the shell and plugin lists from environment variables.",
    "title": "Read settings from environment"
   },
   {
-   "start": 2,
-   "summary": "Parses command, shell, and plugin lists, and sets a default text-to-speech provider.",
-   "title": "Parse list and default settings"
-  },
-  {
-   "start": 10,
-   "summary": "Loads Azure or base URL settings and reads the OpenAI organization.",
-   "title": "Set API endpoint settings"
-  },
-  {
-   "start": 12,
-   "summary": "Loads the plugins config file, applying the denylist and allowlist.",
-   "title": "Load plugin configuration"
-  },
-  {
-   "start": 13,
-   "summary": "Returns the configuration, attaches it to the logger, and checks the OpenAI API key.",
-   "title": "Finish and validate config"
-  }
- ],
- "fa5e9e9e3af5d45f": [
-  {
-   "start": 0,
-   "summary": "Starts the prompt with the system message and reserves tokens for the history summary.",
-   "title": "Start prompt and reserve tokens"
-  },
-  {
-   "start": 3,
-   "summary": "Walks history from newest to oldest, keeping messages until the token limit is reached.",
-   "title": "Trim history to fit token limit"
+   "start": 6,
+   "summary": "When none is configured, chooses one from the available voices and API keys.",
+   "title": "Pick a speech provider"
   },
   {
    "start": 7,
-   "summary": "Inserts the history summary and appends the cycle instruction to the prompt.",
-   "title": "Insert summary and cycle instruction"
+   "summary": "Reads plugin lists, converts numbers, applies Azure or custom OpenAI URL, and adds the organization.",
+   "title": "Finish the settings"
+  },
+  {
+   "start": 12,
+   "summary": "Loads plugin settings from file using the deny and allow lists, then returns the finished config.",
+   "title": "Load plugin settings, return"
+  },
+  {
+   "start": 14,
+   "summary": "Lets the logger follow the settings and makes sure an OpenAI API key exists.",
+   "title": "Give logger config, check key"
   }
  ],
- "n04516bd728fb46b7": {
-  "summary": "Returns the trimmed messages and inserts a summary of dropped history into the prompt.",
-  "title": "Finish history trimming"
+ "b216a16c7961e154": [
+  {
+   "start": 0,
+   "summary": "Welcomes the user and asks them to describe the task, using a default if blank.",
+   "title": "Ask what the agent should do"
+  },
+  {
+   "start": 5,
+   "summary": "If the user asked for manual mode or gave a template, announces manual mode.",
+   "title": "Choose manual mode"
+  },
+  {
+   "start": 7,
+   "summary": "Saves the new profile to the settings file for future runs.",
+   "title": "Save the new profile"
+  },
+  {
+   "start": 8,
+   "summary": "Generates the profile from the description, or reports failure and falls back to manual mode.",
+   "title": "Generate automatically or fall back"
+  },
+  {
+   "start": 12,
+   "summary": "Takes the name and role from the template or the user, with defaults when blank.",
+   "title": "Ask for name and role"
+  },
+  {
+   "start": 18,
+   "summary": "Takes goals from the template or asks for up to five, with three defaults.",
+   "title": "Ask for goals"
+  },
+  {
+   "start": 20,
+   "summary": "Asks for an API budget, treating blank as unlimited, and returns the AI profile.",
+   "title": "Ask for budget, build profile"
+  }
+ ],
+ "b57c1fe97f4b980d": [
+  {
+   "start": 0,
+   "summary": "Picks the cycle instruction, wraps it as a message and counts its tokens.",
+   "title": "Choose the instruction"
+  },
+  {
+   "start": 3,
+   "summary": "Adds the format instruction as an extra system message when there is one.",
+   "title": "Add response format message"
+  },
+  {
+   "start": 6,
+   "summary": "Begins with the system message and reserves token room for summary and extra messages.",
+   "title": "Start prompt, reserve tokens"
+  },
+  {
+   "start": 9,
+   "summary": "Fills the prompt with recent history, summarizing older history that was dropped.",
+   "title": "Add recent history"
+  },
+  {
+   "start": 12,
+   "summary": "Adds the cycle instruction as the last message of the prompt.",
+   "title": "Add the instruction"
+  }
+ ],
+ "bf0db9a5ec341017": [
+  {
+   "start": 0,
+   "summary": "If the command name is an error, records that it could not be executed.",
+   "title": "Reject invalid command"
+  },
+  {
+   "start": 3,
+   "summary": "If the command is human feedback, makes the user's text the result.",
+   "title": "Pass on human feedback"
+  },
+  {
+   "start": 5,
+   "summary": "Lets plugins that handle pre-command change the command name before it runs.",
+   "title": "Let plugins adjust command"
+  },
+  {
+   "start": 6,
+   "summary": "Runs the command and builds a result message from its output.",
+   "title": "Run the command"
+  },
+  {
+   "start": 8,
+   "summary": "Replaces the result with a failure notice if output plus history exceed the token limit.",
+   "title": "Cap oversized output"
+  }
+ ],
+ "ca5bd1bebb042f58": [
+  {
+   "start": 0,
+   "summary": "Logs the cycle budget and starts the thinking spinner.",
+   "title": "Start the spinner"
+  },
+  {
+   "start": 2,
+   "summary": "Chooses the instruction and assembles the prompt to send to the model.",
+   "title": "Build the prompt"
+  },
+  {
+   "start": 4,
+   "summary": "Runs the before-think step and sends the prompt to the model.",
+   "title": "Call the model"
+  },
+  {
+   "start": 6,
+   "summary": "Counts the cycle and turns the model's reply into a command and arguments.",
+   "title": "Parse the reply"
+  },
+  {
+   "start": 8,
+   "summary": "Stops the spinner and shows the user the thoughts and planned command.",
+   "title": "Stop spinner, show thoughts"
+  }
+ ],
+ "d81b1f47344c8285": [
+  {
+   "start": 0,
+   "summary": "Loads settings, applies the command-line options, then shows news and warnings and prepares plugins.",
+   "title": "Load settings and options"
+  },
+  {
+   "start": 3,
+   "summary": "Creates the commands and AI profile, connects plugins and memory, and creates the agent.",
+   "title": "Build the agent"
+  },
+  {
+   "start": 5,
+   "summary": "While cycles remain, the agent thinks, the user approves, and the command runs.",
+   "title": "Run the interaction loop"
+  }
+ ],
+ "deb20f8ff8140922": [
+  {
+   "start": 0,
+   "summary": "Loads settings from the environment, checks the OpenAI key, then applies the command-line options.",
+   "title": "Configure from env and flags"
+  },
+  {
+   "start": 5,
+   "summary": "Warns about continuous mode, shows news, installs plugin dependencies if asked, prepares the workspace and finds plugins.",
+   "title": "Show warnings, set up workspace"
+  },
+  {
+   "start": 11,
+   "summary": "Creates the command registry and the AI profile that says who the agent is and its goals.",
+   "title": "Build commands and AI profile"
+  },
+  {
+   "start": 14,
+   "summary": "Connects chat plugins, creates fresh memory, tells the user the memory and browser, builds the agent and loop state.",
+   "title": "Set up memory and the agent"
+  },
+  {
+   "start": 26,
+   "summary": "While cycles remain, the agent thinks behind a spinner and the user sees its thoughts and planned command.",
+   "title": "Think and show the plan"
+  },
+  {
+   "start": 30,
+   "summary": "On the last cycle asks the user to authorise the command, otherwise continues automatically, and uses up a cycle.",
+   "title": "Ask the user to approve"
+  },
+  {
+   "start": 32,
+   "summary": "Runs the chosen command and prints its result, or says it could not be executed.",
+   "title": "Run the command, show result"
+  }
+ ],
+ "n0cd3142e5cdd24fd": {
+  "summary": "Logs the cycle budget, lets the agent think, and shows its thoughts and planned command.",
+  "title": "Think and show plan"
  },
- "n07dc4fdb5c5d199c": {
-  "summary": "Strips escape codes from the thoughts and fields, then prints the thoughts and reasoning in yellow.",
-  "title": "Show thoughts and reasoning"
+ "n1795a8d2a67d9037": {
+  "summary": "Gets the name and role from the template or the user, with defaults.",
+  "title": "Ask for name and role"
  },
- "n0a6d7d7f60aa1020": {
-  "summary": "Creates the command registry and the AI configuration, then attaches the registry to the AI config.",
-  "title": "Create registry and AI config"
+ "n316ab2700a880cd3": {
+  "summary": "Warns about risks, shows news, installs plugin dependencies, sets the workspace and finds plugins.",
+  "title": "Warn, prepare workspace, plugins"
  },
- "n0aa92ce9565abc62": {
-  "summary": "Logs invalid plugin config errors and falls back to empty config, or applies the settings to the logger.",
-  "title": "Recover from invalid plugin config"
+ "n722b19a85122dbe0": {
+  "summary": "Creates the workspace folder and sets the log file path.",
+  "title": "Set up the workspace"
  },
- "n1035e1b0f023d74e": {
-  "summary": "Records the prompt's starting length and sets up the trimming state.",
-  "title": "Prepare history trimming"
+ "n7b02aa94713599f3": {
+  "summary": "Asks for approval on the last cycle, uses up a cycle, runs the command and shows the result.",
+  "title": "Approve and run command"
  },
- "n17ea28aa92b49c3f": {
-  "summary": "Checks that an instruction was given and counts its tokens.",
-  "title": "Validate and size the instruction"
+ "n9de95c8856a6a647": {
+  "summary": "Sets log level, loads settings from the environment and makes sure an OpenAI key exists.",
+  "title": "Load settings, check API key"
  },
- "n1aa553f18a46c30b": {
-  "summary": "Logs the cycle budget, then asks the agent to think and return its next command under a spinner.",
-  "title": "Get the agent's next command"
+ "na601c98bd46f04d6": {
+  "summary": "Checks for an AI template and asks the user to describe what the agent should do.",
+  "title": "Detect template, ask task"
  },
- "n1cf4da0c57432f6f": {
-  "summary": "Fetches and shows the bulletin, then warns about unsupported Git branches and older Python versions.",
-  "title": "Show news and version warnings"
+ "na93891be56a32443": {
+  "summary": "Takes goals from the template or the user, with three defaults.",
+  "title": "Ask for goals"
  },
- "n2bdc93f47b8d38d0": {
-  "summary": "Gathers the response format instruction as a system message when one applies.",
-  "title": "Collect format instructions"
+ "na96cb58736fd12bd": {
+  "summary": "Asks for a budget for API calls and explains blank means unlimited.",
+  "title": "Ask for API budget"
  },
- "n2cd3c1f33829016e": {
-  "summary": "Warns that the plugins config file is missing and logs the legacy plugin denylist and allowlist.",
-  "title": "Log missing plugin config"
+ "nb8121804c41ceb5f": {
+  "summary": "Lets plugins adjust the command, runs it, and replaces oversized output with a failure notice.",
+  "title": "Run command with plugins"
  },
- "n310faaa7b828bc17": {
-  "summary": "Creates the agent, takes its config, logs the system prompt, and sets the cycle budget.",
-  "title": "Create the agent"
+ "nc04c040a34e9c538": {
+  "summary": "Tells the user automatic generation failed and logs the error.",
+  "title": "Fall back to manual mode"
  },
- "n3400493b05eb1fb1": {
-  "summary": "Loads Azure settings or the API base URL, and reads the OpenAI organization setting.",
-  "title": "Set API endpoint settings"
+ "nc0ff6b33b8a3d470": {
+  "summary": "Creates the command registry and the AI profile, and links the registry to it.",
+  "title": "Build commands and AI profile"
  },
- "n34bf87ed7fdd8cca": {
-  "summary": "Chooses a default text-to-speech provider, parses plugin allow and deny lists, and sets the image size.",
-  "title": "Set defaults and plugin lists"
+ "nc9893dc2e38409ef": {
+  "summary": "Connects chat plugins, creates memory, builds the agent and prepares the loop.",
+  "title": "Set up memory and agent"
  },
- "n35395420bf78fd48": {
-  "summary": "Prints the plan, formatting list plans into lines, and then the criticism, all in yellow.",
-  "title": "Show plan and criticism"
+ "nec6d225190c15ea6": {
+  "summary": "Generates the profile automatically, falling back to asking name, role, goals and budget by hand.",
+  "title": "Auto-generate or manual profile"
  },
- "n37cb656c56343dbf": {
-  "summary": "Walks the history from the newest cycle, adding each one that fits the token limit.",
-  "title": "Add recent cycles within limit"
+ "nf591178bed0eebc3": {
+  "summary": "Reads and parses the budget, then builds and returns the AI profile.",
+  "title": "Read budget, build profile"
  },
- "n396f849aace000e9": {
-  "summary": "Records the reply, asks for feedback when one cycle remains, executes the command and shows its result.",
-  "title": "Run the chosen command"
- },
- "n3c58a39ecb599fa3": {
-  "summary": "Reserves room for the history summary and any appended messages.",
-  "title": "Reserve tokens for prompt"
- },
- "n3cecc0f2e6d8e9cb": {
-  "summary": "Returns the configuration and attaches it to the logger.",
-  "title": "Return the finished config"
- },
- "n40d33d4b21358f17": {
-  "summary": "Builds a base plugin configuration from the denylist, logs it, and writes it to the plugins config file.",
-  "title": "Write base plugin config"
- },
- "n4c0429b56a9fd093": {
-  "summary": "Creates the message list, adds response format instructions, and starts the prompt with the system prompt.",
-  "title": "Assemble the base prompt"
- },
- "n53e214f412f3cad1": {
-  "summary": "Shows legal and news messages, installs plugin dependencies, sets up the workspace and file logger, and scans plugins.",
-  "title": "Show notices and set workspace"
- },
- "n6867b3fc1e37e178": {
-  "summary": "Uses manual setup when requested or templated, otherwise generates the config automatically and falls back to manual on error.",
-  "title": "Generate the AI configuration"
- },
- "n926f5a15e187fb08": {
-  "summary": "Logs the cycle budget and starts the spinner shown while the agent works.",
-  "title": "Start the agent cycle"
- },
- "n92b5ce19113b5d00": {
-  "summary": "Initializes the workspace directory and points the file logger at a file inside it.",
-  "title": "Set up workspace and logger"
- },
- "n97f1d705192948c7": {
-  "summary": "Applies plugin pre-command hooks, runs the command, and replaces output that exceeds the token limit with a failure message.",
-  "title": "Run the command"
- },
- "n9e00339120b7e275": {
-  "summary": "Builds the settings dictionary from environment variables and parses the command category and shell lists.",
-  "title": "Read settings from environment"
- },
- "na0eaf0863f3b62a3": {
-  "summary": "Parses the allowlisted and denylisted plugin settings and sets the image size from the environment.",
-  "title": "Parse plugin lists"
- },
- "nae84b166be79de35": {
-  "summary": "Sorts the schema errors, logs them, and returns failure with the errors when any exist.",
-  "title": "Report validation errors"
- },
- "naf4df21e526be20c": {
-  "summary": "Stores the agent's configs, logs the system prompt, and sets the cycle budget from continuous mode settings.",
-  "title": "Set up the cycle budget"
- },
- "nb40af68e65102fbe": {
-  "summary": "Logs the cycle budget, sets the default instruction, builds the prompt, runs before-think hooks, and requests a completion.",
-  "title": "Build prompt and request reply"
- },
- "nb42bdf6937ee8c4c": {
-  "summary": "Registers a handler so that pressing Ctrl+C shuts the agent down gracefully.",
-  "title": "Handle interrupt signals"
- },
- "nb47fed6e284775fc": {
-  "summary": "Collects goals and an API budget from the user, with defaults, then builds the AI config.",
-  "title": "Ask for goals and budget"
- },
- "nbaaa2d19b041034e": {
-  "summary": "Builds the prompt, runs the before-think hooks, sends it to the chat model, and counts the cycle.",
-  "title": "Request the model's reply"
- },
- "nbbb12340e8f9d24b": {
-  "summary": "Logs the cycle budget, runs the agent's think step under the spinner, and updates user information.",
-  "title": "Run agent thinking step"
- },
- "nbe3b7d1ef39f937d": {
-  "summary": "Collects the response format instruction, builds the base prompt, and appends the cycle instruction.",
-  "title": "Build the agent prompt"
- },
- "nc7b585e30c9b6483": {
-  "summary": "Goes through the plugins and inserts each planning response that fits the token limit.",
-  "title": "Add plugin planning messages"
- },
- "nc8456af4d42f0d67": {
-  "summary": "Creates the memory and agent, then loops over thinking, updating the user, and running commands while cycles remain.",
-  "title": "Create agent and run loop"
- },
- "nc97771dff5c9e723": {
-  "summary": "Shows startup notices, sets up the workspace, and builds the command registry and AI configuration.",
-  "title": "Prepare workspace and AI config"
- },
- "nd4c3914a7994f81e": {
-  "summary": "Sets the log level, loads configuration from environment variables, and checks the OpenAI API key.",
-  "title": "Load configuration and verify key"
- },
- "ndc6858020703a9f2": {
-  "summary": "Sets up chat report plugins, memory, the agent, its cycle budget, the spinner, and the interrupt handler.",
-  "title": "Create memory and agent"
- },
- "ndf69e0f13fe73434": {
-  "summary": "Gets the memory backend, clears it, and logs the memory type and browser in use.",
-  "title": "Set up and clear memory"
- },
- "ne1b637d0a535571f": {
-  "summary": "Loads the LLM response schema and creates a Draft 7 validator for it.",
-  "title": "Create the reply validator"
- },
- "ne416288d08a40761": {
-  "summary": "Prompts for the user's desire when no template is given, using a default if blank.",
-  "title": "Ask what the user wants"
- },
- "ne8c2d6794c6590e5": {
-  "summary": "Uses an empty configuration with an error when the data is not a dictionary, else wraps the data.",
-  "title": "Check the plugins config type"
- },
- "nebab8dee5371826f": {
-  "summary": "Reserves tokens, appends as much history as fits, and inserts a summary of any trimmed history.",
-  "title": "Add history within token limit"
- },
- "nf123308c8ccafc21": {
-  "summary": "Handles user feedback at the last cycle, decrements remaining cycles, runs the command, and prints its result.",
-  "title": "Handle feedback and run command"
- },
- "nf792450c2cde9e58": {
-  "summary": "Prompts for the AI's name and role, falling back to defaults when none are entered.",
-  "title": "Ask for the AI's name and role"
- },
- "nfbfc02602d279c92": {
-  "summary": "Reads the plugins YAML file and builds a PluginConfig for each listed plugin.",
-  "title": "Load plugin settings from file"
+ "nfdfc87a82a41e058": {
+  "summary": "Shows the bulletin and warns about unsupported branch or old Python.",
+  "title": "Show news and warnings"
  }
 }

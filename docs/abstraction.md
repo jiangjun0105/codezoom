@@ -132,12 +132,25 @@ Reading a system top-down wants a few distinct layers, each answering one questi
 | 3 · Parts | the steps of one process | how does this process work? | ordinary grouping and expansion |
 | 4+ · Steps, then Code | down to statements | what exactly runs? | the 2023 statement charts |
 
-For Auto-GPT, level 1 is "Set up the program" and "Run the agent loop" (the second marked
-as repeating). The viewer shows a caption on every level naming the level and what the
+For Auto-GPT, level 1 is "Load settings and options", "Build the agent" and "Run the
+interaction loop" (the last marked as repeating). The viewer shows a caption on every level naming the level and what the
 chart in view is, so zooming reads as a narrative: system, then phases, then processes.
 
 Every phase must still be single-entry, single-exit, so a phase is a run of consecutive
 top-level steps. The phase names come from the model, like every other group name.
+
+## Labels that say what a step is for
+
+The 2023 labels were written one statement at a time, without the rest of the function,
+so a quarter of them restated the syntax ("Verify that `x` is set to True") and some
+misread it. `relabel.py` asks once per function, with the whole source numbered, for a
+label per step that says what it does in the program's terms, and a title for every block
+whose box showed code. Grouping requests then show the new labels and the function each
+step comes from, and ask that a called function's steps stay together, so an expanded call
+such as `Agent.execute` becomes its own "Run the command" box instead of being mixed into
+its caller's steps. Labels and groupings are cached like before (`cache/labels.json`,
+`cache/groupings.json`); three texts that are true of a line but wrong in effect are fixed
+by hand in `corrections.json`.
 
 ## What it does to the tree
 
@@ -146,13 +159,13 @@ top-level steps. The phase names come from the model, like every other group nam
 | | 2023 tree | Rebalanced |
 | --- | --- | --- |
 | Deepest statement (levels) | 21 | 7 |
-| Average statement depth | 8.1 | 5.3 |
-| Charts with 3 to 8 steps | 39% | 76% |
-| Charts with 1 or 2 steps | 158 | 19 |
-| Widest chart | 21 | 10 |
+| Average statement depth | 8.1 | 5.1 |
+| Charts with 3 to 8 steps | 39% | 81% |
+| Charts with 1 or 2 steps | 158 | 17 |
+| Widest chart | 21 | 9 |
 
-For this build the model's grouping was used for 15 charts and the segmenter's for 4,
-where the model's answer broke the validity rule; all 59 groups carry model-written names.
+For this build the model's grouping was used for 13 charts and the segmenter's for 5,
+where the model's answer broke the validity rule; all 60 groups carry model-written names.
 
 The remaining wide charts are statement-level charts under the 10-statement budget. The
 remaining two-step charts are mostly a test and one action with nothing left to expand.

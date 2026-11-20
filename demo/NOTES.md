@@ -27,9 +27,15 @@
 
 ## Written by a language model in 2026, cached in the repository
 
+- **Every step's label, and a title for blocks whose box would otherwise show code or
+  "N steps"** (`codezoom/cache/labels.json`, prompt in `codezoom/relabel.py`). The 2023
+  labels were written one statement at a time and often restated the syntax or misread
+  a condition; this pass asks once per function, with the whole function's source in
+  view. The 2023 label is kept as the input; nodes it rewrote carry `relabeled`.
+
 - **Which steps form a group, and each group's title and summary**
   (`codezoom/cache/groupings.json`). The prompts are in `codezoom/oracle.py`. The cached
-  answers came from Claude Haiku 5.5, run through Claude Code sub-agents on the pending
+  answers (labels and groupings) came from Claude Sonnet 5.5, run through Claude Code sub-agents on the pending
   requests the exporter writes, not through the exporter's own API path (`--ask`), which
   has not been run against a real key.
 - A proposed grouping is used only if every group has one way in and one way out;
@@ -38,8 +44,11 @@
 
 ## Hand-written
 
-- **One sentence**: the description of the whole program (`PROGRAM_LABEL` in
-  `codezoom/export.py`).
+- **Three corrections** (`codezoom/corrections.json`, flagged `corrected`): the models
+  read `if cycles_remaining == 1` as "on the last cycle". It is true of the line but
+  wrong in effect: the budget is 1 by default, so the user approves every cycle.
+- **Two sentences**: what the system is and how the program runs (`SYSTEM_LABEL` and
+  `PROGRAM_LABEL` in `codezoom/export.py`).
 - **Five whole-program answers** in `demo/src/data/authored.ts`, with the diagram moves
   each makes, checked against the cached Auto-GPT source. A sixth lists the top-level
   steps and is built from the data.

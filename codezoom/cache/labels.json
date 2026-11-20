@@ -1,0 +1,2562 @@
+{
+ "L0a218b82a5b9c6": {
+  "15:4:Expr:simple": {
+   "label": "Records the last prompt message, the user's instruction for this cycle, in the agent's history."
+  },
+  "17:4:Try:try_wrapper": {
+   "label": "Parses the reply into a command, or on a syntax error logs it, informs the model and returns nothing.",
+   "title": "Parse reply or recover"
+  },
+  "18:15:Call:call": {
+   "label": "Parses the model's reply and works out the command the agent wants to run."
+  },
+  "18:8:Return:glue": {
+   "label": "Returns the parsed command, arguments and thoughts to the caller."
+  },
+  "18:8:Return:wrapper": {
+   "label": "Hands back the command, its arguments and the agent's thoughts from the parsed reply."
+  },
+  "19:4:ExceptHandler:except": {
+   "label": "Was the model's reply impossible to parse or invalid?"
+  },
+  "20:8:Call:call": {
+   "label": "Logs an error saying the response could not be parsed."
+  },
+  "20:8:Expr:nodes_wrapper": {
+   "label": "Logs the parsing error and tells the model in the history to use the correct format, then returns no command.",
+   "title": "Report unparseable response"
+  },
+  "21:8:Expr:simple": {
+   "label": "Adds a system message telling the model its reply was unparseable and to use the specified format."
+  }
+ },
+ "L14bfdcc6669aa3": {
+  "16:4:FunctionDef:define": {
+   "label": "Defines the handler that stops the agent gracefully when the user interrupts with Ctrl+C."
+  }
+ },
+ "L18fc9e134f65c6": {
+  "2:4:Try:try_wrapper": {
+   "label": "Fetch the online bulletin, ignoring network errors.",
+   "title": "Fetch online bulletin"
+  },
+  "3:8:Assign:simple": {
+   "label": "Download the project bulletin from GitHub and return its text if the request succeeds."
+  },
+  "6:4:ExceptHandler:except": {
+   "label": "Did the web request fail?"
+  },
+  "7:8:Pass:simple": {
+   "label": "Ignore the failure so startup is not interrupted."
+  },
+  "8:4:Return:simple": {
+   "label": "Return an empty bulletin when it could not be fetched."
+  }
+ },
+ "L1c31e2cc3ae36c": {
+  "10:11:Compare:check_value": {
+   "label": "Is this plugin entry a plain dictionary from the YAML file?"
+  },
+  "10:8:If:if_wrapper": {
+   "label": "Convert dictionary entries, keep ready plugin configs, and reject anything else.",
+   "title": "Convert entry by type"
+  },
+  "11:12:Assign:simple": {
+   "label": "Build a plugin config from the entry, disabled by default, and store it by name."
+  },
+  "12:8:If:simple": {
+   "label": "Keep an existing PluginConfig as is, and raise an error for any other entry type."
+  },
+  "16:4:Return:simple": {
+   "label": "Give back the dictionary of plugin configs by plugin name."
+  },
+  "3:4:If:if_wrapper": {
+   "label": "Create a default plugins config file if none exists.",
+   "title": "Create missing config"
+  },
+  "3:7:UnaryOp:check_value": {
+   "label": "Is the plugins config file missing?"
+  },
+  "4:8:Call:call": {
+   "label": "Warn the user that the config file does not exist and a base one will be made."
+  },
+  "4:8:Expr:nodes_wrapper": {
+   "label": "Warn that the file is missing and create a base config.",
+   "title": "Warn and create config"
+  },
+  "5:8:Call:call": {
+   "label": "Write a new plugins config file using the deny and allow lists."
+  },
+  "6:4:With:simple": {
+   "label": "Read the YAML config file and start an empty dictionary of plugin settings."
+  },
+  "9:26:Call:glue": {
+   "label": "Go through each plugin entry in the config."
+  },
+  "9:4:For:for_wrapper": {
+   "label": "Turn every entry in the config file into a plugin config.",
+   "title": "Build plugin configs"
+  },
+  "9:8:Tuple:for_check": {
+   "label": "Is there another plugin entry to process?"
+  }
+ },
+ "L2982234f83acb4": {
+  "12:4:Call:call": {
+   "label": "Shows the user how to authorise, run several commands, exit, or give feedback to the AI."
+  },
+  "13:4:Assign:simple": {
+   "label": "Starts with no feedback decision, empty user text and no continuous-cycle count."
+  },
+  "16:10:Compare:check_value": {
+   "label": "Has the user not yet given a valid response?"
+  },
+  "16:4:While:while_wrapper": {
+   "label": "Keeps prompting the user and interpreting the reply until a valid authorise, exit or text response is given.",
+   "title": "Ask until valid reply"
+  },
+  "17:11:Attribute:check_value": {
+   "label": "Are chat messages enabled in the settings?"
+  },
+  "17:8:If:if_wrapper": {
+   "label": "Waits for a reply with a chat-style prompt if chat messages are enabled, otherwise a plain 'Input:' prompt.",
+   "title": "Prompt for input"
+  },
+  "17:8:If:nodes_wrapper": {
+   "label": "Prompts the user for a reply and decides what it means for the agent.",
+   "title": "Read and interpret reply"
+  },
+  "18:12:Assign:glue": {
+   "label": "Stores the user's reply as the console input."
+  },
+  "18:12:Assign:wrapper": {
+   "label": "Prompts 'Waiting for your response...' and keeps the reply as the console input."
+  },
+  "18:28:Call:call": {
+   "label": "Waits for the user's reply with a 'Waiting for your response' prompt."
+  },
+  "20:12:Assign:glue": {
+   "label": "Stores the user's reply as the console input."
+  },
+  "20:12:Assign:wrapper": {
+   "label": "Shows a magenta 'Input:' prompt and keeps the reply as the console input."
+  },
+  "20:28:Call:call": {
+   "label": "Shows a magenta 'Input:' prompt and reads the user's reply."
+  },
+  "21:11:Compare:check_value": {
+   "label": "Did the user type exactly the authorise key?"
+  },
+  "21:8:If:if_wrapper": {
+   "label": "Decides whether the input authorises one command, is empty, authorises several, exits, or is feedback.",
+   "title": "Interpret user input"
+  },
+  "22:12:Assign:simple": {
+   "label": "Marks the feedback as authorising the command to run."
+  },
+  "23:13:Compare:check_value": {
+   "label": "Was the input empty or only spaces?"
+  },
+  "23:8:If:if_wrapper": {
+   "label": "Rejects empty input, then handles continuous authorisation, exit, or free-text feedback.",
+   "title": "Empty, count, exit or text"
+  },
+  "24:12:Call:call": {
+   "label": "Warns that the input format is invalid, so the user is asked again."
+  },
+  "25:13:Call:check_value": {
+   "label": "Does the input start with the authorise key followed by a dash, as in '-N'?"
+  },
+  "25:8:If:if_wrapper": {
+   "label": "Handles an authorise-with-count request, otherwise checks for exit, otherwise keeps the text as feedback.",
+   "title": "Continuous run, exit or text"
+  },
+  "26:12:Try:try_wrapper": {
+   "label": "Authorises and reads how many commands to run continuously, warning if the number is invalid.",
+   "title": "Parse continuous-run count"
+  },
+  "27:16:Assign:simple": {
+   "label": "Marks the feedback as authorised and takes the number N as the count of continuous commands."
+  },
+  "29:12:ExceptHandler:except": {
+   "label": "Was the number after the dash not a valid integer?"
+  },
+  "30:16:Call:call": {
+   "label": "Warns the user to enter the authorise key followed by '-N' with N as a number."
+  },
+  "31:8:If:simple": {
+   "label": "Treats the exit key or 'exit' as an exit request; any other text becomes feedback for the AI."
+  },
+  "36:4:Return:simple": {
+   "label": "Returns the feedback type, any feedback text and the number of continuous cycles requested."
+  }
+ },
+ "L2c94d3bb830f11": {
+  "17:4:If:if_wrapper": {
+   "label": "With function calling on, returns an error if there is no function call, otherwise copies it into the command field.",
+   "title": "Handle function-call reply"
+  },
+  "17:7:Attribute:check_value": {
+   "label": "Is OpenAI function calling enabled, so the command arrives as a function call?"
+  },
+  "18:8:If:simple": {
+   "label": "If the reply has no function call, returns an error result saying so."
+  },
+  "21:4:Try:try_wrapper": {
+   "label": "Validates the reply and returns the command name and arguments, or an error result if anything is wrong.",
+   "title": "Validate and return command"
+  },
+  "22:8:If:simple": {
+   "label": "If the reply lacks a 'command' object, returns an error result saying so."
+  },
+  "34:4:ExceptHandler:except": {
+   "label": "Was the JSON invalid?"
+  },
+  "35:8:Return:simple": {
+   "label": "Returns an error result saying the JSON was invalid."
+  },
+  "36:4:ExceptHandler:except": {
+   "label": "Did any other error occur while reading the command?"
+  },
+  "37:8:Return:simple": {
+   "label": "Returns an error result carrying the error's message."
+  }
+ },
+ "L378f523d0cbe91": {
+  "19:4:Assign:simple": {
+   "label": "Resets debug, continuous and speak modes to off so only the command-line flags can turn them on."
+  },
+  "22:4:If:if_wrapper": {
+   "label": "If the user asked for debug mode, announces it and turns it on in the settings.",
+   "title": "Debug mode option"
+  },
+  "22:7:Name:check_value": {
+   "label": "Did the user ask for debug mode?"
+  },
+  "23:8:Call:call": {
+   "label": "Tells the user that debug mode is enabled."
+  },
+  "23:8:Expr:nodes_wrapper": {
+   "label": "Announces debug mode and switches it on in the settings.",
+   "title": "Enable debug mode"
+  },
+  "24:8:Assign:simple": {
+   "label": "Turns on debug mode in the settings."
+  },
+  "25:4:If:if_wrapper": {
+   "label": "If the user asked for continuous mode, warns about the risks, turns it on and applies any cycle limit.",
+   "title": "Continuous mode option"
+  },
+  "25:7:Name:check_value": {
+   "label": "Did the user ask for continuous mode?"
+  },
+  "26:8:Call:call": {
+   "label": "Tells the user that continuous mode is enabled."
+  },
+  "26:8:Expr:nodes_wrapper": {
+   "label": "Announces continuous mode with a danger warning, turns it on, and applies any cycle limit.",
+   "title": "Enable continuous mode"
+  },
+  "27:8:Call:call": {
+   "label": "Warns the user that continuous mode is dangerous because the agent may run forever or take unauthorised actions."
+  },
+  "28:8:Assign:simple": {
+   "label": "Turns on continuous mode so the agent runs without asking approval each cycle."
+  },
+  "29:11:Name:check_value": {
+   "label": "Did the user also give a limit on continuous cycles?"
+  },
+  "29:8:If:if_wrapper": {
+   "label": "If a cycle limit was given, announces it and stores it in the settings.",
+   "title": "Continuous limit option"
+  },
+  "30:12:Call:call": {
+   "label": "Tells the user the number of continuous cycles allowed."
+  },
+  "30:12:Expr:nodes_wrapper": {
+   "label": "Announces the continuous cycle limit and stores it in the settings.",
+   "title": "Set continuous limit"
+  },
+  "31:12:Assign:simple": {
+   "label": "Stores the continuous cycle limit in the settings."
+  },
+  "32:4:If:simple": {
+   "label": "Stops with a usage error if a continuous limit was given without continuous mode, since the limit would have no effect."
+  },
+  "34:4:If:if_wrapper": {
+   "label": "If the user asked for speak mode, announces it and turns it on in the settings.",
+   "title": "Speak mode option"
+  },
+  "34:7:Name:check_value": {
+   "label": "Did the user ask for speak mode?"
+  },
+  "35:8:Call:call": {
+   "label": "Tells the user that speak mode is enabled."
+  },
+  "35:8:Expr:nodes_wrapper": {
+   "label": "Announces speak mode and switches it on in the settings.",
+   "title": "Enable speak mode"
+  },
+  "36:8:Assign:simple": {
+   "label": "Turns on speak mode so the agent's output is spoken aloud."
+  },
+  "37:4:If:if_wrapper": {
+   "label": "Chooses the language models: GPT-3.5 only, GPT-4 only if available, or the validated configured models.",
+   "title": "Choose language models"
+  },
+  "37:7:Name:check_value": {
+   "label": "Did the user restrict the agent to GPT-3.5 models only?"
+  },
+  "38:8:Call:call": {
+   "label": "Tells the user that GPT-3.5 only mode is enabled."
+  },
+  "38:8:Expr:nodes_wrapper": {
+   "label": "Announces GPT-3.5 only mode and uses GPT-3.5 for both the fast and smart models.",
+   "title": "Use GPT-3.5 only"
+  },
+  "39:8:Assign:simple": {
+   "label": "Sets both the fast and smart language models to GPT-3.5."
+  },
+  "41:22:Call:call": {
+   "label": "Checks whether the user's account can use GPT-4 as the smart model."
+  },
+  "41:4:If:if_wrapper": {
+   "label": "If GPT-4 only is requested and available, uses GPT-4 for both models; otherwise validates the configured models.",
+   "title": "GPT-4 or validated models"
+  },
+  "41:9:BoolOp:check_value": {
+   "label": "Did the user ask for GPT-4 only and does their account have access to GPT-4?"
+  },
+  "41:9:BoolOp:glue": {
+   "label": "Combines the GPT-4-only flag with the check that GPT-4 is actually available."
+  },
+  "41:9:BoolOp:wrapper": {
+   "label": "Requires both the GPT-4-only flag and confirmed access to GPT-4."
+  },
+  "42:8:Call:call": {
+   "label": "Tells the user that GPT-4 only mode is enabled."
+  },
+  "42:8:Expr:nodes_wrapper": {
+   "label": "Announces GPT-4 only mode and uses GPT-4 for both the fast and smart models.",
+   "title": "Use GPT-4 only"
+  },
+  "43:8:Assign:simple": {
+   "label": "Sets both the fast and smart language models to GPT-4."
+  },
+  "46:26:Call:call": {
+   "label": "Checks that the configured fast model is available to the user, falling back to GPT-3.5 if not."
+  },
+  "46:8:Assign:glue": {
+   "label": "Replaces the fast model setting with the checked, available model."
+  },
+  "46:8:Assign:nodes_wrapper": {
+   "label": "Validates the configured fast and smart models, falling back to GPT-3.5 for any the user cannot access.",
+   "title": "Validate default models"
+  },
+  "46:8:Assign:wrapper": {
+   "label": "Keeps the fast model if available, otherwise sets it to GPT-3.5."
+  },
+  "47:27:Call:call": {
+   "label": "Checks that the configured smart model is available to the user, falling back to GPT-3.5 if not."
+  },
+  "47:8:Assign:glue": {
+   "label": "Replaces the smart model setting with the checked, available model."
+  },
+  "47:8:Assign:wrapper": {
+   "label": "Keeps the smart model if available, otherwise sets it to GPT-3.5."
+  },
+  "48:4:If:if_wrapper": {
+   "label": "If the user named a memory backend, checks it is supported and applies it to the settings.",
+   "title": "Memory backend option"
+  },
+  "48:7:Name:check_value": {
+   "label": "Did the user name a memory backend?"
+  },
+  "49:8:Assign:nodes_wrapper": {
+   "label": "Looks up the supported memory backends and either accepts the user's choice or warns and keeps the default.",
+   "title": "Validate memory backend"
+  },
+  "49:8:Assign:simple": {
+   "label": "Gets the list of supported memory backends and notes the one the user chose."
+  },
+  "51:11:Compare:check_value": {
+   "label": "Is the chosen memory backend not one of the supported ones?"
+  },
+  "51:8:If:if_wrapper": {
+   "label": "If the chosen backend is unsupported, warns and keeps the default; otherwise uses the chosen one.",
+   "title": "Check memory backend"
+  },
+  "52:12:Call:call": {
+   "label": "Tells the user which memory backends are supported."
+  },
+  "52:12:Expr:nodes_wrapper": {
+   "label": "Lists the supported memory backends and says the default backend will be used instead.",
+   "title": "Report unsupported backend"
+  },
+  "53:12:Call:call": {
+   "label": "Tells the user the agent will keep using the current default memory backend."
+  },
+  "55:12:Assign:simple": {
+   "label": "Uses the chosen memory backend in the settings."
+  },
+  "56:4:If:if_wrapper": {
+   "label": "If the user asked to skip re-prompting, announces it and turns it on in the settings.",
+   "title": "Skip re-prompt option"
+  },
+  "56:7:Name:check_value": {
+   "label": "Did the user ask to skip the re-prompt messages?"
+  },
+  "57:8:Call:call": {
+   "label": "Tells the user that skipping the re-prompt is enabled."
+  },
+  "57:8:Expr:nodes_wrapper": {
+   "label": "Announces the skip re-prompt option and switches it on in the settings.",
+   "title": "Enable skip re-prompt"
+  },
+  "58:8:Assign:simple": {
+   "label": "Turns on skipping of the startup re-prompt in the settings."
+  },
+  "59:4:If:if_wrapper": {
+   "label": "If the user gave an AI settings file, validates and applies it, exiting if it is invalid.",
+   "title": "AI settings file option"
+  },
+  "59:7:Name:check_value": {
+   "label": "Did the user give an AI settings file?"
+  },
+  "60:8:Assign:nodes_wrapper": {
+   "label": "Validates the AI settings file, exiting if invalid, then records it in the settings and skips re-prompting.",
+   "title": "Validate AI settings file"
+  },
+  "60:8:Assign:simple": {
+   "label": "Takes the AI settings file path given by the user."
+  },
+  "62:11:UnaryOp:check_value": {
+   "label": "Did the AI settings file fail YAML validation?"
+  },
+  "62:8:If:if_wrapper": {
+   "label": "If the AI settings file is invalid, reports the failure and exits the program.",
+   "title": "Reject invalid file"
+  },
+  "63:12:Call:call": {
+   "label": "Shows the user a red file validation failure message with the reason."
+  },
+  "63:12:Expr:nodes_wrapper": {
+   "label": "Reports the validation failure, asks the user to double-check, and exits with an error.",
+   "title": "Report invalid file and exit"
+  },
+  "64:12:Call:call": {
+   "label": "Asks the user to double-check their settings before the program stops."
+  },
+  "65:12:Expr:simple": {
+   "label": "Exits the program with an error status because the file is invalid."
+  },
+  "66:8:Call:call": {
+   "label": "Tells the user which AI settings file is being used."
+  },
+  "67:8:Assign:simple": {
+   "label": "Stores the AI settings file in the settings and skips the re-prompt, since settings are already supplied."
+  },
+  "69:4:If:if_wrapper": {
+   "label": "If the user gave a prompt settings file, validates and applies it, exiting if it is invalid.",
+   "title": "Prompt settings file option"
+  },
+  "69:7:Name:check_value": {
+   "label": "Did the user give a prompt settings file?"
+  },
+  "70:8:Assign:nodes_wrapper": {
+   "label": "Validates the prompt settings file, exiting if invalid, then records it in the settings.",
+   "title": "Validate prompt settings file"
+  },
+  "70:8:Assign:simple": {
+   "label": "Takes the prompt settings file path given by the user."
+  },
+  "72:11:UnaryOp:check_value": {
+   "label": "Did the prompt settings file fail YAML validation?"
+  },
+  "72:8:If:if_wrapper": {
+   "label": "If the prompt settings file is invalid, reports the failure and exits the program.",
+   "title": "Reject invalid file"
+  },
+  "73:12:Call:call": {
+   "label": "Shows the user a red file validation failure message with the reason."
+  },
+  "73:12:Expr:nodes_wrapper": {
+   "label": "Reports the validation failure, asks the user to double-check, and exits with an error.",
+   "title": "Report invalid file and exit"
+  },
+  "74:12:Call:call": {
+   "label": "Asks the user to double-check their settings before the program stops."
+  },
+  "75:12:Expr:simple": {
+   "label": "Exits the program with an error status because the file is invalid."
+  },
+  "76:8:Call:call": {
+   "label": "Tells the user which prompt settings file is being used."
+  },
+  "77:8:Assign:simple": {
+   "label": "Stores the prompt settings file in the settings."
+  },
+  "78:4:If:simple": {
+   "label": "If the user named a browser, sets it as the browser Selenium uses for web scraping."
+  },
+  "80:4:If:if_wrapper": {
+   "label": "If the user allowed downloads, warns about the risks and turns downloading on in the settings.",
+   "title": "Downloads option"
+  },
+  "80:7:Name:check_value": {
+   "label": "Did the user allow the agent to download files?"
+  },
+  "81:8:Call:call": {
+   "label": "Tells the user that native downloading is enabled."
+  },
+  "81:8:Expr:nodes_wrapper": {
+   "label": "Announces native downloading with safety warnings, then allows downloads in the settings.",
+   "title": "Enable downloads with warnings"
+  },
+  "82:8:Call:call": {
+   "label": "Warns that the agent can now save files to the machine and advises monitoring downloads."
+  },
+  "83:8:Call:call": {
+   "label": "Warns the user in bold red never to open files they are unsure of."
+  },
+  "84:8:Assign:simple": {
+   "label": "Turns on file downloading in the settings."
+  },
+  "85:4:If:simple": {
+   "label": "If the user asked to suppress the startup news, records that in the settings."
+  }
+ },
+ "L392060f6fba736": {
+  "10:4:ExceptHandler:except": {
+   "label": "Did loading the plugins config fail with any error?"
+  },
+  "11:8:Call:call": {
+   "label": "Logs that the plugin config is invalid, with the error, and that plugins will be skipped."
+  },
+  "11:8:Expr:nodes_wrapper": {
+   "label": "Logs the error and returns an empty plugins configuration.",
+   "title": "Fall back to no plugins"
+  },
+  "12:8:Return:simple": {
+   "label": "Returns the empty plugins configuration so the agent runs without plugins."
+  },
+  "3:4:Assign:simple": {
+   "label": "Prepares an empty plugins configuration to return if loading fails."
+  },
+  "4:4:Try:try_wrapper": {
+   "label": "Loads and checks the plugin file, returning an empty configuration if it is invalid or loading fails.",
+   "title": "Load plugins config safely"
+  },
+  "5:22:Call:call": {
+   "label": "Reads the plugins config file, applying the denylist and allowlist."
+  },
+  "5:8:Assign:glue": {
+   "label": "Keeps the loaded plugin settings for checking."
+  },
+  "5:8:Assign:nodes_wrapper": {
+   "label": "Loads the plugin file, rejects non-dictionary data, and otherwise returns the plugins configuration.",
+   "title": "Load and validate plugins"
+  },
+  "5:8:Assign:wrapper": {
+   "label": "Loads plugin settings from the file with the deny and allow lists and keeps them."
+  },
+  "6:11:Compare:check_value": {
+   "label": "Is the loaded plugin data something other than a dictionary?"
+  },
+  "6:8:If:if_wrapper": {
+   "label": "If the plugin data is not a dictionary, logs an error and returns an empty configuration.",
+   "title": "Check config is a dict"
+  },
+  "7:12:Call:call": {
+   "label": "Logs an error that the plugins config was not a dictionary and plugins will be skipped."
+  },
+  "7:12:Expr:nodes_wrapper": {
+   "label": "Logs the error and returns an empty plugins configuration.",
+   "title": "Reject non-dict config"
+  },
+  "8:12:Return:simple": {
+   "label": "Returns the empty plugins configuration so the agent runs without plugins."
+  },
+  "9:8:Return:simple": {
+   "label": "Returns a plugins configuration built from the loaded data."
+  }
+ },
+ "L3f7392cebcf347": {
+  "16:4:Return:simple": {
+   "label": "Returns the older messages that did not fit within the token limit."
+  },
+  "2:4:Assign:simple": {
+   "label": "Sets up the prompt's current token length, the insertion point at its end, a limit-reached flag and an empty trimmed list."
+  },
+  "6:17:Call:glue": {
+   "label": "Turns the cycles into a list and reverses it so newest come first."
+  },
+  "6:17:Call:wrapper": {
+   "label": "Collects the history cycles and reverses them, so the newest are considered first."
+  },
+  "6:31:Call:call": {
+   "label": "Gets the history grouped into cycles of the agent's action and its result."
+  },
+  "6:4:For:for_wrapper": {
+   "label": "Walks history from newest to oldest, adding cycles to the prompt until the token limit, and sets aside older ones.",
+   "title": "Add newest history that fits"
+  },
+  "6:8:Name:for_check": {
+   "label": "Are there more history cycles to consider?"
+  },
+  "6:8:Name:for_fetch": {
+   "label": "Takes the next cycle, starting from the most recent."
+  },
+  "7:8:Assign:nodes_wrapper": {
+   "label": "Collects the cycle's messages, counts their tokens, and flags when the token limit would be exceeded.",
+   "title": "Measure and check cycle"
+  },
+  "7:8:Assign:simple": {
+   "label": "Drops any missing messages from the cycle."
+  },
+  "8:24:Call:call": {
+   "label": "Counts the tokens the cycle's messages would use for the prompt's model."
+  },
+  "8:8:Assign:glue": {
+   "label": "Records how many tokens this cycle would add."
+  },
+  "8:8:Assign:wrapper": {
+   "label": "Measures the token cost of this cycle's messages for the model in use."
+  },
+  "9:8:If:simple": {
+   "label": "Marks the limit as reached if adding this cycle would push the prompt over the token limit."
+  }
+ },
+ "L4b32305b6e8fc0": {
+  "11:4:Call:call": {
+   "label": "Welcomes the user and points them to the help option, speaking the message aloud."
+  },
+  "12:4:Assign:simple": {
+   "label": "Works out whether a usable AI template with a name, role or goals was supplied."
+  },
+  "14:4:If:if_wrapper": {
+   "label": "If no template was given, asks the user to describe what they want the agent to do.",
+   "title": "Ask for user's goal"
+  },
+  "14:7:UnaryOp:check_value": {
+   "label": "Was no usable AI template provided?"
+  },
+  "15:8:Call:call": {
+   "label": "Tells the user how to create an assistant and that '--manual' enters manual mode."
+  },
+  "15:8:Expr:nodes_wrapper": {
+   "label": "Explains how to create an AI assistant, then asks the user what they want it to do.",
+   "title": "Ask what the user wants"
+  },
+  "16:8:Assign:simple": {
+   "label": "Asks the user what they want Auto-GPT to do and cleans the typed answer."
+  },
+  "17:4:If:simple": {
+   "label": "If the user typed nothing, falls back to the default task description."
+  },
+  "19:4:If:if_wrapper": {
+   "label": "Uses manual setup if requested or a template exists; otherwise generates the configuration automatically.",
+   "title": "Manual or automatic setup"
+  },
+  "19:7:BoolOp:check_value": {
+   "label": "Did the user ask for manual mode or supply an AI template?"
+  },
+  "20:8:Call:call": {
+   "label": "Tells the user that manual mode was selected, speaking it aloud."
+  },
+  "20:8:Expr:nodes_wrapper": {
+   "label": "Announces manual mode, then returns the AI configuration the user fills in by hand.",
+   "title": "Manual setup"
+  },
+  "21:15:Call:call": {
+   "label": "Interactively collects the AI's name, role and goals from the user, starting from the template."
+  },
+  "21:8:Return:glue": {
+   "label": "Returns the AI configuration built by the manual setup."
+  },
+  "21:8:Return:wrapper": {
+   "label": "Hands back the manually created AI configuration."
+  },
+  "23:8:Try:try_wrapper": {
+   "label": "Tries to generate the AI configuration with the language model, falling back to manual setup on error.",
+   "title": "Generate config automatically"
+  },
+  "24:12:Return:glue": {
+   "label": "Returns the AI configuration generated from the user's description."
+  },
+  "24:12:Return:wrapper": {
+   "label": "Hands back the automatically generated AI configuration."
+  },
+  "24:19:Call:call": {
+   "label": "Asks the language model to generate the AI's name, role and goals from the user's description."
+  },
+  "25:8:ExceptHandler:except": {
+   "label": "Did automatic generation of the AI configuration fail with an error?"
+  },
+  "26:12:Call:call": {
+   "label": "Tells the user automatic generation failed and that manual mode will be used."
+  },
+  "26:12:Expr:nodes_wrapper": {
+   "label": "Reports the failure, logs the error, and falls back to manual setup of the AI configuration.",
+   "title": "Fall back to manual"
+  },
+  "27:12:Call:call": {
+   "label": "Records the error from the failed generation in the debug log."
+  },
+  "28:12:Return:glue": {
+   "label": "Returns the AI configuration built by the manual fallback."
+  },
+  "28:12:Return:wrapper": {
+   "label": "Hands back the manually created AI configuration as a fallback."
+  },
+  "28:19:Call:call": {
+   "label": "Interactively collects the AI's name, role and goals from the user without a template."
+  }
+ },
+ "L4b92d0e4389f17": {
+  "14:19:Name:glue": {
+   "label": "Gets the incompatible commands to loop over."
+  },
+  "14:4:For:for_wrapper": {
+   "label": "Removes each incompatible command from the registry, logging the reason for each.",
+   "title": "Remove incompatible commands"
+  },
+  "14:8:Name:for_check": {
+   "label": "Is there another incompatible command to remove?"
+  },
+  "15:8:Call:call": {
+   "label": "Removes this incompatible command from the registry so the agent cannot use it."
+  },
+  "15:8:Expr:nodes_wrapper": {
+   "label": "Removes the command from the registry and logs the reason.",
+   "title": "Unregister and log"
+  },
+  "16:8:Call:call": {
+   "label": "Logs the removed command's name and why it was disabled."
+  },
+  "17:4:Return:simple": {
+   "label": "Returns the finished registry of usable commands."
+  },
+  "3:4:Assign:simple": {
+   "label": "Creates an empty command registry to fill with commands."
+  },
+  "4:4:Call:call": {
+   "label": "Logs which command categories the settings have disabled."
+  },
+  "5:4:Assign:simple": {
+   "label": "Keeps only the command categories that are not disabled in the settings."
+  },
+  "6:4:Call:call": {
+   "label": "Logs which command categories remain enabled."
+  },
+  "7:26:Name:glue": {
+   "label": "Gets the enabled command categories to loop over."
+  },
+  "7:4:For:for_wrapper": {
+   "label": "Imports every enabled command category into the new registry.",
+   "title": "Import enabled categories"
+  },
+  "7:8:Name:for_check": {
+   "label": "Is there another enabled command category to import?"
+  },
+  "8:8:Call:call": {
+   "label": "Imports the category's module and registers its commands in the new registry."
+  },
+  "9:4:AnnAssign:simple": {
+   "label": "Starts an empty list to collect commands that the current settings make unusable."
+  }
+ },
+ "L4e3af4bf521f6f": {
+  "13:13:Call:call": {
+   "label": "Starts a chat sequence for the model with the system prompt and any messages to put before the history."
+  },
+  "13:4:Assign:glue": {
+   "label": "Stores the new chat sequence as the prompt being built."
+  },
+  "13:4:Assign:wrapper": {
+   "label": "Begins the prompt with the system message and the prepended messages."
+  },
+  "14:4:AugAssign:simple": {
+   "label": "Reserves tokens for the running summary that may be added to the history later."
+  },
+  "15:4:If:if_wrapper": {
+   "label": "If there are messages to append, reserves token room for them so the history leaves space.",
+   "title": "Reserve tokens for appended"
+  },
+  "15:7:Name:check_value": {
+   "label": "Are there messages to add after the history?"
+  },
+  "16:26:Call:call": {
+   "label": "Counts how many tokens the appended messages will use."
+  },
+  "16:8:AugAssign:glue": {
+   "label": "Adds the appended messages' token count to the reserved tokens."
+  },
+  "16:8:AugAssign:wrapper": {
+   "label": "Reserves room in the token budget for the appended messages."
+  },
+  "17:4:Assign:simple": {
+   "label": "Remembers where the history will start in the prompt, so a summary can be inserted there."
+  },
+  "18:22:Call:call": {
+   "label": "Adds as much recent history to the prompt as fits within the token limit after reservations."
+  },
+  "18:4:Assign:glue": {
+   "label": "Stores whether some older history had to be left out."
+  },
+  "18:4:Assign:wrapper": {
+   "label": "Fills the prompt with recent history and records whether any was trimmed."
+  },
+  "19:4:If:simple": {
+   "label": "If older history was dropped, creates an updated summary of it and inserts it at the start of the history."
+  }
+ },
+ "L55738530aa48d2": {
+  "16:26:Call:call": {
+   "label": "Resolves and cleans the workspace path so it is safe to use."
+  },
+  "16:4:Assign:glue": {
+   "label": "Keeps the cleaned workspace path."
+  },
+  "16:4:Assign:wrapper": {
+   "label": "Sanitizes the requested workspace path and keeps the result."
+  },
+  "17:4:Expr:simple": {
+   "label": "Creates the workspace folder and any missing parents, without failing if it already exists, then returns its path."
+  }
+ },
+ "L63e13aa1968100": {
+  "10:39:Call:call": {
+   "label": "Strips terminal colour codes from the agent's reasoning."
+  },
+  "10:8:Assign:glue": {
+   "label": "Stores the agent's reasoning with colour codes removed."
+  },
+  "10:8:Assign:nodes_wrapper": {
+   "label": "Cleans the reasoning, plan, criticism and speak texts of colour codes for display.",
+   "title": "Clean thought fields"
+  },
+  "10:8:Assign:wrapper": {
+   "label": "Cleans the reasoning text and keeps it for display."
+  },
+  "11:34:Call:call": {
+   "label": "Strips terminal colour codes from the agent's plan."
+  },
+  "11:8:Assign:glue": {
+   "label": "Stores the agent's plan with colour codes removed."
+  },
+  "11:8:Assign:wrapper": {
+   "label": "Cleans the plan text and keeps it for display."
+  },
+  "12:39:Call:call": {
+   "label": "Strips terminal colour codes from the agent's self-criticism."
+  },
+  "12:8:Assign:glue": {
+   "label": "Stores the agent's criticism with colour codes removed."
+  },
+  "12:8:Assign:wrapper": {
+   "label": "Cleans the criticism text and keeps it for display."
+  },
+  "13:35:Call:call": {
+   "label": "Strips terminal colour codes from the text the agent wants spoken."
+  },
+  "13:8:Assign:glue": {
+   "label": "Stores the agent's spoken summary with colour codes removed."
+  },
+  "13:8:Assign:wrapper": {
+   "label": "Cleans the speak text before it is shown or voiced."
+  },
+  "14:4:Call:call": {
+   "label": "Shows the agent's main thought to the user in yellow, headed with the agent's name."
+  },
+  "15:4:Call:call": {
+   "label": "Shows the agent's reasoning to the user in yellow."
+  },
+  "16:4:If:if_wrapper": {
+   "label": "If the agent gave a plan, prints it as a heading followed by green bullets.",
+   "title": "Show plan if present"
+  },
+  "16:7:Name:check_value": {
+   "label": "Did the agent provide a plan to show?"
+  },
+  "17:8:Call:call": {
+   "label": "Prints the 'PLAN:' heading in yellow before the plan steps."
+  },
+  "17:8:Expr:nodes_wrapper": {
+   "label": "Prints the 'PLAN:' heading, normalises the plan to text, and prints its lines as bullets.",
+   "title": "Print the plan"
+  },
+  "18:11:Call:check_value": {
+   "label": "Is the plan a list of steps?"
+  },
+  "18:8:If:if_wrapper": {
+   "label": "Turns a plan given as a list or dictionary into plain text.",
+   "title": "Normalise plan to text"
+  },
+  "19:12:Assign:simple": {
+   "label": "Joins the list of plan steps into one text, one step per line."
+  },
+  "20:8:If:simple": {
+   "label": "If the plan is a dictionary instead, converts it to text so it can be printed."
+  },
+  "22:8:Assign:simple": {
+   "label": "Splits the plan text into separate lines to print one at a time."
+  },
+  "23:12:Name:for_check": {
+   "label": "Is there another plan line to print?"
+  },
+  "23:20:Name:glue": {
+   "label": "Gets the plan lines to loop over."
+  },
+  "23:8:For:for_wrapper": {
+   "label": "Prints each plan line as a green bullet with existing dashes removed.",
+   "title": "Print plan lines"
+  },
+  "24:12:Assign:nodes_wrapper": {
+   "label": "Trims leading dashes from the line and prints it as a green bullet.",
+   "title": "Print plan bullet"
+  },
+  "24:12:Assign:simple": {
+   "label": "Removes any leading dashes and spaces so bullets are not doubled."
+  },
+  "25:12:Call:call": {
+   "label": "Prints this plan line as a green bullet for the user."
+  },
+  "26:4:Call:call": {
+   "label": "Shows the agent's self-criticism to the user in yellow."
+  },
+  "27:4:If:if_wrapper": {
+   "label": "If the agent provided a spoken summary, voices it or prints it depending on speak mode.",
+   "title": "Output spoken summary"
+  },
+  "27:7:Name:check_value": {
+   "label": "Did the agent provide something to say aloud?"
+  },
+  "28:11:Attribute:check_value": {
+   "label": "Is speak mode on, so the agent talks out loud?"
+  },
+  "28:8:If:if_wrapper": {
+   "label": "Speaks the summary aloud in speak mode, otherwise prints it as text.",
+   "title": "Speak or print summary"
+  },
+  "29:12:Call:call": {
+   "label": "Reads the agent's spoken summary aloud using text-to-speech."
+  },
+  "2:4:ImportFrom:simple": {
+   "label": "Imports the text-to-speech function, used only when speak mode is on."
+  },
+  "31:12:Call:call": {
+   "label": "Prints the spoken summary as text since speak mode is off."
+  },
+  "8:30:Call:call": {
+   "label": "Strips terminal colour codes from the agent's main thought text."
+  },
+  "8:4:Assign:glue": {
+   "label": "Cleans the agent's thought text of colour codes and stores it for display."
+  },
+  "8:4:Assign:wrapper": {
+   "label": "Stores the agent's thought text with terminal escape codes removed."
+  },
+  "9:4:If:if_wrapper": {
+   "label": "If the agent gave thoughts, extracts and cleans its reasoning, plan, criticism and speech.",
+   "title": "Clean thoughts if present"
+  },
+  "9:7:Name:check_value": {
+   "label": "Did the agent's reply contain any thoughts?"
+  }
+ },
+ "L64b128b53bcbda": {
+  "3:4:If:if_wrapper": {
+   "label": "Chooses the workspace folder: the default if none was given, otherwise the user's path.",
+   "title": "Choose workspace path"
+  },
+  "3:7:Compare:check_value": {
+   "label": "Did the caller not give a workspace path?"
+  },
+  "4:8:Assign:simple": {
+   "label": "Uses the default 'auto_gpt_workspace' folder inside the working directory."
+  },
+  "5:4:If:simple": {
+   "label": "Converts a text path into a Path object, or uses a Path object as given."
+  },
+  "9:11:Call:call": {
+   "label": "Creates the workspace folder at the chosen path and returns it."
+  },
+  "9:4:Return:glue": {
+   "label": "Returns the workspace folder after making sure it exists."
+  },
+  "9:4:Return:wrapper": {
+   "label": "Gives back the created workspace path to the caller."
+  }
+ },
+ "L64ee8fd4c98d0e": {
+  "10:4:If:if_wrapper": {
+   "label": "Unless news is skipped, shows the latest bulletin and warns about unsupported branch or old Python.",
+   "title": "Show news and warnings"
+  },
+  "10:7:UnaryOp:check_value": {
+   "label": "Is the user not skipping the news bulletin and version warnings?"
+  },
+  "11:30:Call:call": {
+   "label": "Downloads the latest project bulletin and checks whether it is new."
+  },
+  "11:8:Assign:glue": {
+   "label": "Gets the bulletin text and a flag saying whether it changed since last seen."
+  },
+  "11:8:Assign:nodes_wrapper": {
+   "label": "Fetches the bulletin and shows it, then warns about an unsupported git branch or old Python.",
+   "title": "Show news and warnings"
+  },
+  "11:8:Assign:wrapper": {
+   "label": "Stores the bulletin message and whether it is new in motd and is_new_motd."
+  },
+  "12:11:Name:check_value": {
+   "label": "Did the fetch return a bulletin message to show?"
+  },
+  "12:8:If:if_wrapper": {
+   "label": "If a bulletin exists, shows it to the user and waits for acknowledgement when it is new.",
+   "title": "Show bulletin if present"
+  },
+  "13:12:Assign:glue": {
+   "label": "Replaces the bulletin text with its terminal-styled version."
+  },
+  "13:12:Assign:nodes_wrapper": {
+   "label": "Styles the bulletin, logs it line by line, and pauses for a new bulletin when chat plugins are off.",
+   "title": "Show the bulletin"
+  },
+  "13:12:Assign:wrapper": {
+   "label": "Styles the bulletin for the terminal and keeps it in motd."
+  },
+  "13:19:Call:call": {
+   "label": "Converts the bulletin's markdown into terminal colour styling."
+  },
+  "14:12:For:for_wrapper": {
+   "label": "Logs each line of the bulletin in green under a 'NEWS:' prefix.",
+   "title": "Log bulletin lines"
+  },
+  "14:16:Name:for_check": {
+   "label": "Is there another bulletin line to log?"
+  },
+  "14:29:Call:glue": {
+   "label": "Splits the bulletin into lines so each can be logged."
+  },
+  "15:16:Call:call": {
+   "label": "Logs one bulletin line to the user in green with a 'NEWS:' prefix."
+  },
+  "16:12:If:simple": {
+   "label": "If the bulletin is new and chat plugins are off, pauses until the user presses Enter."
+  },
+  "18:21:Call:call": {
+   "label": "Looks up which git branch the code is running from."
+  },
+  "18:8:Assign:glue": {
+   "label": "Finds the current git branch name for the supported-branch check."
+  },
+  "18:8:Assign:wrapper": {
+   "label": "Stores the current git branch name in git_branch."
+  },
+  "19:11:BoolOp:check_value": {
+   "label": "Is the code running from a known git branch other than 'stable'?"
+  },
+  "19:8:If:if_wrapper": {
+   "label": "Warns the user when running from a git branch other than the supported stable one.",
+   "title": "Warn on unsupported branch"
+  },
+  "20:12:Call:call": {
+   "label": "Warns in red that the current branch is not a supported branch."
+  },
+  "21:11:Compare:check_value": {
+   "label": "Is the Python version older than 3.10?"
+  },
+  "21:8:If:if_wrapper": {
+   "label": "Warns the user when running on a Python version older than 3.10.",
+   "title": "Warn on old Python"
+  },
+  "22:12:Call:call": {
+   "label": "Warns in red that old Python may cause problems and suggests upgrading to 3.10 or higher."
+  },
+  "23:4:If:if_wrapper": {
+   "label": "Installs plugin dependencies when the user requested it at startup.",
+   "title": "Install plugin dependencies"
+  },
+  "23:7:Name:check_value": {
+   "label": "Did the user ask to install the plugins' dependencies?"
+  },
+  "24:8:Call:call": {
+   "label": "Installs the packages that the plugins in the plugins folder require."
+  },
+  "25:28:Call:call": {
+   "label": "Creates the workspace folder, using the chosen path or the default, and returns its path."
+  },
+  "25:4:Assign:glue": {
+   "label": "Creates the workspace directory and records its path in the settings."
+  },
+  "25:4:Assign:wrapper": {
+   "label": "Sets up the agent's workspace folder and stores its path in config.workspace_path."
+  },
+  "26:30:Call:call": {
+   "label": "Works out where the agent's file operations log lives inside the workspace."
+  },
+  "26:4:Assign:glue": {
+   "label": "Records the file logger's path, inside the workspace, in the settings."
+  },
+  "26:4:Assign:wrapper": {
+   "label": "Sets config.file_logger_path to the log file location in the workspace."
+  },
+  "27:4:Assign:simple": {
+   "label": "Finds the installed plugins and stores them in the settings for later use."
+  },
+  "28:23:Call:call": {
+   "label": "Loads every enabled command category into a registry of commands the agent can use."
+  },
+  "28:4:Assign:glue": {
+   "label": "Builds the registry of available commands from the command categories and settings."
+  },
+  "28:4:Assign:wrapper": {
+   "label": "Creates command_registry holding the commands the agent may run."
+  },
+  "29:16:Call:call": {
+   "label": "Builds the agent's identity (name, role, goals) from the options or by asking the user."
+  },
+  "29:4:Assign:glue": {
+   "label": "Obtains the AI configuration with its name, role and goals."
+  },
+  "29:4:Assign:wrapper": {
+   "label": "Creates ai_config describing who the agent is and what it should achieve."
+  },
+  "2:4:Call:call": {
+   "label": "Sets logging to DEBUG detail when the user asked for debug mode, otherwise to INFO."
+  },
+  "30:4:Assign:simple": {
+   "label": "Attaches the command registry to the AI configuration so the prompt can list the commands."
+  },
+  "31:4:If:if_wrapper": {
+   "label": "When chat messages are enabled, connects report-capable plugins to the logger.",
+   "title": "Connect chat plugins"
+  },
+  "31:7:Attribute:check_value": {
+   "label": "Are chat messages enabled, so plugins may report the agent's conversation?"
+  },
+  "32:12:Name:for_check": {
+   "label": "Is there another plugin to check?"
+  },
+  "32:22:Attribute:glue": {
+   "label": "Gets the list of loaded plugins to check each one."
+  },
+  "32:8:For:for_wrapper": {
+   "label": "Checks every plugin and hooks those that can handle reports into the logger.",
+   "title": "Hook report plugins"
+  },
+  "33:12:If:if_wrapper": {
+   "label": "If the plugin can handle reports, logs it and hooks it into the logger.",
+   "title": "Hook report plugin"
+  },
+  "33:15:BoolOp:check_value": {
+   "label": "Does this plugin offer report handling and say it will handle reports?"
+  },
+  "34:16:Call:call": {
+   "label": "Logs that this plugin was loaded into the logger."
+  },
+  "34:16:Expr:nodes_wrapper": {
+   "label": "Announces the plugin and adds it to the logger's chat plugins.",
+   "title": "Register chat plugin"
+  },
+  "35:16:Expr:simple": {
+   "label": "Registers the plugin with the logger so chat messages are passed to it."
+  },
+  "36:4:Assign:simple": {
+   "label": "Creates the memory backend chosen in the settings for the agent to store information."
+  },
+  "37:4:Call:call": {
+   "label": "Wipes any stored memories so each run starts fresh."
+  },
+  "38:4:Call:call": {
+   "label": "Tells the user which kind of memory is in use."
+  },
+  "39:4:Call:call": {
+   "label": "Tells the user which web browser the agent will use for browsing."
+  },
+  "3:13:Call:call": {
+   "label": "Reads environment variables into a settings object, rooted at the chosen working directory."
+  },
+  "3:4:Assign:glue": {
+   "label": "Builds the settings from the environment and keeps them as config for the rest of startup."
+  },
+  "3:4:Assign:wrapper": {
+   "label": "Loads the agent's settings from environment variables and the working directory into config."
+  },
+  "40:4:Assign:simple": {
+   "label": "Creates the agent from its memory, commands, triggering prompt and configuration."
+  },
+  "41:4:Call:call": {
+   "label": "Starts the loop where the agent plans, the user approves, and commands run."
+  },
+  "4:4:Assign:simple": {
+   "label": "Gives the logger the settings so it can follow options such as speech and chat plugins."
+  },
+  "5:4:Call:call": {
+   "label": "Makes sure an OpenAI API key is available, asking the user for one if it is missing."
+  },
+  "6:4:Call:call": {
+   "label": "Applies the command-line options (continuous mode, models, memory, browser, and so on) onto the settings."
+  },
+  "7:4:If:if_wrapper": {
+   "label": "In continuous mode, warns the user line by line about the risks of letting the agent run unattended.",
+   "title": "Warn in continuous mode"
+  },
+  "7:7:Attribute:check_value": {
+   "label": "Is continuous mode on, so the agent will run commands without asking the user?"
+  },
+  "8:12:Name:for_check": {
+   "label": "Is there another line of the legal warning to show?"
+  },
+  "8:12:Name:for_fetch": {
+   "label": "Takes the next line of the legal warning."
+  },
+  "8:20:Call:call": {
+   "label": "Gets the legal warning text and splits it into lines to print one by one."
+  },
+  "8:20:Call:glue": {
+   "label": "Splits the legal warning text into lines so each can be shown as a separate warning."
+  },
+  "8:20:Call:wrapper": {
+   "label": "Fetches the legal disclaimer and breaks it into lines for display."
+  },
+  "8:8:For:for_wrapper": {
+   "label": "Prints every line of the legal warning in red, styled for the terminal.",
+   "title": "Print legal warning lines"
+  },
+  "9:12:Call:call": {
+   "label": "Prints the styled warning line to the user with a red 'LEGAL:' prefix."
+  },
+  "9:12:Call:call_wrapper": {
+   "label": "Shows the styled legal warning line under a red 'LEGAL:' label."
+  },
+  "9:24:Call:call": {
+   "label": "Converts the markdown in this warning line into terminal colour codes."
+  }
+ },
+ "L6696f9b7988523": {
+  "10:12:Assign:simple": {
+   "label": "Saves the typed key in the process environment variable OPENAI_API_KEY."
+  },
+  "14:12:Expr:simple": {
+   "label": "Tells the user the key is invalid before the program exits."
+  },
+  "3:7:UnaryOp:check_value": {
+   "label": "Is no OpenAI API key set in the settings?"
+  },
+  "4:8:Expr:nodes_wrapper": {
+   "label": "Explains where to get a key, asks the user to type it, and validates it or exits.",
+   "title": "Ask user for API key"
+  },
+  "4:8:Expr:simple": {
+   "label": "Tells the user in red that an API key must be set in .env or the environment."
+  },
+  "9:11:Call:check_value": {
+   "label": "Does the key the user typed look like a valid OpenAI key?"
+  },
+  "9:8:If:if_wrapper": {
+   "label": "Accepts a well-formed key and tells the user it is temporary, or reports it as invalid and exits.",
+   "title": "Validate typed key"
+  }
+ },
+ "L6d0792182b79e8": {
+  "10:4:Call:call": {
+   "label": "Logs the model's raw output for debugging."
+  },
+  "11:4:Assign:simple": {
+   "label": "Extracts the agent's name from the model's output using a text pattern."
+  },
+  "7:4:Assign:simple": {
+   "label": "Takes the default system prompt used to generate an AI configuration automatically."
+  },
+  "9:36:Call:call": {
+   "label": "Builds a chat for the fast model from the system prompt and the user's task prompt."
+  },
+  "9:4:Assign:glue": {
+   "label": "Asks the fast model to generate the AI configuration and keeps its text reply."
+  },
+  "9:4:Assign:wrapper": {
+   "label": "Stores the model's generated description of the agent's name, role and goals."
+  }
+ },
+ "L72314efa79a1a6": {
+  "13:4:Return:simple": {
+   "label": "Joins the styled lines back into one text and returns it."
+  },
+  "2:4:AnnAssign:simple": {
+   "label": "Starts an empty list to collect the styled lines."
+  },
+  "3:16:Call:glue": {
+   "label": "Splits the markdown text into separate lines to go through."
+  },
+  "3:4:For:for_wrapper": {
+   "label": "Converts each markdown line into a terminal-styled line with bold text and cyan headings.",
+   "title": "Style each line"
+  },
+  "3:8:Name:for_check": {
+   "label": "Is there another markdown line to style?"
+  },
+  "4:8:Assign:nodes_wrapper": {
+   "label": "Chooses the styling for one line, adds it with a style reset, and stores the line.",
+   "title": "Style one line"
+  },
+  "4:8:Assign:simple": {
+   "label": "Starts this line with no styling."
+  },
+  "5:11:Call:check_value": {
+   "label": "Does the line start with a single '# ', meaning a top-level heading?"
+  },
+  "5:8:If:if_wrapper": {
+   "label": "Makes top-level headings bright; for other lines, makes text in asterisks bright.",
+   "title": "Bold headings and emphasis"
+  },
+  "6:12:AugAssign:simple": {
+   "label": "Makes the heading line bright."
+  },
+  "8:12:Assign:simple": {
+   "label": "Makes text between asterisks bright, so emphasised words stand out in the terminal."
+  },
+  "9:8:If:simple": {
+   "label": "If the line is a heading of any level, colours it cyan and removes the leading hashes."
+  }
+ },
+ "L770d0955b26f89": {
+  "10:8:Assign:nodes_wrapper": {
+   "label": "Skips non-AI messages, finds the user and result messages around an AI response, and yields valid cycles.",
+   "title": "Build one cycle"
+  },
+  "10:8:Assign:simple": {
+   "label": "Takes the message at this position and skips it unless it is an AI response, then finds the user message before it and the result after it."
+  },
+  "15:8:Try:try_wrapper": {
+   "label": "Yields the user, AI and result messages if they form a valid cycle, otherwise logs the invalid item.",
+   "title": "Yield valid cycles"
+  },
+  "16:12:Assert:glue": {
+   "label": "Requires the AI message to parse to a non-empty dictionary, otherwise raises an assertion error."
+  },
+  "16:12:Assert:nodes_wrapper": {
+   "label": "Checks the AI reply is valid and followed by an action result, then yields the cycle's messages.",
+   "title": "Validate cycle messages"
+  },
+  "16:12:Assert:wrapper": {
+   "label": "Checks that the AI's message is a valid, non-empty JSON-like reply."
+  },
+  "16:19:Call:call": {
+   "label": "Parses the AI message text into a dictionary."
+  },
+  "17:12:Assert:simple": {
+   "label": "Requires the following message to be an action result, then yields the user, AI and result messages as one cycle."
+  },
+  "19:8:ExceptHandler:except": {
+   "label": "Did a check fail because the messages were not a valid cycle?"
+  },
+  "20:12:Call:call": {
+   "label": "Logs the invalid history item and nearby messages for debugging, then moves on."
+  },
+  "8:4:Assign:simple": {
+   "label": "Uses the given messages, or the stored history if none were given."
+  },
+  "9:13:Call:glue": {
+   "label": "Prepares the range of message positions to step through, leaving out the last message."
+  },
+  "9:4:For:for_wrapper": {
+   "label": "Goes through the message history and yields each valid user, AI response and result cycle.",
+   "title": "Walk message history"
+  },
+  "9:8:Name:for_check": {
+   "label": "Is there another message position to examine?"
+  }
+ },
+ "L7d8188bea0a0c2": {
+  "2:4:If:if_wrapper": {
+   "label": "Warn when this command replaces one already registered under the same name.",
+   "title": "Warn on overwrite"
+  },
+  "2:7:Compare:check_value": {
+   "label": "Is a command with this name already registered?"
+  },
+  "3:8:Call:call": {
+   "label": "Warn that the existing command will be overwritten."
+  },
+  "4:4:Assign:simple": {
+   "label": "Store the command in the registry under its name."
+  },
+  "5:4:If:if_wrapper": {
+   "label": "Warn when the command's name clashes with an existing alias.",
+   "title": "Warn on alias clash"
+  },
+  "5:7:Compare:check_value": {
+   "label": "Does this command name match an existing alias?"
+  },
+  "6:8:Call:call": {
+   "label": "Warn that the command will override the alias with the same name."
+  },
+  "7:4:For:simple": {
+   "label": "Make each of the command's aliases point to this command."
+  }
+ },
+ "L8a9cb35ab62fe9": {
+  "13:4:Assign:simple": {
+   "label": "Record how many tokens the prompt already uses, so plugin additions can be limited."
+  },
+  "15:23:Call:glue": {
+   "label": "Go through the plugins together with their positions."
+  },
+  "15:4:For:for_wrapper": {
+   "label": "Let each capable plugin add planning text to the prompt while it fits.",
+   "title": "Add plugin messages"
+  },
+  "15:8:Tuple:for_check": {
+   "label": "Is there another plugin to consult?"
+  },
+  "16:8:If:nodes_wrapper": {
+   "label": "Ask the plugin for planning text, check it fits the token limit, and add it to the prompt.",
+   "title": "Add plugin planning"
+  },
+  "16:8:If:simple": {
+   "label": "Skip plugins that cannot take part in planning."
+  },
+  "22:24:Call:call": {
+   "label": "Count the tokens the plugin's message would add."
+  },
+  "22:8:Assign:glue": {
+   "label": "Keep the plugin message's token count."
+  },
+  "22:8:Assign:wrapper": {
+   "label": "Store how many tokens the plugin's message adds."
+  },
+  "23:11:Compare:check_value": {
+   "label": "Would adding this message push the prompt over the token limit?"
+  },
+  "23:8:If:if_wrapper": {
+   "label": "Stop asking plugins, with log messages, if their message would exceed the token limit.",
+   "title": "Stop at token limit"
+  },
+  "24:12:Call:call": {
+   "label": "Log that the plugin response is too long and is skipped."
+  },
+  "24:12:Expr:nodes_wrapper": {
+   "label": "Log the skipped response and the plugins left, then stop consulting plugins.",
+   "title": "Log and stop"
+  },
+  "25:12:Call:call": {
+   "label": "Log how many plugins were left when stopping."
+  },
+  "26:12:Break:simple": {
+   "label": "Stop asking plugins because the prompt is full."
+  },
+  "27:8:Expr:simple": {
+   "label": "Insert the plugin's message just before the last prompt message and add its tokens to the total."
+  },
+  "29:4:Return:simple": {
+   "label": "Give back the prompt with any plugin messages included."
+  }
+ },
+ "L907efb25628152": {
+  "10:4:If:if_wrapper": {
+   "label": "When no speech provider is configured, picks one from available voices and keys and stores it.",
+   "title": "Default speech provider"
+  },
+  "10:7:UnaryOp:check_value": {
+   "label": "Was no text-to-speech provider set explicitly, so one must be chosen by default?"
+  },
+  "11:11:Call:check_value": {
+   "label": "Is the macOS speech variable set?"
+  },
+  "11:8:If:if_wrapper": {
+   "label": "Chooses macOS, ElevenLabs, StreamElements or Google speech in that order, based on environment variables and the API key.",
+   "title": "Pick default speech provider"
+  },
+  "11:8:If:nodes_wrapper": {
+   "label": "Selects a default speech provider from the environment and records it in the settings.",
+   "title": "Choose and store provider"
+  },
+  "12:12:Assign:simple": {
+   "label": "Picks the macOS built-in voice as the speech provider."
+  },
+  "13:13:Subscript:check_value": {
+   "label": "Was an ElevenLabs API key configured?"
+  },
+  "13:8:If:if_wrapper": {
+   "label": "Chooses ElevenLabs when its key exists, otherwise StreamElements or Google speech depending on the Brian voice variable.",
+   "title": "ElevenLabs or fallback voice"
+  },
+  "14:12:Assign:simple": {
+   "label": "Picks ElevenLabs as the speech provider because an API key exists."
+  },
+  "15:8:If:simple": {
+   "label": "Picks StreamElements if the Brian voice variable is set; otherwise falls back to Google text-to-speech."
+  },
+  "19:8:Assign:simple": {
+   "label": "Saves the chosen default provider as the speech provider in the settings."
+  },
+  "20:39:Call:call": {
+   "label": "Splits the allowlisted plugins variable into a list of plugin names."
+  },
+  "20:4:Assign:glue": {
+   "label": "Stores the allowlisted plugin names in the settings dictionary."
+  },
+  "20:4:Assign:wrapper": {
+   "label": "Reads the plugin allowlist from the environment and stores it as a list in the settings."
+  },
+  "21:38:Call:call": {
+   "label": "Splits the denylisted plugins variable into a list of plugin names."
+  },
+  "21:4:Assign:glue": {
+   "label": "Stores the denylisted plugin names in the settings dictionary."
+  },
+  "21:4:Assign:wrapper": {
+   "label": "Reads the plugin denylist from the environment and stores it as a list in the settings."
+  },
+  "22:4:With:simple": {
+   "label": "Converts image size, Redis port and temperature to numbers when set, silently skipping any that are missing."
+  },
+  "28:4:If:if_wrapper": {
+   "label": "Uses Azure settings when enabled; otherwise applies a custom OpenAI base URL if one is provided.",
+   "title": "Azure or custom API base"
+  },
+  "28:7:Subscript:check_value": {
+   "label": "Is Azure OpenAI enabled in the settings?"
+  },
+  "29:23:Call:call": {
+   "label": "Loads the Azure settings from the YAML file in the working directory."
+  },
+  "29:8:Assign:glue": {
+   "label": "Keeps the loaded Azure settings for merging into the main settings."
+  },
+  "29:8:Assign:nodes_wrapper": {
+   "label": "Loads the Azure configuration file and merges its values into the settings.",
+   "title": "Merge Azure settings"
+  },
+  "29:8:Assign:wrapper": {
+   "label": "Reads the Azure configuration file located in the working directory."
+  },
+  "30:8:Expr:simple": {
+   "label": "Merges the Azure settings into the main settings dictionary, overriding existing entries."
+  },
+  "31:4:If:simple": {
+   "label": "If Azure is off and a custom OpenAI base URL is set, saves it as the API base."
+  },
+  "33:4:Assign:simple": {
+   "label": "Reads the OpenAI organization, adds it to the settings if present, drops unset values, and builds the final configuration."
+  },
+  "38:28:Call:call": {
+   "label": "Loads the plugin configuration file, applying the plugin denylist and allowlist."
+  },
+  "38:4:Assign:glue": {
+   "label": "Attaches the loaded plugin configuration to the agent's config."
+  },
+  "38:4:Assign:wrapper": {
+   "label": "Loads plugin settings from the configured file using the deny and allow lists and stores them on the config."
+  },
+  "39:4:Return:simple": {
+   "label": "Returns the finished configuration to the caller."
+  },
+  "4:4:Assign:simple": {
+   "label": "Reads every setting from environment variables, with defaults, into one dictionary describing keys, models, plugins, memory and browser."
+  },
+  "5:49:Call:call": {
+   "label": "Splits the disabled command categories variable into a list of category names."
+  },
+  "5:4:Assign:glue": {
+   "label": "Stores the list of disabled command categories in the settings dictionary."
+  },
+  "5:4:Assign:wrapper": {
+   "label": "Reads the disabled command categories from the environment and stores them as a list in the settings."
+  },
+  "6:36:Call:call": {
+   "label": "Splits the shell denylist variable, or the older deny-commands variable, into a list."
+  },
+  "6:4:Assign:glue": {
+   "label": "Stores the list of denied shell commands in the settings dictionary."
+  },
+  "6:4:Assign:wrapper": {
+   "label": "Reads the shell denylist from the environment, falling back to the legacy name, and stores it as a list."
+  },
+  "7:37:Call:call": {
+   "label": "Splits the shell allowlist variable, or the older allow-commands variable, into a list."
+  },
+  "7:4:Assign:glue": {
+   "label": "Stores the list of allowed shell commands in the settings dictionary."
+  },
+  "7:4:Assign:wrapper": {
+   "label": "Reads the shell allowlist from the environment, falling back to the legacy name, and stores it as a list."
+  },
+  "8:4:Assign:simple": {
+   "label": "Sets the Google search engine ID from its variable or the older name, for web search commands."
+  }
+ },
+ "L9851c55a62de42": {
+  "3:4:Expr:simple": {
+   "label": "Removes every stored memory from the in-memory list."
+  },
+  "4:4:Call:call": {
+   "label": "Saves the now-empty memory index to its file, so the cleared state persists."
+  }
+ },
+ "L98b8f2b5f7d910": {
+  "16:4:Call:call": {
+   "label": "Tells the user to enter the AI's name and role, noting that blank input loads defaults."
+  },
+  "17:4:If:if_wrapper": {
+   "label": "Takes the name from the template if present, otherwise asks the user to type one.",
+   "title": "Get the AI name"
+  },
+  "17:7:BoolOp:check_value": {
+   "label": "Does the template already provide a name for the AI?"
+  },
+  "18:8:Assign:simple": {
+   "label": "Uses the AI name from the template without asking the user."
+  },
+  "20:8:Assign:nodes_wrapper": {
+   "label": "Prompts the user for the AI's name and records what they type.",
+   "title": "Ask for AI name"
+  },
+  "20:8:Assign:simple": {
+   "label": "Starts with an empty AI name before asking the user."
+  },
+  "21:8:Call:call": {
+   "label": "Asks the user to name the AI, suggesting 'Entrepreneur-GPT' as an example."
+  },
+  "22:8:Assign:simple": {
+   "label": "Reads the name the user types and stores it as the AI's name."
+  },
+  "23:4:If:simple": {
+   "label": "If the name is still blank, falls back to the default name 'Entrepreneur-GPT'."
+  },
+  "25:4:Call:call": {
+   "label": "Greets the user in the AI's name, announcing it is at their service, and speaks it aloud."
+  },
+  "26:4:If:if_wrapper": {
+   "label": "Takes the role from the template if present, otherwise asks the user to describe it.",
+   "title": "Get the AI role"
+  },
+  "26:7:BoolOp:check_value": {
+   "label": "Does the template already provide a role for the AI?"
+  },
+  "27:8:Assign:simple": {
+   "label": "Uses the AI role from the template without asking the user."
+  },
+  "29:8:Call:call": {
+   "label": "Asks the user to describe the AI's role, showing an example."
+  },
+  "29:8:Expr:nodes_wrapper": {
+   "label": "Prompts the user to describe the AI's role and records their answer.",
+   "title": "Ask for AI role"
+  },
+  "30:8:Assign:simple": {
+   "label": "Reads the role the user types and stores it as the AI's role."
+  },
+  "31:4:If:simple": {
+   "label": "If the role is blank, uses the default business-building role description."
+  },
+  "34:4:If:if_wrapper": {
+   "label": "Takes goals from the template if present, otherwise asks the user for up to five.",
+   "title": "Get the AI goals"
+  },
+  "34:7:BoolOp:check_value": {
+   "label": "Does the template already provide goals for the AI?"
+  },
+  "35:8:Assign:simple": {
+   "label": "Uses the goals from the template without asking the user."
+  },
+  "37:8:Call:call": {
+   "label": "Asks the user to enter up to five goals, with an example."
+  },
+  "37:8:Expr:nodes_wrapper": {
+   "label": "Explains the goal prompt, then collects up to five goals from the user.",
+   "title": "Prompt for goals"
+  },
+  "38:8:Call:call": {
+   "label": "Explains that entering nothing loads defaults and that a blank line finishes the list."
+  },
+  "39:8:Assign:simple": {
+   "label": "Starts an empty list to collect the user's goals."
+  },
+  "40:12:Name:for_check": {
+   "label": "Are there more goal slots left, up to five, to ask about?"
+  },
+  "40:17:Call:glue": {
+   "label": "Prepares to ask for up to five goals, numbered one to five."
+  },
+  "40:8:For:for_wrapper": {
+   "label": "Asks for numbered goals one at a time, stopping early if the user enters nothing.",
+   "title": "Collect up to five goals"
+  },
+  "41:12:Assign:simple": {
+   "label": "Asks the user for the next numbered goal and stores their answer."
+  },
+  "45:4:If:simple": {
+   "label": "If no goals were given, uses three default goals about net worth, Twitter and businesses."
+  },
+  "47:4:Call:call": {
+   "label": "Asks the user for a budget for API calls, with an example amount."
+  },
+  "48:4:Call:call": {
+   "label": "Explains that entering nothing lets the AI run with no spending limit."
+  },
+  "49:4:Assign:simple": {
+   "label": "Reads the budget the user types, as text, for later conversion."
+  },
+  "50:4:If:if_wrapper": {
+   "label": "Uses an unlimited budget for blank input, otherwise parses the amount and defaults to unlimited on error.",
+   "title": "Determine API budget"
+  },
+  "50:7:Compare:check_value": {
+   "label": "Did the user leave the budget blank?"
+  },
+  "51:8:Assign:simple": {
+   "label": "Sets the budget to zero, meaning unlimited spending."
+  },
+  "53:8:Try:try_wrapper": {
+   "label": "Converts the typed amount to a number, falling back to unlimited if it is invalid.",
+   "title": "Parse the budget"
+  },
+  "54:12:Assign:simple": {
+   "label": "Converts the typed budget to a number after removing any dollar sign."
+  },
+  "55:8:ExceptHandler:except": {
+   "label": "Was the typed budget not a valid number?"
+  },
+  "56:12:Call:call": {
+   "label": "Tells the user in red that the budget was invalid and will be unlimited."
+  },
+  "56:12:Expr:nodes_wrapper": {
+   "label": "Warns that the budget was invalid and sets it to zero, meaning no limit.",
+   "title": "Fall back to unlimited"
+  },
+  "57:12:Assign:simple": {
+   "label": "Sets the budget to zero, meaning unlimited spending."
+  },
+  "58:4:Return:simple": {
+   "label": "Builds and returns the AI configuration from the name, role, goals and budget."
+  }
+ },
+ "L9d3fb096d2e36d": {
+  "10:4:Assign:simple": {
+   "label": "Take the agent's settings and AI profile into local names used throughout the loop."
+  },
+  "12:4:Call:call": {
+   "label": "Write the AI's name and its system prompt to the debug log."
+  },
+  "13:38:Call:call": {
+   "label": "Work out how many cycles the agent may run from the continuous-mode settings."
+  },
+  "13:4:Assign:glue": {
+   "label": "Start both the cycle budget and the cycles remaining at the allowed number."
+  },
+  "13:4:Assign:wrapper": {
+   "label": "Set the initial cycle budget and remaining cycles from the continuous-mode settings."
+  },
+  "14:4:Assign:simple": {
+   "label": "Create the spinner shown while the agent is thinking."
+  },
+  "29:4:Expr:simple": {
+   "label": "Make Ctrl+C call the graceful handler so continuous runs can stop after the current command."
+  },
+  "30:10:Compare:check_value": {
+   "label": "Are there still authorised cycles left to run?"
+  },
+  "30:4:While:while_wrapper": {
+   "label": "Repeat agent cycles until the authorised cycles run out.",
+   "title": "Run agent cycles"
+  },
+  "31:8:Call:call": {
+   "label": "Log the cycle budget and remaining cycles for debugging."
+  },
+  "31:8:Expr:nodes_wrapper": {
+   "label": "Run one cycle: think, show the plan, get approval if needed, count the cycle, execute and report.",
+   "title": "Run one agent cycle"
+  },
+  "32:8:With:enter_0": {
+   "label": "Start the spinner while the agent thinks."
+  },
+  "32:8:With:exit_0": {
+   "label": "Stop the spinner once thinking is finished."
+  },
+  "32:8:With:with_wrapper": {
+   "label": "Let the agent think behind a spinner",
+   "title": "Think with spinner"
+  },
+  "33:12:Assign:glue": {
+   "label": "Receive the chosen command name, its arguments and the model's reply."
+  },
+  "33:12:Assign:wrapper": {
+   "label": "Save the agent's chosen command and its full reply for this cycle."
+  },
+  "33:65:Call:call": {
+   "label": "Ask the agent to think and pick its next command."
+  },
+  "34:8:Call:call": {
+   "label": "Show the user the agent's thoughts and the command it plans to run."
+  },
+  "35:11:Compare:check_value": {
+   "label": "Is this the last authorised cycle, so the user must approve?"
+  },
+  "35:8:If:if_wrapper": {
+   "label": "Ask the user for approval on the last cycle, otherwise continue automatically and show the count left.",
+   "title": "Approve or auto-continue"
+  },
+  "36:12:Assign:glue": {
+   "label": "Receive the user's decision, any typed text and any new cycle count."
+  },
+  "36:12:Assign:nodes_wrapper": {
+   "label": "Ask the user for approval and act on the answer by setting cycles, exiting or recording feedback.",
+   "title": "Ask for approval"
+  },
+  "36:12:Assign:wrapper": {
+   "label": "Save the user's decision, their input and the requested number of cycles."
+  },
+  "36:64:Call:call": {
+   "label": "Ask the user whether to authorise, exit, or give feedback."
+  },
+  "37:12:If:if_wrapper": {
+   "label": "Handle the user's decision: authorise with a cycle allowance, exit, or pass feedback.",
+   "title": "Handle user decision"
+  },
+  "37:15:Compare:check_value": {
+   "label": "Did the user authorise the command?"
+  },
+  "38:16:If:if_wrapper": {
+   "label": "Use the user's new cycle count if given, otherwise resume the previous budget.",
+   "title": "Set cycles after approval"
+  },
+  "38:16:If:nodes_wrapper": {
+   "label": "Set the cycle allowance from the user's reply, then confirm the command is authorised.",
+   "title": "Apply approval and confirm"
+  },
+  "38:19:Compare:check_value": {
+   "label": "Did the user ask to run a specific number of further cycles?"
+  },
+  "39:20:If:simple": {
+   "label": "Reset the budget to the new count plus one if it is above 1, and allow that many cycles."
+  },
+  "43:20:If:if_wrapper": {
+   "label": "Announce the resumed budget when it is more than one cycle.",
+   "title": "Announce resumed budget"
+  },
+  "43:20:If:nodes_wrapper": {
+   "label": "Announce a resumed multi-cycle budget and refill the remaining cycles from it.",
+   "title": "Resume the saved budget"
+  },
+  "43:23:Compare:check_value": {
+   "label": "Is a multi-cycle budget in force?"
+  },
+  "44:24:Call:call": {
+   "label": "Tell the user that continuous execution is resuming with the current budget."
+  },
+  "45:20:Assign:simple": {
+   "label": "Refill the remaining cycles from the budget, plus one for the approval step."
+  },
+  "46:16:Call:call": {
+   "label": "Tell the user the command was authorised."
+  },
+  "47:12:If:if_wrapper": {
+   "label": "Exit if the user asked to, otherwise treat their reply as feedback to the agent.",
+   "title": "Exit or take feedback"
+  },
+  "47:17:Compare:check_value": {
+   "label": "Did the user choose to exit?"
+  },
+  "48:16:Call:call": {
+   "label": "Tell the user the agent is exiting."
+  },
+  "48:16:Expr:nodes_wrapper": {
+   "label": "Announce the exit and quit the program.",
+   "title": "Exit the program"
+  },
+  "49:16:Expr:simple": {
+   "label": "Quit the program."
+  },
+  "51:16:Assign:simple": {
+   "label": "Treat the user's reply as feedback by switching the command to human_feedback."
+  },
+  "53:12:Assign:nodes_wrapper": {
+   "label": "Run without asking the user, and show how many authorised commands remain if limited.",
+   "title": "Auto-run an authorised cycle"
+  },
+  "53:12:Assign:simple": {
+   "label": "Clear the user input because no approval was requested this cycle."
+  },
+  "54:12:Call:call": {
+   "label": "Print a blank line to separate this cycle's output."
+  },
+  "55:12:If:if_wrapper": {
+   "label": "Show the remaining command count unless the agent runs without limit.",
+   "title": "Show commands left"
+  },
+  "55:15:Compare:check_value": {
+   "label": "Is the number of remaining cycles finite?"
+  },
+  "56:16:Call:call": {
+   "label": "Show the user how many authorised commands are left."
+  },
+  "57:8:If:simple": {
+   "label": "Use up one cycle unless the command is human feedback, which does not count."
+  },
+  "59:17:Call:call": {
+   "label": "Run the chosen command with its arguments and any user input."
+  },
+  "59:8:Assign:glue": {
+   "label": "Keep the output of the executed command."
+  },
+  "59:8:Assign:wrapper": {
+   "label": "Run the command and save what it returned."
+  },
+  "60:11:Compare:check_value": {
+   "label": "Did the command produce a result?"
+  },
+  "60:8:If:if_wrapper": {
+   "label": "Show the command result, or say it could not be executed.",
+   "title": "Report command result"
+  },
+  "61:12:Call:call": {
+   "label": "Show the command's result to the user as a system message."
+  },
+  "63:12:Call:call": {
+   "label": "Tell the user the command could not be executed."
+  }
+ },
+ "L9ed227e9306ef4": {
+  "10:4:If:simple": {
+   "label": "Raise an error if no cycle instruction was given, otherwise wrap it as a user message."
+  },
+  "13:32:Call:call": {
+   "label": "Count the tokens the cycle instruction will take."
+  },
+  "13:4:Assign:glue": {
+   "label": "Keep the instruction's token count to reserve room for it."
+  },
+  "13:4:Assign:wrapper": {
+   "label": "Store the token count of the cycle instruction."
+  },
+  "14:4:AnnAssign:simple": {
+   "label": "Start an empty list of extra system messages to add to the prompt."
+  },
+  "15:28:Call:call": {
+   "label": "Get the instruction describing the response format for this thought process."
+  },
+  "15:4:Assign:glue": {
+   "label": "Keep the response format instruction."
+  },
+  "15:4:Assign:wrapper": {
+   "label": "Store the format instruction the model must follow."
+  },
+  "16:4:If:simple": {
+   "label": "If there is a format instruction, add it as a system message."
+  },
+  "18:13:Call:call": {
+   "label": "Build the system prompt plus history, leaving room for the cycle instruction."
+  },
+  "18:4:Assign:glue": {
+   "label": "Keep the base prompt built from system prompt and history."
+  },
+  "18:4:Assign:wrapper": {
+   "label": "Store the base prompt, with space reserved for the instruction."
+  },
+  "19:4:Expr:simple": {
+   "label": "Add the cycle instruction as the last message of the prompt, which is then returned."
+  }
+ },
+ "La5465bb96a39f3": {
+  "3:4:Assign:simple": {
+   "label": "Gets the OpenAI credentials needed to check the given model."
+  },
+  "5:13:Call:call": {
+   "label": "Asks the OpenAI API for the list of models the user can use."
+  },
+  "5:4:Assign:glue": {
+   "label": "Stores the list of models available to the user."
+  },
+  "5:4:Assign:wrapper": {
+   "label": "Fetches the available models using the user's OpenAI credentials."
+  },
+  "6:4:If:simple": {
+   "label": "If the requested model is among the available models, returns it unchanged."
+  },
+  "8:4:Call:call": {
+   "label": "Warns the user they lack access to the model and that GPT-3.5 will be used instead."
+  },
+  "9:4:Return:simple": {
+   "label": "Returns GPT-3.5 turbo as the fallback model."
+  }
+ },
+ "Lb67b89da5199ba": {
+  "11:4:Call:call": {
+   "label": "Logs the plugin configuration that was built, at debug level."
+  },
+  "12:4:Call:call": {
+   "label": "Logs that the plugin config file is being created, at debug level."
+  },
+  "13:4:With:simple": {
+   "label": "Writes the configuration to the plugins YAML file and returns it."
+  },
+  "4:4:Assign:simple": {
+   "label": "Starts with an empty plugin configuration dictionary."
+  },
+  "5:4:Call:call": {
+   "label": "Logs the legacy plugin denylist at debug level."
+  },
+  "6:4:Call:call": {
+   "label": "Logs the legacy plugin allowlist at debug level."
+  },
+  "7:4:For:simple": {
+   "label": "Adds each denylisted plugin as disabled and each allowlisted plugin as enabled, each with empty settings."
+  }
+ },
+ "Lba92eb12510dbd": {
+  "13:4:Assign:simple": {
+   "label": "Import the Python module that holds the commands."
+  },
+  "14:15:Call:call": {
+   "label": "Register a category for the module's commands."
+  },
+  "14:4:Assign:glue": {
+   "label": "Keep the module's command category."
+  },
+  "14:4:Assign:wrapper": {
+   "label": "Store the category that will hold this module's commands."
+  },
+  "15:21:Call:glue": {
+   "label": "List every name defined in the module."
+  },
+  "15:4:For:for_wrapper": {
+   "label": "Look through the module's contents and register every command found.",
+   "title": "Register module commands"
+  },
+  "15:8:Name:for_check": {
+   "label": "Is there another name in the module to inspect?"
+  },
+  "16:8:Assign:nodes_wrapper": {
+   "label": "Check each module object and register it as a command if it is a decorated function or a Command subclass.",
+   "title": "Detect and register command"
+  },
+  "16:8:Assign:simple": {
+   "label": "Fetch the module's object with this name, then build a command from it if it is a decorated function or a Command subclass."
+  },
+  "22:11:Name:check_value": {
+   "label": "Was a command found for this object?"
+  },
+  "22:8:If:if_wrapper": {
+   "label": "Register the command and add it to its category if one was found.",
+   "title": "Register found command"
+  },
+  "23:12:Call:call": {
+   "label": "Add the command to the registry."
+  },
+  "23:12:Expr:nodes_wrapper": {
+   "label": "Register the command and file it under the module's category.",
+   "title": "Register the command"
+  },
+  "24:12:Expr:simple": {
+   "label": "Also add the command to the module's category."
+  }
+ },
+ "Lc19f80eb27229c": {
+  "14:4:If:if_wrapper": {
+   "label": "Show the profile directly if fully specified, else offer to reuse the saved one.",
+   "title": "Show or offer profile"
+  },
+  "14:7:BoolOp:check_value": {
+   "label": "Were all values given, or does reprompting get skipped with a complete saved profile?"
+  },
+  "15:8:Call:call": {
+   "label": "Show the agent's name."
+  },
+  "15:8:Expr:nodes_wrapper": {
+   "label": "Print the agent's name, role, goals and API budget for the user.",
+   "title": "Show agent details"
+  },
+  "16:8:Call:call": {
+   "label": "Show the agent's role."
+  },
+  "17:8:Call:call": {
+   "label": "Show the agent's goals."
+  },
+  "18:8:Call:call": {
+   "label": "Show the API budget, as infinite when it is zero or less."
+  },
+  "19:4:If:if_wrapper": {
+   "label": "Offer to reuse a complete saved profile, otherwise leave the profile unchanged.",
+   "title": "Offer saved profile"
+  },
+  "19:9:Call:check_value": {
+   "label": "Does the saved profile have a name, role and goals?"
+  },
+  "20:8:Call:call": {
+   "label": "Greet the user and ask whether to reuse the saved agent."
+  },
+  "20:8:Expr:nodes_wrapper": {
+   "label": "Offer to reuse the saved agent and reset the profile if the user declines.",
+   "title": "Offer saved settings"
+  },
+  "21:26:Call:call": {
+   "label": "Show the saved settings and ask the user to continue or exit."
+  },
+  "21:8:Assign:glue": {
+   "label": "Keep the user's answer about reusing the last settings."
+  },
+  "21:8:Assign:wrapper": {
+   "label": "Ask whether to continue with the saved settings and store the answer."
+  },
+  "22:8:If:simple": {
+   "label": "Discard the saved profile for a blank one if the user typed the exit key."
+  },
+  "24:4:If:if_wrapper": {
+   "label": "Prompt the user for a profile and save it if anything is missing.",
+   "title": "Fill missing profile"
+  },
+  "24:7:Call:check_value": {
+   "label": "Is the name, role or goals missing?"
+  },
+  "25:20:Call:call": {
+   "label": "Interactively ask the user to define the agent."
+  },
+  "25:8:Assign:glue": {
+   "label": "Replace the profile with the one the user entered."
+  },
+  "25:8:Assign:nodes_wrapper": {
+   "label": "Ask the user for a new agent profile and save it to the settings file.",
+   "title": "Prompt and save profile"
+  },
+  "25:8:Assign:wrapper": {
+   "label": "Replace the profile with the user's answers."
+  },
+  "26:8:Call:call": {
+   "label": "Save the new profile to the settings file for future runs."
+  },
+  "27:4:If:if_wrapper": {
+   "label": "Tell the user the workspace path when file access is restricted to it.",
+   "title": "Note workspace limit"
+  },
+  "27:7:Attribute:check_value": {
+   "label": "Is the agent restricted to its workspace folder?"
+  },
+  "28:8:Call:call": {
+   "label": "Tell the user where the agent's files will be created."
+  },
+  "29:4:Assign:simple": {
+   "label": "Get the shared manager that tracks API spending."
+  },
+  "30:4:Call:call": {
+   "label": "Set the spending limit to the profile's API budget."
+  },
+  "31:4:Call:call": {
+   "label": "Announce the agent has been created, spoken aloud if speech is on."
+  },
+  "32:4:Call:call": {
+   "label": "Show the agent's name."
+  },
+  "33:4:Call:call": {
+   "label": "Show the agent's role."
+  },
+  "34:4:Call:call": {
+   "label": "Print the Goals heading before the list."
+  },
+  "35:16:Attribute:glue": {
+   "label": "Take the agent's list of goals to print one by one."
+  },
+  "35:4:For:for_wrapper": {
+   "label": "Print each of the agent's goals in turn.",
+   "title": "List the goals"
+  },
+  "35:8:Name:for_check": {
+   "label": "Is there another goal to print?"
+  },
+  "36:8:Call:call": {
+   "label": "Print this goal as a list item."
+  },
+  "37:4:Return:simple": {
+   "label": "Give back the finished AI profile."
+  },
+  "7:16:Call:call": {
+   "label": "Load the saved agent name, role, goals and budget from the settings file."
+  },
+  "7:4:Assign:glue": {
+   "label": "Keep the loaded AI profile for the rest of the setup."
+  },
+  "7:4:Assign:wrapper": {
+   "label": "Load the saved AI profile from the settings file into ai_config."
+  },
+  "8:4:If:simple": {
+   "label": "Override the saved name, role and goals with any given on the command line."
+  }
+ },
+ "Lc9d24e291c3e7a": {
+  "13:8:If:simple": {
+   "label": "Look up the command in the registry and run it with the arguments if it exists."
+  },
+  "19:4:ExceptHandler:except": {
+   "label": "Did the command, or finding it, raise an error?"
+  },
+  "20:8:Return:simple": {
+   "label": "Return the error text as the result so the agent can see what went wrong."
+  }
+ },
+ "Le30e19c969179e": {
+  "11:4:Call:call": {
+   "label": "Shows the user the agent's thoughts, reasoning, plan and criticism from its reply."
+  },
+  "12:4:If:if_wrapper": {
+   "label": "Shows the chosen command or an error to the user, or says no action was selected.",
+   "title": "Show next action or failure"
+  },
+  "12:7:Compare:check_value": {
+   "label": "Did the agent choose a command?"
+  },
+  "13:11:Call:check_value": {
+   "label": "Does the command name start with 'error' in any letter case, meaning selection failed?"
+  },
+  "13:8:If:if_wrapper": {
+   "label": "Reports an error when command selection failed, otherwise announces and prints the chosen action.",
+   "title": "Report error or action"
+  },
+  "14:12:Call:call": {
+   "label": "Tells the user in red that the agent failed to select an action, with the error message."
+  },
+  "16:12:If:if_wrapper": {
+   "label": "In speak mode, announces the chosen command aloud.",
+   "title": "Announce command aloud"
+  },
+  "16:12:If:nodes_wrapper": {
+   "label": "Announces the command aloud if needed, then prints the next action with its arguments.",
+   "title": "Announce next action"
+  },
+  "16:15:Attribute:check_value": {
+   "label": "Is speak mode on, so the agent announces its next command aloud?"
+  },
+  "17:16:Call:call": {
+   "label": "Says aloud that the agent wants to execute the chosen command."
+  },
+  "18:12:Call:call": {
+   "label": "Prints a blank line to separate the next action from the thoughts."
+  },
+  "19:12:Call:call": {
+   "label": "Shows the user the next action: the command and its arguments, in cyan."
+  },
+  "19:12:Call:call_wrapper": {
+   "label": "Prints 'NEXT ACTION' with the cleaned command name and its arguments for the user to review."
+  },
+  "19:62:JoinedStr:glue": {
+   "label": "Builds the coloured text showing the command and its arguments."
+  },
+  "19:62:JoinedStr:wrapper": {
+   "label": "Formats the command name, cleaned of colour codes, and its arguments in cyan."
+  },
+  "19:86:Call:call": {
+   "label": "Strips terminal colour codes from the command name before showing it."
+  },
+  "21:8:Call:call": {
+   "label": "Tells the user in red that no action was selected because the agent returned no command."
+  }
+ },
+ "Le951dee82d931c": {
+  "10:4:Assign:simple": {
+   "label": "Uses the given instruction, or the agent's default cycle instruction when none was given."
+  },
+  "11:27:Call:call": {
+   "label": "Builds the prompt from the system prompt, message history and the instruction."
+  },
+  "11:4:AnnAssign:glue": {
+   "label": "Constructs the chat prompt for this cycle from the instruction and thought process."
+  },
+  "11:4:AnnAssign:wrapper": {
+   "label": "Stores the assembled prompt that will be sent to the model."
+  },
+  "12:13:Call:call": {
+   "label": "Lets plugins adjust or add to the prompt before the model is asked."
+  },
+  "12:4:Assign:glue": {
+   "label": "Replaces the prompt with the version returned after the before-think hooks."
+  },
+  "12:4:Assign:wrapper": {
+   "label": "Runs the before-think step and keeps the possibly modified prompt."
+  },
+  "13:124:Attribute:check_value": {
+   "label": "Is OpenAI function calling enabled in the settings?"
+  },
+  "13:158:Constant:glue": {
+   "label": "Passes no function specs when function calling is disabled."
+  },
+  "13:4:Assign:glue": {
+   "label": "Asks the model for a chat completion on the prompt, with function specs when enabled."
+  },
+  "13:4:Assign:wrapper": {
+   "label": "Sends the prompt to the model and keeps its raw response."
+  },
+  "13:73:Call:call": {
+   "label": "Builds the function specs describing each available command for OpenAI."
+  },
+  "13:73:IfExp:if_wrapper": {
+   "label": "Offers command specs to the model only when function calling is enabled, otherwise none.",
+   "title": "Pick function specs"
+  },
+  "14:4:AugAssign:simple": {
+   "label": "Counts this thinking cycle by adding one to the agent's cycle count."
+  },
+  "15:11:Call:call": {
+   "label": "Records the exchange and turns the raw response into a command, arguments and thoughts."
+  },
+  "15:4:Return:glue": {
+   "label": "Returns the command name, arguments and thoughts obtained from the model's response."
+  },
+  "15:4:Return:wrapper": {
+   "label": "Hands back the parsed outcome of this cycle to the caller."
+  }
+ },
+ "Le9a039b644695e": {
+  "11:13:Call:call": {
+   "label": "Loads the JSON schema describing the expected format of the AI's response."
+  },
+  "11:4:Assign:glue": {
+   "label": "Keeps the loaded response schema for validation."
+  },
+  "11:4:Assign:wrapper": {
+   "label": "Loads the AI response schema for the chosen schema name and stores it."
+  },
+  "12:4:Assign:simple": {
+   "label": "Creates a JSON Schema validator from the response schema."
+  },
+  "13:4:If:if_wrapper": {
+   "label": "If the object breaks the schema, logs the errors and returns False with them.",
+   "title": "Handle validation errors"
+  },
+  "13:8:NamedExpr:check_value": {
+   "label": "Does the object have any schema errors, once collected and sorted by their path?"
+  },
+  "14:12:Name:for_check": {
+   "label": "Is there another validation error to log?"
+  },
+  "14:21:Name:glue": {
+   "label": "Prepares to go through each validation error."
+  },
+  "14:8:For:for_wrapper": {
+   "label": "Writes every validation error to the debug log.",
+   "title": "Log each error"
+  },
+  "14:8:For:nodes_wrapper": {
+   "label": "Logs each validation error, optionally reports details in debug mode, then returns failure with the errors.",
+   "title": "Log and report failures"
+  },
+  "15:12:Call:call": {
+   "label": "Logs the validation error at debug level."
+  },
+  "16:11:Attribute:check_value": {
+   "label": "Is debug mode turned on?"
+  },
+  "16:8:If:if_wrapper": {
+   "label": "In debug mode, logs the invalid object and each error message at error level.",
+   "title": "Verbose debug report"
+  },
+  "17:12:Call:call": {
+   "label": "Logs the whole invalid object as formatted JSON at error level."
+  },
+  "17:12:Expr:nodes_wrapper": {
+   "label": "Logs the invalid object, a notice, and each error message for debugging.",
+   "title": "Dump object and errors"
+  },
+  "18:12:Call:call": {
+   "label": "Logs a notice that issues were found."
+  },
+  "19:12:For:for_wrapper": {
+   "label": "Writes every error message to the error log.",
+   "title": "Report each error"
+  },
+  "19:16:Name:for_check": {
+   "label": "Is there another validation error to report?"
+  },
+  "19:25:Name:glue": {
+   "label": "Prepares to go through each validation error."
+  },
+  "20:16:Call:call": {
+   "label": "Logs the error's message at error level."
+  },
+  "21:8:Return:simple": {
+   "label": "Returns False together with the list of validation errors."
+  },
+  "22:4:Call:call": {
+   "label": "Logs at debug level that the JSON object is valid."
+  },
+  "23:4:Return:simple": {
+   "label": "Returns True with no errors."
+  }
+ },
+ "Lf056906949896c": {
+  "10:8:AugAssign:simple": {
+   "label": "Adds a line saying where the user can find news and how to skip it with --skip-news."
+  },
+  "11:4:If:if_wrapper": {
+   "label": "When a changed bulletin is fetched, saves it to disk and prepares it with a red new-bulletin label.",
+   "title": "Save and flag new bulletin"
+  },
+  "11:7:BoolOp:check_value": {
+   "label": "Was a bulletin fetched that differs from the saved one?"
+  },
+  "12:8:Expr:simple": {
+   "label": "Saves the new bulletin to the data file and marks it with a red NEW BULLETIN label for display."
+  },
+  "14:4:Return:simple": {
+   "label": "Returns the header with the bulletin text, plus whether the news is new."
+  },
+  "2:4:Assign:simple": {
+   "label": "Checks whether a saved copy of the latest bulletin exists in the data folder."
+  },
+  "6:19:Call:call": {
+   "label": "Fetches the latest news bulletin from the web."
+  },
+  "6:4:Assign:glue": {
+   "label": "Keeps the newly fetched bulletin text."
+  },
+  "6:4:Assign:wrapper": {
+   "label": "Downloads the current bulletin from the web and stores it as the new bulletin."
+  },
+  "7:4:Assign:simple": {
+   "label": "Decides the news is new when a bulletin was fetched and differs from the saved one."
+  },
+  "9:4:If:if_wrapper": {
+   "label": "If any bulletin exists, appends the news introduction and skip-news instructions to the header.",
+   "title": "Add news intro text"
+  },
+  "9:7:BoolOp:check_value": {
+   "label": "Is there either a fetched or a saved bulletin to show?"
+  }
+ },
+ "Lf751a1bdb86b04": {
+  "13:4:If:if_wrapper": {
+   "label": "If the reply has content, tries to extract the command and arguments from it.",
+   "title": "Extract command if reply exists"
+  },
+  "13:7:Compare:check_value": {
+   "label": "Did the model's reply contain anything, that is, is the reply dictionary not empty?"
+  },
+  "14:8:Try:try_wrapper": {
+   "label": "Tries to extract the command from the reply, logging an error and keeping the empty command if that fails.",
+   "title": "Try to extract command"
+  },
+  "15:12:Assign:glue": {
+   "label": "Stores the command name and arguments extracted from the reply."
+  },
+  "15:12:Assign:nodes_wrapper": {
+   "label": "Extracts the command and arguments from the reply and builds the result with the thoughts.",
+   "title": "Extract the command"
+  },
+  "15:12:Assign:wrapper": {
+   "label": "Gets the command the agent wants to run and its arguments."
+  },
+  "15:40:Call:call": {
+   "label": "Pulls the command name and its arguments out of the model's reply."
+  },
+  "16:12:Assign:simple": {
+   "label": "Builds the result containing the command, its arguments and the agent's thoughts."
+  },
+  "17:8:ExceptHandler:except": {
+   "label": "Did extracting the command fail with an error?"
+  },
+  "18:12:Call:call": {
+   "label": "Logs the error so the agent continues with no command."
+  },
+  "19:4:Expr:simple": {
+   "label": "Saves this cycle's reply to the log files as the next action."
+  },
+  "2:4:If:simple": {
+   "label": "Raises a syntax error if the model's response has no text, since there is nothing to parse."
+  },
+  "4:27:Call:call": {
+   "label": "Parses the model's reply text into a dictionary."
+  },
+  "4:4:Assign:glue": {
+   "label": "Stores the parsed reply dictionary for validation and command extraction."
+  },
+  "4:4:Assign:wrapper": {
+   "label": "Turns the model's text reply into a dictionary the agent can work with."
+  },
+  "5:22:Call:call": {
+   "label": "Checks the reply dictionary against the expected response format."
+  },
+  "5:4:Assign:glue": {
+   "label": "Stores whether the reply is valid and the list of any format errors."
+  },
+  "5:4:Assign:wrapper": {
+   "label": "Validates the reply format and keeps the result and errors."
+  },
+  "6:4:If:simple": {
+   "label": "Raises a syntax error listing the problems if the reply does not match the expected format."
+  }
+ },
+ "Lfe123784820b9b": {
+  "12:25:Call:call": {
+   "label": "Run the named command with its arguments for this agent."
+  },
+  "12:8:Assign:glue": {
+   "label": "Keep the command's output."
+  },
+  "12:8:Assign:wrapper": {
+   "label": "Run the command and save what it returned."
+  },
+  "13:8:Assign:simple": {
+   "label": "Build the result message from the command name and its output."
+  },
+  "14:25:Call:call": {
+   "label": "Count the tokens in the command's output."
+  },
+  "14:8:Assign:glue": {
+   "label": "Keep the output's token count."
+  },
+  "14:8:Assign:wrapper": {
+   "label": "Store the number of tokens in the command output."
+  },
+  "15:25:Call:call": {
+   "label": "Count the tokens in the agent's history summary."
+  },
+  "15:8:Assign:glue": {
+   "label": "Keep the history summary's token count."
+  },
+  "15:8:Assign:wrapper": {
+   "label": "Store the number of tokens in the history summary."
+  },
+  "16:8:If:simple": {
+   "label": "Replace the result with a failure notice if output plus history would exceed the token limit."
+  },
+  "22:4:If:simple": {
+   "label": "Save the result (or a failure note if none) in the agent's history, then return it."
+  },
+  "2:4:If:if_wrapper": {
+   "label": "Report invalid error commands, otherwise handle feedback or run the command.",
+   "title": "Choose how to produce result"
+  },
+  "2:7:BoolOp:check_value": {
+   "label": "Does the command name start with error, meaning the model produced an invalid command?"
+  },
+  "3:8:Assign:simple": {
+   "label": "Set the result to a message that the command could not be executed."
+  },
+  "4:4:If:if_wrapper": {
+   "label": "Record user feedback as the result, otherwise run the command normally.",
+   "title": "Feedback or run command"
+  },
+  "4:9:Compare:check_value": {
+   "label": "Is the command the user's human feedback rather than a real command?"
+  },
+  "5:8:Assign:simple": {
+   "label": "Make the user's feedback the result so the model sees it next cycle."
+  },
+  "8:8:For:nodes_wrapper": {
+   "label": "Run pre-command plugins, execute the command, check its size, and apply post-command plugins.",
+   "title": "Run the command"
+  },
+  "8:8:For:simple": {
+   "label": "Let each plugin able to handle it modify the command name before it runs."
+  }
+ },
+ "T:/autogpt.agents.agent/Agent.parse_and_process_response:15:12:Assign:wrapper": "Extract the chosen command",
+ "T:/autogpt.agents.base/BaseAgent.think:13:4:Assign:wrapper": "Send the prompt to the model",
+ "T:/autogpt.app.main/run_auto_gpt:11:8:Assign:wrapper": "Get the latest news",
+ "T:/autogpt.app.main/run_auto_gpt:28:4:Assign:wrapper": "Collect the available commands",
+ "T:/autogpt.app.main/run_auto_gpt:6:4:Call:call": "Apply command-line options",
+ "T:/autogpt.app.main/run_interaction_loop:59:8:Assign:wrapper": "Run the command",
+ "T:/autogpt.app.setup/prompt_user:24:12:Return:wrapper": "Generate the profile automatically",
+ "T:/autogpt.app.utils/get_latest_bulletin:6:4:Assign:wrapper": "Download the news bulletin"
+}

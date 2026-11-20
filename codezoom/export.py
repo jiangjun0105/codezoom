@@ -16,21 +16,24 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 from . import oracle as oracle_mod
+from . import relabel as relabel_mod
 from .graph import REPO, ROOT, FnSource, Tree, load, module_of, short_fn
 from .retree import Config, retree, shape
 
 OUT = REPO / "demo" / "src" / "data" / "graph.json"
+CORRECTIONS = Path(__file__).parent / "corrections.json"
 
-# The one hand-written sentence in the data: what the whole program does.
+# The hand-written sentences in the data: what the whole program does, and how it runs.
 PROGRAM_LABEL = (
-    "Auto-GPT starts up, builds an autonomous agent from configuration, commands, memory and an AI profile, "
-    "then runs it in a think → approve → execute loop."
+    "Reads its settings and your goals, builds the agent, then loops until you exit: "
+    "think with the model → show the plan → you approve → run the command and remember the result."
 )
 
 SYSTEM = "system"
 SYSTEM_LABEL = (
-    "What runs when you start Auto-GPT from the command line: one agent, set up from "
-    "your settings, that works towards your goals one command at a time."
+    "An autonomous agent you run from the command line. You give it a name, a role and goals; "
+    "it asks a language model what to do next, shows you its plan, and runs the command you "
+    "approve: a web search, a file edit, a piece of code."
 )
 
 
@@ -96,7 +99,17 @@ def build(tree: Tree, before: dict, mode: str) -> dict:
             out["via"] = list(dict.fromkeys(node.via))
         if node.label_repaired:
             out["labelRepaired"] = True
+        if node.relabeled:
+            out["relabeled"] = True
         nodes[node.id] = out
+    # hand-written fixes, listed in corrections.json with the reason
+    for node_id, fix in json.loads(CORRECTIONS.read_text()).items():
+        if node_id.startswith("_"):
+            continue
+        if node_id not in nodes:
+            print(f"  correction for a node that no longer exists: {node_id}")
+            continue
+        nodes[node_id].update(fix, corrected=True)
     nodes[ROOT].update(
         title="Auto-GPT",
         label=PROGRAM_LABEL,
@@ -125,8 +138,6 @@ def build(tree: Tree, before: dict, mode: str) -> dict:
             node_id = tree.aliases[node_id]
         return node_id if node_id in nodes else None
 
-    aliases = {old: new for old in tree.aliases if (new := resolve(old))}
-
     # an expanded step no longer has a chart of its own: point at the smallest chart that holds all of it
     def pieces(node_id: str) -> list[str]:
         if node_id in tree.expanded:
@@ -151,6 +162,11 @@ def build(tree: Tree, before: dict, mode: str) -> dict:
     for old, new in tree.aliases.items():
         if old not in covers and new in covers:
             covers[old] = covers[new]
+
+    # an old id lands on what now shows it: the chart that covers an expanded step, else its new id
+    aliases = {
+        old: covers.get(old) or new for old in tree.aliases if (new := resolve(old))
+    }
 
     wanted = {n["fn"] for n in nodes.values()} | {
         n["callee"] for n in nodes.values() if n.get("callee")
@@ -226,25 +242,43 @@ def main() -> None:
     ap.add_argument("--syntactic", action="store_true")
     ap.add_argument("--merge", type=Path)
     ap.add_argument("--ask", action="store_true")
+    ap.add_argument(
+        "--prune", action="store_true", help="drop cached answers no chart used"
+    )
     ap.add_argument("--out", type=Path, default=OUT)
     args = ap.parse_args()
 
     if args.merge:
-        print(
-            f"merged {oracle_mod.merge(json.loads(args.merge.read_text()))} answers into the cache"
-        )
+        answers = json.loads(args.merge.read_text())
+        labels = {k: v for k, v in answers.items() if k.startswith(("L", "T:"))}
+        rest = {k: v for k, v in answers.items() if not k.startswith(("L", "T:"))}
+        if labels:
+            print(f"merged {relabel_mod.merge(labels)} label answers into the cache")
+        if rest:
+            print(f"merged {oracle_mod.merge(rest)} grouping answers into the cache")
     if args.ask:
         print(f"asked the API for {oracle_mod.ask_api()} charts")
 
     tree = load()
     before = shape(tree)
+    if not args.syntactic and not args.no_model:
+        done, waiting = relabel_mod.relabel(tree)
+        print(
+            f"relabelled steps: {done}, functions pending: {waiting}"
+            + (f" (see {relabel_mod.PENDING.name})" if waiting else "")
+        )
     mode = "syntactic"
     if not args.syntactic:
         orc = None if args.no_model else oracle_mod.Oracle()
         retree(tree, Config(), orc)
+        if orc:
+            done, waiting = relabel_mod.titles(tree)
+            print(f"titled blocks: {done}, pending: {waiting}")
         mode = "segmenter" if args.no_model else "model+segmenter"
         if orc:
             orc.flush()
+            if args.prune and not orc.pending and not orc.pending_names:
+                print(f"pruned {oracle_mod.prune(orc.used)} unused cached answers")
             print(
                 f"model groupings used: {orc.hits}, pending: {len(orc.pending)} charts + {len(orc.pending_names)} names"
                 + (
