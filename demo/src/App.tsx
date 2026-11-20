@@ -10,7 +10,7 @@ import { set, useStore } from "./store";
 
 export const LINKS = {
   writeup: "https://www.junbot.dev/article/repo-understanding-tool",
-  repo: "https://github.com/jiangjun0105/ichigen-coder",
+  repo: "https://github.com/jiangjun0105/codezoom",
 };
 
 export default function App() {

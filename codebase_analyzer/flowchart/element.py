@@ -97,8 +97,9 @@ def flowchart_to_element_json(
 
 
 if __name__ == "__main__":
-    output_path = Path(
-        "/Users/jun/Projects/ichigen-coder/codebase_analyzer/flowchart/convert_dump/autogpt/app/main/print_assistant_thoughts/flat.json"
+    output_path = (
+        Path(__file__).parent
+        / "convert_dump/autogpt/app/main/print_assistant_thoughts/flat.json"
     )
     autogpt_chart = Flowchart.from_file(output_path)
     flowchart_to_element_json(

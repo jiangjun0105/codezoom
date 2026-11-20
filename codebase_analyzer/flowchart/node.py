@@ -509,7 +509,8 @@ class FunctionNode(BaseFlowchartNode):
 
     def to_flat_dict(self, nodes: dict[str, dict] | None = None) -> dict:
         """Converts the node and sub-nodes to a flat dict.
-        FunctionNode does not have any successors, because it's last node is EndNode."""
+        FunctionNode does not have any successors, because it's last node is EndNode.
+        """
         if nodes is None:
             nodes = dict()
         updated = super().to_flat_dict(
@@ -716,8 +717,9 @@ def test_save_load(test_chart: Flowchart):
 
 
 if __name__ == "__main__":
-    output_path = Path(
-        "/Users/jun/Projects/ichigen-coder/codebase_analyzer/flowchart/convert_dump/autogpt/app/main/print_assistant_thoughts/flat.json"
+    output_path = (
+        Path(__file__).parent
+        / "convert_dump/autogpt/app/main/print_assistant_thoughts/flat.json"
     )
     autogpt_chart = Flowchart.from_file(output_path)
     test_save_load(autogpt_chart)

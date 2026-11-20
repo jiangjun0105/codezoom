@@ -1,10 +1,10 @@
-# Development goal: Ichigen Coder showroom demo
+# Development goal: Codezoom showroom demo
 
 Status: open · Owner: Jun Jiang · Written 2026-11-13
 
 ## Why we are doing this
 
-Ichigen Coder (2023) is an early repo-understanding tool. It turns a Python codebase into a **hierarchical flowchart**: the top level shows what the program does, and every node can be zoomed into until you reach statement-level logic taken from the Python syntax tree. A hierarchy of agents (repo → package → module → function) answers questions about the code. In 2023 it answered questions about large Python repos better than GitHub Copilot Chat.
+Codezoom (started 2023) is an early repo-understanding tool. It turns a Python codebase into a **hierarchical flowchart**: the top level shows what the program does, and every node can be zoomed into until you reach statement-level logic taken from the Python syntax tree. A hierarchy of agents (repo → package → module → function) answers questions about the code. In 2023 it answered questions about large Python repos better than GitHub Copilot Chat.
 
 Today the work is invisible. The README says the project is "at very initial stage," there are no screenshots, and running it needs a 2023 toolchain. Jun is applying to AI coding-tool roles; Amazon Kiro's job posting asks for "representations of code that fuse static analysis, symbol and call graphs, type information… at repository scale." This repo did that in 2023. We want a **public demo website** that shows the idea in 30 seconds to a hiring manager, hosted on Jun's own domain (junbot.dev).
 
@@ -103,6 +103,6 @@ A static-first website under `demo/` that shows one repo (Auto-GPT v0.4.7, `run_
 - [ ] A short `demo/NOTES.md`: what is generated versus hard-coded, and how to regenerate the data.
 
 ## Open questions for Jun (decide sensibly if no answer)
-- Hosting path: `junbot.dev/ichigen` or `ichigen.junbot.dev`.
+- Hosting path: `junbot.dev/codezoom` or `codezoom.junbot.dev`.
 - Which model for live mode.
 - Whether the Copilot Chat comparison can be shown (needs the original questions and answers).

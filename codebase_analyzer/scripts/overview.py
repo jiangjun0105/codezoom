@@ -13,5 +13,5 @@ def extract_summary(input_path: Path) -> pd.DataFrame:
     return s
 
 
-input_path = Path("/Users/jun/Projects/ichigen-coder/Auto-GPT_summary.csv")
+input_path = Path(__file__).parents[2] / "Auto-GPT_summary.csv"
 extract_summary(input_path)

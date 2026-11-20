@@ -175,7 +175,7 @@ export function Story() {
       </section>
 
       <footer>
-        <span>Codezoom · grew out of Ichigen Coder, a 2023 research prototype by Jun Jiang</span>
+        <span>Codezoom · a research prototype by Jun Jiang, started in 2023</span>
         <span>Demo data: Auto-GPT {m.version}, MIT-licensed. Code excerpts belong to its contributors.</span>
       </footer>
     </div>
