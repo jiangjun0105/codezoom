@@ -41,9 +41,12 @@ export const OUT = "__out";
 export const isSystemCard = (id: string) => node(id).kind === "program";
 export const cardWidth = (id: string) => (isSystemCard(id) ? 460 : CARD_W);
 
+/** The text on a card. The system card (the only box at level 0) says what the system is. */
+export const cardLabel = (id: string) => (isSystemCard(id) ? node(node(id).parent ?? id).label : node(id).label);
+
 export function labelLines(id: string): number {
   const per = isSystemCard(id) ? 44 : 27;
-  return Math.min(4, Math.max(1, Math.ceil(node(id).label.length / per)));
+  return Math.min(isSystemCard(id) ? 5 : 4, Math.max(1, Math.ceil(cardLabel(id).length / per)));
 }
 
 /** Card height: tag row + title + label lines + optional footer with a miniature of the chart inside. */

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { clearThread } from "../lib/ask";
 import { ROOT, canEnter, enterTarget, graph, leafCount, levelOf, node, parentScope, scopeTrail, shownIn, type GNode } from "../lib/graph";
-import { IN, OUT, isSystemCard, labelLines, layoutOf, pathOf, type LEdge, type Layout } from "../lib/layout";
+import { IN, OUT, cardLabel, isSystemCard, labelLines, layoutOf, pathOf, type LEdge, type Layout } from "../lib/layout";
 import { arrived, getState, goUp, highlightOrder, motion, openNode, select, set, setHighlight, useStore } from "../store";
 import { NodePanel } from "./NodePanel";
 
@@ -195,7 +195,7 @@ const Card = memo(function Card(props: {
           <span className="card-lines">{m.version}</span>
         </div>
         <div className="sys-title">{n.title}</div>
-        <div className="card-label">{n.label}</div>
+        <div className="card-label">{cardLabel(n.id)}</div>
         <div className="sys-facts">
           {m.chartedFunctions} functions · {m.statementCount} statements · entry <code>run_auto_gpt()</code>
         </div>
@@ -876,14 +876,17 @@ export function Canvas() {
           </button>
         )}
       </div>
-      <div className="canvas-ui caption" key={scope}>
-        <div className="cap-kicker">
-          Level {level.depth} · {level.name}
-          <span>{level.what}</span>
+      {scope !== ROOT && (
+        // at level 0 the one box says it all; below, the caption names the level and the chart in view
+        <div className="canvas-ui caption" key={scope}>
+          <div className="cap-kicker">
+            Level {level.depth} · {level.name}
+            <span>{level.what}</span>
+          </div>
+          <div className="cap-title">{node(scope).title}</div>
+          <div className="cap-text">{node(scope).label}</div>
         </div>
-        <div className="cap-title">{scope === ROOT ? `${graph.meta.repo} ${graph.meta.version}` : node(scope).title}</div>
-        <div className="cap-text">{node(scope).label}</div>
-      </div>
+      )}
       {highlight.length > 0 && (
         <button className="canvas-ui path-chip" onClick={() => setHighlight([])}>
           <span className="flow-dot" />
