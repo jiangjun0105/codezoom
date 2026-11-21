@@ -7,3 +7,5 @@ dist/
 
 # the repository root ignores lib/ (Python packaging); this one is source
 !src/lib/
+.vercel
+.env*

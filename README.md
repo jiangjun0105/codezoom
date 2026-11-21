@@ -7,7 +7,7 @@ asked about.
 
 ![Codezoom on Auto-GPT: the pyramid of all levels, then scrolling into "Think and show plan" and down to the model call](demo/docs/demo.gif)
 
-**Demo:** _link coming once it is deployed on junbot.dev_ · **Write-up:**
+**Live demo:** <https://codezoom.junbot.dev> · **Write-up:**
 <https://www.junbot.dev/article/repo-understanding-tool>
 
 The demo maps Auto-GPT v0.4.7 from its command-line entry point, `run_auto_gpt`. Nothing in
