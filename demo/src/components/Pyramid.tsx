@@ -15,8 +15,8 @@ const GAP = 128; // height between floors
 const ROW = 150; // depth of a floor
 const TOP_W = 420; // width of the top floor
 const BOTTOM_W = 2100; // width of the deepest floor
-const HOME = { rx: 50, rz: -5 };
-const LIFT = 46; // room for the caption above the top floor
+const HOME = { rx: 50, rz: -3 };
+const LIFT = 32; // room for the caption above the top floor
 
 const NAMES = ["System", "Main flow", "Processes", "Parts"];
 const floorName = (d: number, leavesOnly: boolean) => (leavesOnly && d > 2 ? "Code" : (NAMES[d] ?? "Steps"));
@@ -109,7 +109,7 @@ export function Pyramid() {
   }, [hover, scope]);
 
   const tilt = (HOME.rx * Math.PI) / 180;
-  const fit = vp.w ? Math.min((vp.w - 60) / (BOTTOM_W * 1.02), (vp.h - 170) / ((P.floors - 1) * GAP * Math.sin(tilt) + ROW * Math.cos(tilt) * 2.4)) : 0.4;
+  const fit = vp.w ? Math.min((vp.w - 60) / (BOTTOM_W * 1.02), (vp.h - 118) / ((P.floors - 1) * GAP * Math.sin(tilt) + ROW * Math.cos(tilt) * 2.4)) : 0.4;
 
   const transform = (v: { px: number; py: number; zoom: number; rx: number; rz: number }) =>
     `translate(${v.px}px, ${v.py}px) scale(${fit * v.zoom}) rotateX(${v.rx}deg) rotateZ(${v.rz}deg)`;
