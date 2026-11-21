@@ -336,6 +336,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
 }
 .panel-anchor.is-open { opacity: 1; pointer-events: auto; }
 .panel-anchor[data-mode="corner"] { left: auto; right: 14px; top: 14px; }
+.canvas.has-panel .path-chip { right: calc(352px + 28px); }
 .node-panel {
   --tone: var(--muted);
   display: flex; flex-direction: column;
