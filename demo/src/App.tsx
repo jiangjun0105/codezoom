@@ -45,8 +45,7 @@ export default function App() {
         <div className="hero">
           <h1>A codebase you can zoom into.</h1>
           <p>
-            Codezoom reads a Python repository and draws it as one flowchart: what the program does at the top, every branch and call at
-            the bottom, and an agent on each node that answers questions. Below is {graph.meta.repo} {graph.meta.version}, analysed automatically.
+            {graph.meta.repo} {graph.meta.version}, mapped automatically from its source.
           </p>
         </div>
 
