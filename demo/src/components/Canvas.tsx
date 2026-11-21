@@ -365,25 +365,12 @@ export function Canvas() {
   const fitCam = useCallback((s: string, focus?: Rect) => camFor(layoutOf(s), usable(layoutOf(s)), focus), [usable]);
   const fitK = (s: string) => camFor(layoutOf(s), vpRef.current).k;
 
+  /** The panel sits in the canvas's top-right corner (a bottom sheet on phones). */
   const placePanel = useCallback(() => {
     const el = panelEl.current;
-    const sel = getState().selected;
-    if (!el || !sel) return;
-    const r = layoutOf(viewRef.current.cur).byId[sel];
-    const { w, h } = vpRef.current;
-    if (!r || w < 720) {
-      el.dataset.mode = w < 720 ? "sheet" : "corner";
-      el.style.transform = "";
-      return;
-    }
-    el.dataset.mode = "float";
-    const c = cam.current, ph = el.offsetHeight, pw = el.offsetWidth;
-    const left = r.x * c.k + c.x, top = r.y * c.k + c.y, right = left + r.w * c.k;
-    let x = right + 16;
-    if (x + pw > w - 10) x = left - pw - 16;
-    if (x < 10) x = clamp(right + 16, 10, w - pw - 10);
-    const y = clamp(top - 6, 10, Math.max(10, h - ph - 10));
-    el.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    if (!el || !getState().selected) return;
+    el.dataset.mode = vpRef.current.w < 720 ? "sheet" : "corner";
+    el.style.transform = "";
   }, []);
 
   /** Draw the current camera: place the three charts as one picture, fade them by zoom, flip when due. */
@@ -570,11 +557,12 @@ export function Canvas() {
     if (!r) return;
     const id = requestAnimationFrame(() => {
       const c = cam.current, { w, h } = vpRef.current;
-      const room = w >= 720 && getState().panel ? PANEL_W + 28 : 0;
       const left = r.x * c.k + c.x, top = r.y * c.k + c.y;
       const right = left + r.w * c.k, bottom = top + r.h * c.k;
       let dx = 0, dy = 0;
-      if (right + room > w - 8 && left - room < 8) dx = w - 16 - room - right;
+      // keep the box clear of the panel in the top-right corner
+      const ph = w >= 720 && getState().panel ? (panelEl.current?.offsetHeight ?? 0) + 24 : 0;
+      if (ph && right > w - PANEL_W - 28 && top < ph) dx = w - PANEL_W - 40 - right;
       if (left + dx < 16) dx = 16 - left;
       const sheet = w < 720 ? Math.min(h * 0.5, 360) : 0;
       if (top < 20) dy = 20 - top;
@@ -828,7 +816,7 @@ export function Canvas() {
   return (
     <div
       ref={wrap}
-      className={`canvas${busy ? " is-moving" : ""}`}
+      className={`canvas${busy ? " is-moving" : ""}${panelNode ? " has-panel" : ""}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -859,7 +847,7 @@ export function Canvas() {
         </div>
       ))}
 
-      <div ref={panelEl} className={`panel-anchor${panelNode ? " is-open" : ""}`} data-mode="float">
+      <div ref={panelEl} className={`panel-anchor${panelNode ? " is-open" : ""}`} data-mode="corner">
         {panelNode && <NodePanel key={panelNode} id={panelNode} onResize={placePanel} />}
       </div>
 
