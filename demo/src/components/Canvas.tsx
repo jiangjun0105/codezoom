@@ -876,17 +876,15 @@ export function Canvas() {
           </button>
         )}
       </div>
-      {scope !== ROOT && (
-        // at level 0 the one box says it all; below, the caption names the level and the chart in view
-        <div className="canvas-ui caption" key={scope}>
-          <div className="cap-kicker">
-            Level {level.depth} · {level.name}
-            <span>{level.what}</span>
-          </div>
-          <div className="cap-title">{node(scope).title}</div>
-          <div className="cap-text">{node(scope).label}</div>
+      <div className="canvas-ui caption" key={scope}>
+        <div className="cap-kicker">
+          Level {level.depth} · {level.name}
+          <span>{level.what}</span>
         </div>
-      )}
+        <div className="cap-title">{scope === ROOT ? `${graph.meta.repo} ${graph.meta.version}` : node(scope).title}</div>
+        {/* at level 0 the box itself says what the program is; the caption says what this level is */}
+        <div className="cap-text">{scope === ROOT ? "The whole program as one box. Scroll into it to see its phases." : node(scope).label}</div>
+      </div>
       {highlight.length > 0 && (
         <button className="canvas-ui path-chip" onClick={() => setHighlight([])}>
           <span className="flow-dot" />
