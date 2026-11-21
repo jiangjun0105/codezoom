@@ -340,6 +340,7 @@ export function Canvas() {
   const tipEl = useRef<HTMLDivElement>(null);
   /** time of the last wheel event the canvas used, so trailing momentum never scrolls the page */
   const lastWheel = useRef(0);
+  const mountedAt = useRef(performance.now());
   const [nudge, setNudge] = useState<string | null>(null);
   const nudgeTimer = useRef(0);
   const say = useCallback((msg: string) => {
@@ -694,17 +695,17 @@ export function Canvas() {
       if ((ev.target as HTMLElement).closest(".node-panel")) return;
       const out = ev.deltaY > 0;
       const now = performance.now();
+      // just arrived from the pyramid: the gesture that brought us here must not move the camera
+      if (now - mountedAt.current < 700) return void ev.preventDefault();
       // a wheel event within a moment of the last one belongs to the same gesture (or its momentum)
       const fresh = now - lastWheel.current > 320;
       // the page scrolls when the demo is not at the top of the page, unless a zoom is still going
       if (window.scrollY > 4 && fresh) return;
       if (viewRef.current.cur === ROOT && out && cam.current.k <= fitK(ROOT) * 1.001) {
-        // fully zoomed out: outside the box the page scrolls; inside it, the wheel only zooms
-        const onCard = cardAt(ev.clientX, ev.clientY) !== null;
-        if (fresh && !onCard) return;
+        // fully zoomed out: one more step out shows every level at once, as a pyramid
         ev.preventDefault();
+        if (fresh) set({ mode: "space", intro: true, touched: true });
         lastWheel.current = now;
-        if (fresh) say("Scroll up to zoom in · scroll outside the box to move down the page");
         return;
       }
       ev.preventDefault();
@@ -904,7 +905,7 @@ export function Canvas() {
       ) : (
         !touched && (
           <div className="canvas-ui hint">
-            Point at a box and <b>scroll up</b> to zoom into it · <b>click</b> to inspect and ask
+            Point at a box and <b>scroll up</b> to zoom into it · <b>click</b> to inspect · <b>scroll out</b> for the whole structure
           </div>
         )
       )}

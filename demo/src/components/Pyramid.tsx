@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { canEnter, graph, lineage, node, type GNode } from "../lib/graph";
-import { focusNode, getState, set, useStore } from "../store";
+import { focusNode, getState, motion, set, useStore } from "../store";
 import { tagOf, toneOf } from "./Canvas";
 
 /*
@@ -70,6 +70,12 @@ function build() {
 
 const zOf = (floor: number, floors: number) => ((floors - 1) / 2 - floor) * GAP;
 
+/** Open a box in the zoomable view, where it can be read and asked about; the view zooms down to it. */
+function openTile(id: string) {
+  set({ mode: "flat" });
+  window.setTimeout(() => void focusNode(id), 60);
+}
+
 function descendants(id: string, out: Set<string>) {
   for (const k of graph.nodes[id].children) {
     out.add(k);
@@ -88,6 +94,9 @@ export function Pyramid() {
   const [hover, setHover] = useState<string | null>(null);
   const view = useRef({ ...HOME, zoom: 1, px: 0, py: LIFT });
   const idle = useRef(0);
+  // arriving counts as part of a wheel gesture, so the momentum that brought us here does not leak
+  const lastWheel = useRef(performance.now());
+  const intro = useRef(getState().intro);
 
   // what is lit: the hovered box, everything above it and everything inside it; else the chart you were in
   const lit = useMemo(() => {
@@ -101,11 +110,23 @@ export function Pyramid() {
   const tilt = (HOME.rx * Math.PI) / 180;
   const fit = vp.w ? Math.min((vp.w - 60) / (BOTTOM_W * 1.02), (vp.h - 170) / ((P.floors - 1) * GAP * Math.sin(tilt) + ROW * Math.cos(tilt) * 2.4)) : 0.4;
 
+  const transform = (v: { px: number; py: number; zoom: number; rx: number; rz: number }) =>
+    `translate(${v.px}px, ${v.py}px) scale(${fit * v.zoom}) rotateX(${v.rx}deg) rotateZ(${v.rz}deg)`;
   const paint = () => {
     const el = world.current;
     if (!el) return;
-    const v = view.current;
-    el.style.transform = `translate(${v.px}px, ${v.py}px) scale(${fit * v.zoom}) rotateX(${v.rx}deg) rotateZ(${v.rz}deg)`;
+    if (intro.current && vp.w) {
+      // reached by zooming out of the top level: start close on the top box, then pull back
+      intro.current = false;
+      set({ intro: false });
+      const zoom = 3.2, z = zOf(0, P.floors), rx = (HOME.rx * Math.PI) / 180;
+      el.style.transition = "none";
+      el.style.transform = transform({ ...HOME, zoom, px: 0, py: fit * zoom * (z * Math.sin(rx) + (ROW / 2) * Math.cos(rx)) });
+      void el.offsetWidth;
+      el.style.transition = `transform ${1.1 * motion()}s cubic-bezier(0.22, 0.8, 0.25, 1)`;
+      window.setTimeout(() => (el.style.transition = ""), 1200);
+    }
+    el.style.transform = transform(view.current);
   };
   useLayoutEffect(paint);
 
@@ -120,10 +141,26 @@ export function Pyramid() {
   useEffect(() => {
     const el = wrap.current!;
     const onWheel = (ev: WheelEvent) => {
-      if (window.scrollY > 4) return;
+      const now = performance.now();
+      const fresh = now - lastWheel.current > 320;
+      if (window.scrollY > 4 && fresh) return;
       const v = view.current;
-      if (ev.deltaY > 0 && v.zoom <= 0.7) return; // fully out: let the page scroll
+      const out = ev.deltaY > 0;
+      const tile = (ev.target as HTMLElement).closest<HTMLElement>("[data-tile]")?.dataset.tile;
+      if (out && v.zoom <= 0.7) {
+        // fully out: a new gesture scrolls the page, the tail of this one is held back
+        if (fresh) return;
+        ev.preventDefault();
+        lastWheel.current = now;
+        return;
+      }
       ev.preventDefault();
+      lastWheel.current = now;
+      if (!out && tile && v.zoom <= 1.05) {
+        // scrolling into a box opens it, as it does in the zoomable view
+        if (fresh) openTile(tile);
+        return;
+      }
       const unit = ev.deltaMode === 1 ? 16 : 1;
       const next = Math.min(6, Math.max(0.7, v.zoom * Math.exp(-ev.deltaY * unit * (ev.ctrlKey ? 0.012 : 0.0022))));
       const rect = el.getBoundingClientRect();
@@ -182,10 +219,7 @@ export function Pyramid() {
     wrap.current!.classList.remove("is-panning", "is-turning");
     if (!d || d.moved) return;
     const id = d.target.closest<HTMLElement>("[data-tile]")?.dataset.tile;
-    if (!id) return;
-    // open the box in the zoomable view, where it can be read and asked about
-    set({ mode: "flat" });
-    window.setTimeout(() => void focusNode(id), 60);
+    if (id) openTile(id);
   };
   const onOver = (ev: React.PointerEvent) => {
     if (drag.current?.moved) return;
@@ -195,6 +229,14 @@ export function Pyramid() {
 
   const reset = () => {
     view.current = { ...HOME, zoom: 1, px: 0, py: LIFT };
+    paint();
+  };
+  const zoomBy = (f: number) => {
+    const v = view.current;
+    const next = Math.min(6, Math.max(0.7, v.zoom * f));
+    v.px *= next / v.zoom;
+    v.py = LIFT + (v.py - LIFT) * (next / v.zoom);
+    v.zoom = next;
     paint();
   };
 
@@ -272,11 +314,13 @@ export function Pyramid() {
       </div>
       <div className="canvas-ui bottom-left">
         <div className="zoom">
+          <button onClick={() => zoomBy(1 / 1.35)} aria-label="Zoom out">−</button>
           <button className="fit" onClick={reset}>Reset view</button>
+          <button onClick={() => zoomBy(1.35)} aria-label="Zoom in">+</button>
         </div>
       </div>
       <div className="canvas-ui hint static">
-        <b>Point</b> at a box to trace it up and down · <b>click</b> to open it · <b>drag</b> to turn · <b>scroll</b> to zoom
+        <b>Point</b> at a box to trace it · <b>click</b> or <b>scroll up</b> on it to open it · <b>drag</b> to turn
       </div>
     </div>
   );

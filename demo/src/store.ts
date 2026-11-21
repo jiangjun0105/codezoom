@@ -21,6 +21,8 @@ export interface State {
   mode: "flat" | "space";
   /** the search box for jumping to any step */
   jump: boolean;
+  /** the 3D view was reached by zooming out past the top level: it opens with a pull-back */
+  intro: boolean;
 }
 
 const wide = typeof window !== "undefined" && window.innerWidth >= 1500;
@@ -37,6 +39,7 @@ let state: State = {
   touched: false,
   mode: "flat",
   jump: false,
+  intro: false,
 };
 
 const listeners = new Set<() => void>();
