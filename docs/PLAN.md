@@ -83,7 +83,7 @@ with a caption on every level saying what it shows. 3D view: now a pyramid of al
 ## Track 4: ship
 
 1. Run live mode against a real key; fix what breaks.
-2. Deploy to junbot.dev; replace the README placeholder.
+2. ~~Deploy to junbot.dev; replace the README placeholder.~~ Live at https://codezoom.junbot.dev (Vercel project `codezoom`, team jiangjun0105s-projects, deployed from the CLI, 2026-11-20). Not connected to GitHub yet: redeploy with `vercel deploy --prod` from `demo/`.
 3. Rename the GitHub repository to `codezoom` (owner's action).
 
 ## Order
