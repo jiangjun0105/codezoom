@@ -37,9 +37,10 @@ let state: State = {
   focusTick: 0,
   driving: false,
   touched: false,
-  mode: "flat",
+  // the visit opens on the whole structure, pulling back from the top box
+  mode: "space",
   jump: false,
-  intro: false,
+  intro: true,
 };
 
 const listeners = new Set<() => void>();
@@ -68,7 +69,13 @@ export function arrived() {
 }
 
 /** Ask the canvas to travel to a scope, and wait until it is there. */
+/** Anything that moves through the chart (answers, breadcrumb, search) does it in the zoomable view. */
+function toFlat() {
+  if (state.mode !== "flat") set({ mode: "flat" });
+}
+
 export async function goTo(target: string, keepSelection = false): Promise<void> {
+  toFlat();
   const scope = enterTarget(target) ?? displayOf(target).scope;
   if (scope === state.scope) return;
   set({ scope, ...(keepSelection ? {} : { selected: null }), touched: true });
@@ -92,6 +99,7 @@ export function select(id: string | null) {
 /** Show a node: travel to the chart that draws it, select it and bring it into view. */
 export async function focusNode(id: string, panel = true): Promise<void> {
   if (!hasNode(id)) return;
+  toFlat();
   const { scope, shown } = displayOf(id);
   if (scope !== state.scope) await goTo(scope, true);
   set({ selected: shown, panel, focusTick: state.focusTick + 1 });
@@ -99,6 +107,7 @@ export async function focusNode(id: string, panel = true): Promise<void> {
 }
 
 export function setHighlight(ids: string[]) {
+  toFlat();
   set({ highlight: ids.filter(hasNode) });
 }
 
