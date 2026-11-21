@@ -29,6 +29,11 @@ export default function App() {
       if (window.scrollY > 4 || ev.ctrlKey) return;
       const t = ev.target as HTMLElement;
       if (!t.closest?.(".stage")) return;
+      if (t.closest(".scroll-down")) {
+        ev.preventDefault();
+        if (ev.deltaY > 0) document.getElementById("how")?.scrollIntoView({ behavior: "smooth" });
+        return;
+      }
       for (let el: HTMLElement | null = t; el && !el.classList.contains("stage"); el = el.parentElement) {
         const style = getComputedStyle(el);
         if (!/(auto|scroll)/.test(style.overflowY) || el.scrollHeight <= el.clientHeight + 1) continue;
@@ -87,9 +92,10 @@ export default function App() {
           <Dock />
           <Jump />
         </section>
-        <a className="scroll-down" href="#how" aria-label="Scroll down to how it works">
-          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-            <path d="M7 2v9M2.5 7 7 11.5 11.5 7" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        <a className="scroll-down" href="#how">
+          <span>Scroll down to see how it works</span>
+          <svg width="30" height="9" viewBox="0 0 30 9" aria-hidden>
+            <path d="M1.5 1.5 15 7.5 28.5 1.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </a>
       </main>

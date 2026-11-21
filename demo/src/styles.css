@@ -65,7 +65,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
   min-height: 620px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  padding: 0 22px 22px;
+  padding: 0 22px 46px;
   gap: 16px;
 }
 .hero { display: flex; align-items: flex-end; gap: 36px; padding-top: 6px; }
@@ -79,12 +79,11 @@ code { font-family: var(--mono); font-size: 0.9em; }
 
 /* the way down from the first screen, where the wheel only zooms */
 .scroll-down {
-  position: absolute; left: 50%; bottom: 4px; translate: -50% 0; z-index: 9;
-  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
-  background: var(--panel); border: 1px solid var(--line-3); color: var(--muted);
-  box-shadow: 0 8px 24px -10px #000; transition: color 0.15s, border-color 0.15s;
+  position: absolute; left: 50%; bottom: 9px; translate: -50% 0; z-index: 9; text-decoration: none;
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 2px 14px;
+  color: var(--faint); font-size: 12px; letter-spacing: 0.01em; white-space: nowrap; transition: color 0.15s;
 }
-.scroll-down:hover { color: var(--text); border-color: var(--accent); }
+.scroll-down:hover { color: var(--text); }
 .scroll-down svg { animation: nudge-down 1.8s ease-in-out infinite; }
 @keyframes nudge-down { 0%, 100% { translate: 0 -1px; } 50% { translate: 0 2px; } }
 @media (prefers-reduced-motion: reduce) { .scroll-down svg { animation: none; } }
@@ -547,7 +546,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
 @media (max-width: 720px) {
   .site-header { padding: 0 14px; gap: 10px; }
   .site-header nav a:first-child, .badge { display: none; }
-  .stage { padding: 0 10px 10px; gap: 10px; min-height: 560px; }
+  .stage { padding: 0 10px 42px; gap: 10px; min-height: 560px; }
   .hero p { font-size: 13px; }
   .crumb { max-width: 13ch; }
   .crumbs .level { display: none; }
