@@ -93,7 +93,7 @@ export default function App() {
           <Jump />
         </section>
         <a className="scroll-down" href="#how">
-          <span>Scroll down to see how it works</span>
+          <span>Go down to see how it works</span>
           <svg width="30" height="9" viewBox="0 0 30 9" aria-hidden>
             <path d="M1.5 1.5 15 7.5 28.5 1.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
