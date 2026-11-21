@@ -255,3 +255,5 @@ if __name__ == "__main__":
         embeddings=embeddings,
         output_file=output_file,
     )
+
+# %%

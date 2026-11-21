@@ -1,0 +1,893 @@
+{
+    "product": "",
+    "forge": "",
+    "generator": "PyCG",
+    "depset": [],
+    "version": "",
+    "timestamp": 0,
+    "modules": {
+        "internal": {
+            "/V3/": {
+                "sourceFile": "V3.py",
+                "namespaces": {
+                    "0": {
+                        "namespace": "/V3/",
+                        "metadata": {
+                            "first": 1,
+                            "last": 765
+                        }
+                    },
+                    "1": {
+                        "namespace": "/V3/Chatbot",
+                        "metadata": {
+                            "first": 40,
+                            "last": 462,
+                            "superClasses": []
+                        }
+                    },
+                    "2": {
+                        "namespace": "/V3/Chatbot.__init__()",
+                        "metadata": {
+                            "first": 45,
+                            "last": 124
+                        }
+                    },
+                    "3": {
+                        "namespace": "/V3/Chatbot.add_to_conversation()",
+                        "metadata": {
+                            "first": 126,
+                            "last": 135
+                        }
+                    },
+                    "4": {
+                        "namespace": "/V3/Chatbot.__truncate_conversation()",
+                        "metadata": {
+                            "first": 137,
+                            "last": 149
+                        }
+                    },
+                    "5": {
+                        "namespace": "/V3/Chatbot.get_token_count()",
+                        "metadata": {
+                            "first": 152,
+                            "last": 174
+                        }
+                    },
+                    "6": {
+                        "namespace": "/V3/Chatbot.get_max_tokens()",
+                        "metadata": {
+                            "first": 176,
+                            "last": 180
+                        }
+                    },
+                    "7": {
+                        "namespace": "/V3/Chatbot.ask_stream()",
+                        "metadata": {
+                            "first": 182,
+                            "last": 269
+                        }
+                    },
+                    "8": {
+                        "namespace": "/V3/Chatbot.ask_stream_async()",
+                        "metadata": {
+                            "first": 271,
+                            "last": 348
+                        }
+                    },
+                    "9": {
+                        "namespace": "/V3/Chatbot.ask_async()",
+                        "metadata": {
+                            "first": 350,
+                            "last": 369
+                        }
+                    },
+                    "10": {
+                        "namespace": "/V3/Chatbot.ask()",
+                        "metadata": {
+                            "first": 371,
+                            "last": 392
+                        }
+                    },
+                    "11": {
+                        "namespace": "/V3/Chatbot.rollback()",
+                        "metadata": {
+                            "first": 394,
+                            "last": 399
+                        }
+                    },
+                    "12": {
+                        "namespace": "/V3/Chatbot.reset()",
+                        "metadata": {
+                            "first": 401,
+                            "last": 406
+                        }
+                    },
+                    "13": {
+                        "namespace": "/V3/Chatbot.save()",
+                        "metadata": {
+                            "first": 409,
+                            "last": 425
+                        }
+                    },
+                    "14": {
+                        "namespace": "/V3/Chatbot.load()",
+                        "metadata": {
+                            "first": 428,
+                            "last": 462
+                        }
+                    },
+                    "15": {
+                        "namespace": "/V3/ChatbotCLI",
+                        "metadata": {
+                            "first": 465,
+                            "last": 562,
+                            "superClasses": [
+                                "/V3/Chatbot"
+                            ]
+                        }
+                    },
+                    "16": {
+                        "namespace": "/V3/ChatbotCLI.print_config()",
+                        "metadata": {
+                            "first": 470,
+                            "last": 484
+                        }
+                    },
+                    "17": {
+                        "namespace": "/V3/ChatbotCLI.print_help()",
+                        "metadata": {
+                            "first": 488,
+                            "last": 493
+                        }
+                    },
+                    "18": {
+                        "namespace": "/V3/ChatbotCLI.handle_commands()",
+                        "metadata": {
+                            "first": 519,
+                            "last": 562
+                        }
+                    },
+                    "19": {
+                        "namespace": "/V3/main()",
+                        "metadata": {
+                            "first": 565,
+                            "last": 755
+                        }
+                    }
+                }
+            }
+        },
+        "external": {
+            "requests": {
+                "sourceFile": "",
+                "namespaces": {
+                    "20": {
+                        "namespace": "//requests//requests.Session",
+                        "metadata": {}
+                    },
+                    "21": {
+                        "namespace": "//requests//requests.Session.proxies.update",
+                        "metadata": {}
+                    },
+                    "22": {
+                        "namespace": "//requests//requests.Session.post",
+                        "metadata": {}
+                    },
+                    "23": {
+                        "namespace": "//requests//requests.Session.post.iter_lines",
+                        "metadata": {}
+                    },
+                    "24": {
+                        "namespace": "//requests//requests.Session.post.iter_lines.decode",
+                        "metadata": {}
+                    },
+                    "25": {
+                        "namespace": "//requests//requests.post",
+                        "metadata": {}
+                    }
+                }
+            },
+            "httpx": {
+                "sourceFile": "",
+                "namespaces": {
+                    "26": {
+                        "namespace": "//httpx//httpx.Client.proxies.update",
+                        "metadata": {}
+                    },
+                    "27": {
+                        "namespace": "//httpx//httpx.AsyncClient",
+                        "metadata": {}
+                    },
+                    "28": {
+                        "namespace": "//httpx//httpx.Client.post",
+                        "metadata": {}
+                    },
+                    "29": {
+                        "namespace": "//httpx//httpx.Client.post.iter_lines",
+                        "metadata": {}
+                    },
+                    "30": {
+                        "namespace": "//httpx//httpx.Client.post.iter_lines.decode",
+                        "metadata": {}
+                    },
+                    "31": {
+                        "namespace": "//httpx//httpx.AsyncClient.stream",
+                        "metadata": {}
+                    },
+                    "32": {
+                        "namespace": "//httpx//httpx.Client",
+                        "metadata": {}
+                    }
+                }
+            },
+            "os": {
+                "sourceFile": "",
+                "namespaces": {
+                    "33": {
+                        "namespace": "//os//os.environ.get",
+                        "metadata": {}
+                    }
+                }
+            },
+            "typings": {
+                "sourceFile": "",
+                "namespaces": {
+                    "34": {
+                        "namespace": "//typings//typings.ActionRefuseError",
+                        "metadata": {}
+                    },
+                    "35": {
+                        "namespace": "//typings//typings.APIConnectionError",
+                        "metadata": {}
+                    },
+                    "36": {
+                        "namespace": "//typings//typings.ResponseError",
+                        "metadata": {}
+                    },
+                    "37": {
+                        "namespace": "//typings//typings.CLIError",
+                        "metadata": {}
+                    }
+                }
+            },
+            ".builtin": {
+                "sourceFile": "",
+                "namespaces": {
+                    "38": {
+                        "namespace": "//.builtin//len",
+                        "metadata": {}
+                    },
+                    "39": {
+                        "namespace": "//.builtin//NotImplementedError",
+                        "metadata": {}
+                    },
+                    "40": {
+                        "namespace": "//.builtin//min",
+                        "metadata": {}
+                    },
+                    "41": {
+                        "namespace": "//.builtin//range",
+                        "metadata": {}
+                    },
+                    "42": {
+                        "namespace": "//.builtin//open",
+                        "metadata": {}
+                    },
+                    "43": {
+                        "namespace": "//.builtin//print",
+                        "metadata": {}
+                    },
+                    "44": {
+                        "namespace": "//.builtin//int",
+                        "metadata": {}
+                    },
+                    "45": {
+                        "namespace": "//.builtin//float",
+                        "metadata": {}
+                    }
+                }
+            },
+            "tiktoken": {
+                "sourceFile": "",
+                "namespaces": {
+                    "46": {
+                        "namespace": "//tiktoken//tiktoken.encoding_for_model",
+                        "metadata": {}
+                    },
+                    "47": {
+                        "namespace": "//tiktoken//tiktoken.encoding_for_model.encode",
+                        "metadata": {}
+                    }
+                }
+            },
+            "json": {
+                "sourceFile": "",
+                "namespaces": {
+                    "48": {
+                        "namespace": "//json//json.loads",
+                        "metadata": {}
+                    },
+                    "49": {
+                        "namespace": "//json//json.dump",
+                        "metadata": {}
+                    },
+                    "50": {
+                        "namespace": "//json//json.load",
+                        "metadata": {}
+                    },
+                    "51": {
+                        "namespace": "//json//json.load.get",
+                        "metadata": {}
+                    },
+                    "52": {
+                        "namespace": "//json//json.dumps",
+                        "metadata": {}
+                    }
+                }
+            },
+            "utils": {
+                "sourceFile": "",
+                "namespaces": {
+                    "53": {
+                        "namespace": "//utils//utils.get_filtered_keys_from_object",
+                        "metadata": {}
+                    },
+                    "54": {
+                        "namespace": "//utils//utils.get_filtered_keys_from_object.remove",
+                        "metadata": {}
+                    },
+                    "55": {
+                        "namespace": "//utils//utils.get_input.split",
+                        "metadata": {}
+                    },
+                    "56": {
+                        "namespace": "//utils//utils.create_session",
+                        "metadata": {}
+                    },
+                    "57": {
+                        "namespace": "//utils//utils.create_completer",
+                        "metadata": {}
+                    },
+                    "58": {
+                        "namespace": "//utils//utils.create_keybindings",
+                        "metadata": {}
+                    },
+                    "59": {
+                        "namespace": "//utils//utils.get_input",
+                        "metadata": {}
+                    },
+                    "60": {
+                        "namespace": "//utils//utils.get_input.startswith",
+                        "metadata": {}
+                    }
+                }
+            },
+            "sys": {
+                "sourceFile": "",
+                "namespaces": {
+                    "61": {
+                        "namespace": "//sys//sys.exit",
+                        "metadata": {}
+                    }
+                }
+            },
+            "argparse": {
+                "sourceFile": "",
+                "namespaces": {
+                    "62": {
+                        "namespace": "//argparse//argparse.ArgumentParser",
+                        "metadata": {}
+                    },
+                    "63": {
+                        "namespace": "//argparse//argparse.ArgumentParser.add_argument",
+                        "metadata": {}
+                    },
+                    "64": {
+                        "namespace": "//argparse//argparse.ArgumentParser.parse_known_args",
+                        "metadata": {}
+                    }
+                }
+            },
+            "importlib": {
+                "sourceFile": "",
+                "namespaces": {
+                    "65": {
+                        "namespace": "//importlib//importlib.resources.path",
+                        "metadata": {}
+                    },
+                    "66": {
+                        "namespace": "//importlib//importlib.resources.path.__str__",
+                        "metadata": {}
+                    }
+                }
+            },
+            "pathlib": {
+                "sourceFile": "",
+                "namespaces": {
+                    "67": {
+                        "namespace": "//pathlib//pathlib.Path",
+                        "metadata": {}
+                    }
+                }
+            }
+        }
+    },
+    "graph": {
+        "internalCalls": [
+            [
+                "0",
+                "19",
+                {}
+            ],
+            [
+                "2",
+                "5",
+                {}
+            ],
+            [
+                "4",
+                "5",
+                {}
+            ],
+            [
+                "6",
+                "5",
+                {}
+            ],
+            [
+                "7",
+                "6",
+                {}
+            ],
+            [
+                "7",
+                "12",
+                {}
+            ],
+            [
+                "7",
+                "3",
+                {}
+            ],
+            [
+                "7",
+                "4",
+                {}
+            ],
+            [
+                "8",
+                "6",
+                {}
+            ],
+            [
+                "8",
+                "12",
+                {}
+            ],
+            [
+                "8",
+                "3",
+                {}
+            ],
+            [
+                "8",
+                "4",
+                {}
+            ],
+            [
+                "9",
+                "8",
+                {}
+            ],
+            [
+                "10",
+                "7",
+                {}
+            ],
+            [
+                "16",
+                "5",
+                {}
+            ],
+            [
+                "18",
+                "13",
+                {}
+            ],
+            [
+                "18",
+                "14",
+                {}
+            ],
+            [
+                "18",
+                "12",
+                {}
+            ],
+            [
+                "18",
+                "11",
+                {}
+            ],
+            [
+                "18",
+                "16",
+                {}
+            ],
+            [
+                "18",
+                "17",
+                {}
+            ],
+            [
+                "19",
+                "14",
+                {}
+            ],
+            [
+                "19",
+                "3",
+                {}
+            ],
+            [
+                "19",
+                "2",
+                {}
+            ],
+            [
+                "19",
+                "10",
+                {}
+            ],
+            [
+                "19",
+                "7",
+                {}
+            ],
+            [
+                "19",
+                "18",
+                {}
+            ]
+        ],
+        "externalCalls": [
+            [
+                "0",
+                "37",
+                {}
+            ],
+            [
+                "0",
+                "61",
+                {}
+            ],
+            [
+                "0",
+                "43",
+                {}
+            ],
+            [
+                "2",
+                "27",
+                {}
+            ],
+            [
+                "2",
+                "34",
+                {}
+            ],
+            [
+                "2",
+                "20",
+                {}
+            ],
+            [
+                "2",
+                "21",
+                {}
+            ],
+            [
+                "2",
+                "33",
+                {}
+            ],
+            [
+                "2",
+                "26",
+                {}
+            ],
+            [
+                "5",
+                "38",
+                {}
+            ],
+            [
+                "5",
+                "39",
+                {}
+            ],
+            [
+                "5",
+                "46",
+                {}
+            ],
+            [
+                "5",
+                "47",
+                {}
+            ],
+            [
+                "4",
+                "38",
+                {}
+            ],
+            [
+                "7",
+                "23",
+                {}
+            ],
+            [
+                "7",
+                "22",
+                {}
+            ],
+            [
+                "7",
+                "28",
+                {}
+            ],
+            [
+                "7",
+                "24",
+                {}
+            ],
+            [
+                "7",
+                "35",
+                {}
+            ],
+            [
+                "7",
+                "30",
+                {}
+            ],
+            [
+                "7",
+                "48",
+                {}
+            ],
+            [
+                "7",
+                "40",
+                {}
+            ],
+            [
+                "7",
+                "33",
+                {}
+            ],
+            [
+                "7",
+                "29",
+                {}
+            ],
+            [
+                "8",
+                "36",
+                {}
+            ],
+            [
+                "8",
+                "35",
+                {}
+            ],
+            [
+                "8",
+                "31",
+                {}
+            ],
+            [
+                "8",
+                "48",
+                {}
+            ],
+            [
+                "8",
+                "40",
+                {}
+            ],
+            [
+                "8",
+                "33",
+                {}
+            ],
+            [
+                "11",
+                "41",
+                {}
+            ],
+            [
+                "13",
+                "49",
+                {}
+            ],
+            [
+                "13",
+                "53",
+                {}
+            ],
+            [
+                "13",
+                "42",
+                {}
+            ],
+            [
+                "14",
+                "27",
+                {}
+            ],
+            [
+                "14",
+                "51",
+                {}
+            ],
+            [
+                "14",
+                "54",
+                {}
+            ],
+            [
+                "14",
+                "50",
+                {}
+            ],
+            [
+                "14",
+                "53",
+                {}
+            ],
+            [
+                "14",
+                "32",
+                {}
+            ],
+            [
+                "14",
+                "42",
+                {}
+            ],
+            [
+                "16",
+                "38",
+                {}
+            ],
+            [
+                "16",
+                "43",
+                {}
+            ],
+            [
+                "17",
+                "43",
+                {}
+            ],
+            [
+                "18",
+                "44",
+                {}
+            ],
+            [
+                "18",
+                "55",
+                {}
+            ],
+            [
+                "18",
+                "45",
+                {}
+            ],
+            [
+                "18",
+                "61",
+                {}
+            ],
+            [
+                "18",
+                "38",
+                {}
+            ],
+            [
+                "18",
+                "43",
+                {}
+            ],
+            [
+                "19",
+                "52",
+                {}
+            ],
+            [
+                "19",
+                "33",
+                {}
+            ],
+            [
+                "19",
+                "43",
+                {}
+            ],
+            [
+                "19",
+                "57",
+                {}
+            ],
+            [
+                "19",
+                "62",
+                {}
+            ],
+            [
+                "19",
+                "59",
+                {}
+            ],
+            [
+                "19",
+                "66",
+                {}
+            ],
+            [
+                "19",
+                "58",
+                {}
+            ],
+            [
+                "19",
+                "48",
+                {}
+            ],
+            [
+                "19",
+                "65",
+                {}
+            ],
+            [
+                "19",
+                "63",
+                {}
+            ],
+            [
+                "19",
+                "25",
+                {}
+            ],
+            [
+                "19",
+                "60",
+                {}
+            ],
+            [
+                "19",
+                "56",
+                {}
+            ],
+            [
+                "19",
+                "67",
+                {}
+            ],
+            [
+                "19",
+                "64",
+                {}
+            ],
+            [
+                "19",
+                "61",
+                {}
+            ]
+        ],
+        "resolvedCalls": []
+    },
+    "nodes": 68
+}
