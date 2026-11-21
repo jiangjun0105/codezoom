@@ -1,5 +1,5 @@
+# %%
 import numpy as np
-import openai
 import pandas as pd
 from langchain.embeddings import OpenAIEmbeddings
 
@@ -35,3 +35,6 @@ def search_by_embedding(embeddings: np.array, query: str, n: int = 1) -> list[in
         [cosine_similarity(query_emb, emb) for emb in embeddings]
     )
     return similarities.argsort()[::-1][:n]
+
+
+# %%

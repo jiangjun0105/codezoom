@@ -1,0 +1,102 @@
+{
+    "product": "",
+    "forge": "",
+    "generator": "PyCG",
+    "depset": [],
+    "version": "",
+    "timestamp": 0,
+    "modules": {
+        "internal": {
+            "/codebase_analyzer.tests.data.short/": {
+                "sourceFile": "codebase_analyzer/tests/data/short.py",
+                "namespaces": {
+                    "0": {
+                        "namespace": "/codebase_analyzer.tests.data.short/",
+                        "metadata": {
+                            "first": 1,
+                            "last": 31
+                        }
+                    },
+                    "1": {
+                        "namespace": "/codebase_analyzer.tests.data.short/foo()",
+                        "metadata": {
+                            "first": 6,
+                            "last": 7
+                        }
+                    },
+                    "2": {
+                        "namespace": "/codebase_analyzer.tests.data.short/Bar",
+                        "metadata": {
+                            "first": 13,
+                            "last": 14,
+                            "superClasses": []
+                        }
+                    },
+                    "3": {
+                        "namespace": "/codebase_analyzer.tests.data.short/Foo",
+                        "metadata": {
+                            "first": 17,
+                            "last": 27,
+                            "superClasses": [
+                                "/codebase_analyzer.tests.data.short/Bar"
+                            ]
+                        }
+                    },
+                    "4": {
+                        "namespace": "/codebase_analyzer.tests.data.short/Foo.__init__()",
+                        "metadata": {
+                            "first": 21,
+                            "last": 22
+                        }
+                    },
+                    "5": {
+                        "namespace": "/codebase_analyzer.tests.data.short/Foo.bar()",
+                        "metadata": {
+                            "first": 24,
+                            "last": 27
+                        }
+                    }
+                }
+            }
+        },
+        "external": {
+            ".builtin": {
+                "sourceFile": "",
+                "namespaces": {
+                    "6": {
+                        "namespace": "//.builtin//print",
+                        "metadata": {}
+                    }
+                }
+            }
+        }
+    },
+    "graph": {
+        "internalCalls": [
+            [
+                "0",
+                "4",
+                {}
+            ],
+            [
+                "4",
+                "1",
+                {}
+            ]
+        ],
+        "externalCalls": [
+            [
+                "1",
+                "6",
+                {}
+            ],
+            [
+                "5",
+                "6",
+                {}
+            ]
+        ],
+        "resolvedCalls": []
+    },
+    "nodes": 7
+}
