@@ -60,6 +60,7 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .site-header nav a:hover { color: var(--text); background: var(--panel); }
 
 .stage {
+  position: relative;
   height: calc(100svh - var(--header));
   min-height: 620px;
   display: grid;
@@ -75,6 +76,18 @@ code { font-family: var(--mono); font-size: 0.9em; }
   white-space: nowrap;
 }
 .hero p { margin: 0 0 4px; color: var(--muted); max-width: 74ch; font-size: 14px; text-wrap: pretty; }
+
+/* the way down from the first screen, where the wheel only zooms */
+.scroll-down {
+  position: absolute; left: 50%; bottom: 4px; translate: -50% 0; z-index: 9;
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--panel); border: 1px solid var(--line-3); color: var(--muted);
+  box-shadow: 0 8px 24px -10px #000; transition: color 0.15s, border-color 0.15s;
+}
+.scroll-down:hover { color: var(--text); border-color: var(--accent); }
+.scroll-down svg { animation: nudge-down 1.8s ease-in-out infinite; }
+@keyframes nudge-down { 0%, 100% { translate: 0 -1px; } 50% { translate: 0 2px; } }
+@media (prefers-reduced-motion: reduce) { .scroll-down svg { animation: none; } }
 
 /* ---------- demo frame ---------- */
 .frame {

@@ -341,6 +341,7 @@ export function Canvas() {
   /** time of the last wheel event the canvas used, so trailing momentum never scrolls the page */
   const lastWheel = useRef(0);
   const mountedAt = useRef(performance.now());
+  const lastPage = useRef(0);
   const [nudge, setNudge] = useState<string | null>(null);
   const nudgeTimer = useRef(0);
   const say = useCallback((msg: string) => {
@@ -688,7 +689,9 @@ export function Canvas() {
       // a wheel event within a moment of the last one belongs to the same gesture (or its momentum)
       const fresh = now - lastWheel.current > 320;
       // the page scrolls when the demo is not at the top of the page, unless a zoom is still going
-      if (window.scrollY > 4 && fresh) return;
+      if (window.scrollY > 4 && fresh) return void (lastPage.current = now);
+      // the tail of a page scroll that just reached the top does not zoom
+      if (now - lastPage.current < 320) return void (ev.preventDefault(), (lastPage.current = now));
       if (viewRef.current.cur === ROOT && out && cam.current.k <= fitK(ROOT) * 1.001) {
         // fully zoomed out: one more step out shows every level at once, as a pyramid
         ev.preventDefault();

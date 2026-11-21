@@ -22,6 +22,25 @@ export default function App() {
     document.documentElement.classList.toggle("is-driving", driving);
   }, [driving]);
 
+  // On the first screen the wheel only zooms: it never scrolls the page (the arrow below
+  // the demo does). Panels inside still scroll while they have room to.
+  useEffect(() => {
+    const onWheel = (ev: WheelEvent) => {
+      if (window.scrollY > 4 || ev.ctrlKey) return;
+      const t = ev.target as HTMLElement;
+      if (!t.closest?.(".stage")) return;
+      for (let el: HTMLElement | null = t; el && !el.classList.contains("stage"); el = el.parentElement) {
+        const style = getComputedStyle(el);
+        if (!/(auto|scroll)/.test(style.overflowY) || el.scrollHeight <= el.clientHeight + 1) continue;
+        const room = ev.deltaY > 0 ? el.scrollHeight - el.clientHeight - el.scrollTop > 1 : el.scrollTop > 0;
+        if (room) return;
+      }
+      ev.preventDefault();
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, []);
+
   return (
     <>
       <header className="site-header">
@@ -68,6 +87,11 @@ export default function App() {
           <Dock />
           <Jump />
         </section>
+        <a className="scroll-down" href="#how" aria-label="Scroll down to how it works">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+            <path d="M7 2v9M2.5 7 7 11.5 11.5 7" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
       </main>
 
       <Story />
