@@ -97,6 +97,7 @@ export function Pyramid() {
   // arriving counts as part of a wheel gesture, so the momentum that brought us here does not leak
   const lastWheel = useRef(performance.now());
   const intro = useRef(getState().intro);
+  const lastPage = useRef(0);
 
   // what is lit: the hovered box, everything above it and everything inside it; else the chart you were in
   const lit = useMemo(() => {
@@ -143,7 +144,9 @@ export function Pyramid() {
     const onWheel = (ev: WheelEvent) => {
       const now = performance.now();
       const fresh = now - lastWheel.current > 320;
-      if (window.scrollY > 4 && fresh) return;
+      if (window.scrollY > 4 && fresh) return void (lastPage.current = now);
+      // the tail of a page scroll that just reached the top does not zoom or open a box
+      if (now - lastPage.current < 320) return void (ev.preventDefault(), (lastPage.current = now));
       const v = view.current;
       const out = ev.deltaY > 0;
       const tile = (ev.target as HTMLElement).closest<HTMLElement>("[data-tile]")?.dataset.tile;
