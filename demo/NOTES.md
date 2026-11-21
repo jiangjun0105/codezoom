@@ -105,7 +105,9 @@ needs its 2023 toolchain. Porting that is Track 2 in [../docs/PLAN.md](../docs/P
 - Live mode was written against the API documentation and type-checked, but not run
   against a real key.
 - Phone layout is usable, not tuned, and pinch-zoom was not tested on a touch device.
-- The 3D view is a prototype: mouse only, and it does not make room for the side panel.
+- The 3D view is a pyramid of every level (one floor per level, a box as wide as its share
+  of statements, placed over what it contains). Mouse only; titles are readable on the top
+  floors, deeper floors are for shape and the hover card.
 - Wheel inertia was tuned by automation, not on a real trackpad.
 - Charts above statement level are mostly straight sequences, because a group is by
   construction one way in, one way out. Their branching shows in the miniatures and one

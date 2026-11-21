@@ -3,7 +3,7 @@ import { Breadcrumb } from "./components/Breadcrumb";
 import { Canvas } from "./components/Canvas";
 import { Dock } from "./components/Dock";
 import { Jump } from "./components/Jump";
-import { Space } from "./components/Space";
+import { Pyramid } from "./components/Pyramid";
 import { Story } from "./components/Story";
 import { graph } from "./lib/graph";
 import { set, useStore } from "./store";
@@ -58,14 +58,14 @@ export default function App() {
               <button className="search" onClick={() => set({ jump: true })} title="Jump to any step">
                 Search <kbd>/</kbd>
               </button>
-              <button className={mode === "space" ? "on" : ""} onClick={() => set({ mode: mode === "space" ? "flat" : "space", touched: true })} title="Show the levels stacked in 3D">
+              <button className={mode === "space" ? "on" : ""} onClick={() => set({ mode: mode === "space" ? "flat" : "space", touched: true })} title="See every level at once, as a pyramid">
                 3D
               </button>
               <button className={dock === "source" ? "on" : ""} onClick={() => set({ dock: dock === "source" ? null : "source" })}>Source</button>
               <button className={dock === "ask" ? "on" : ""} onClick={() => set({ dock: dock === "ask" ? null : "ask" })}>Ask</button>
             </div>
           </div>
-          {mode === "space" ? <Space /> : <Canvas />}
+          {mode === "space" ? <Pyramid /> : <Canvas />}
           <Dock />
           <Jump />
         </section>
