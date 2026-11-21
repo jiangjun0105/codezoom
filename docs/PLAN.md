@@ -64,7 +64,7 @@ Done since: the top level is balanced by weight (the loop's phases are top-level
 every top-level step is named, the `while` test and the "Do nothing." label are repaired.
 Still open: the rest of this list.
 Also done: two layers above the processes (a one-box system level and a 2–3 phase main flow),
-with a caption on every level saying what it shows. 3D view: next, show every layer, not two.
+with a caption on every level saying what it shows. 3D view: now a pyramid of all 8 levels (2026-11-20); hover traces a box up and down, click opens it in the zoomable view. Open: touch gestures.
 
 - The top level follows code order and volume: 7 of 8 steps are start-up, and the agent
   loop (170 of 439 statements, the part people come for) is one box at the far right.

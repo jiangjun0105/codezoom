@@ -559,37 +559,45 @@ code { font-family: var(--mono); font-size: 0.9em; }
   transition: transform 0.75s cubic-bezier(0.22, 0.8, 0.25, 1);
 }
 .space.is-turning .space-world { transition: none; }
-.sheet {
-  transform-style: flat; pointer-events: auto; will-change: transform;
-  transition: transform 0.75s cubic-bezier(0.22, 0.8, 0.25, 1), opacity 0.5s;
-  animation: sheet-in 0.6s 0.15s both;
+/* the pyramid: one floor per level */
+.pyr-floor { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
+.pyr-slab {
+  position: absolute; border-radius: 14px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(30, 37, 47, 0.55), rgba(19, 23, 30, 0.55));
+  border: 1.5px solid var(--line-2);
 }
-@keyframes sheet-in { from { opacity: 0; } }
-.sheet-glass {
-  position: absolute; border-radius: 26px;
-  background: linear-gradient(180deg, rgba(30, 37, 47, 0.9), rgba(19, 23, 30, 0.9));
-  border: 2px solid var(--line-3);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 40px 80px -30px rgba(0, 0, 0, 0.8);
+.pyr-name {
+  position: absolute; top: 0; translate: -100% 0; padding-right: 8px; text-align: right; white-space: nowrap;
+  font: 30px var(--sans); color: var(--muted); line-height: 1.25;
 }
-.sheet.is-here .sheet-glass { border-color: #5a6779; }
-.sheet.is-above, .sheet.is-below { cursor: pointer; }
-.sheet.is-above > *, .sheet.is-below > * { pointer-events: none; }
-.sheet.is-above > .sheet-glass, .sheet.is-below > .sheet-glass { pointer-events: auto; }
-.sheet.is-below:hover .sheet-glass, .sheet.is-above:hover .sheet-glass, .sheet.is-lit .sheet-glass {
-  border-color: var(--accent); background: linear-gradient(180deg, rgba(34, 30, 30, 0.92), rgba(18, 18, 21, 0.92));
+.pyr-name b { color: var(--text); font-weight: 600; }
+.pyr-name span { display: block; font: 24px var(--mono); color: var(--faint); }
+.pyr-tile {
+  position: absolute; top: 0; border-radius: 6px; overflow: hidden; cursor: pointer;
+  background: color-mix(in srgb, var(--tone, var(--muted)) 30%, #141920);
+  border: 1px solid color-mix(in srgb, var(--tone, var(--muted)) 55%, transparent);
+  transition: background 0.15s, opacity 0.15s, border-color 0.15s;
 }
-.sheet.is-above:hover { opacity: 1 !important; }
-.sheet-name {
-  position: absolute; translate: 4px calc(-100% - 8px); white-space: nowrap;
-  font: 600 calc(13px * var(--lod)) var(--sans); color: var(--muted); letter-spacing: 0.01em;
+.pyr-tile.is-leaf { border-radius: 2px; border-width: 0; background: color-mix(in srgb, var(--tone, var(--muted)) 45%, #141920); }
+.pyr-tile span {
+  display: block; padding: 14px 12px; font: 600 24px/1.25 var(--sans); color: var(--text);
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
-.sheet.is-here .sheet-name { color: var(--text); }
-.beam {
-  position: absolute; left: 0; top: 0; height: 2px; transform-origin: 0 50%; pointer-events: none;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--tone, var(--muted)) 90%, transparent), color-mix(in srgb, var(--tone, var(--muted)) 35%, transparent));
-  animation: sheet-in 0.5s 0.45s both; transition: opacity 0.2s;
+.pyr-tile.is-on { background: color-mix(in srgb, var(--tone, var(--muted)) 55%, #1a2029); border-color: var(--tone, var(--muted)); }
+.pyr-tile.is-leaf.is-on { background: var(--tone, var(--muted)); }
+.pyramid.is-hovering .pyr-tile:not(.is-on) { opacity: 0.32; }
+.pyr-tile.is-hover { outline: 3px solid var(--accent); outline-offset: 1px; z-index: 1; }
+.pyr-tip {
+  position: absolute; left: 0; top: 0; z-index: 7; width: 310px; pointer-events: none;
+  padding: 10px 12px; border-radius: 12px; background: rgba(18, 22, 28, 0.96); border: 1px solid var(--line-3);
+  box-shadow: 0 16px 40px -14px #000; opacity: 0; transition: opacity 0.12s;
 }
-.beam.faint { opacity: 0.45; }
+.pyr-tip.is-on { opacity: 1; }
+.space.is-panning .pyr-tip { opacity: 0; }
+.pyr-tip-tag { font: 11px var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: 0.04em; }
+.pyr-tip-title { margin-top: 3px; font-weight: 600; color: var(--text); font-size: 13.5px; }
+.pyr-tip-label { margin-top: 3px; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.pyr-tip-go { margin-top: 7px; font-size: 11.5px; color: var(--accent); }
 .hint.static { animation: rise 0.6s 0.4s both; }
 .hint.now { animation: rise 0.25s both; color: var(--text); }
 
